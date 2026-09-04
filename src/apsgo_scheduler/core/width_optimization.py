@@ -2,10 +2,10 @@
 
 from dataclasses import replace
 from decimal import Decimal
-from itertools import zip_longest
+from itertools import pairwise, permutations, zip_longest
 
 from .chain_order import chain_order_objective_index, stable_group_plan
-from .contracts import SearchStopReason, sum_weights
+from .contracts import SearchStopReason, fingerprint, sum_weights
 from .model import MaterialRole, SchedulePlan
 from .neighborhoods import (
     _boundary_join,
@@ -125,6 +125,63 @@ def _width_improves(chains, state, context):
     plan = stable_group_plan(SchedulePlan(chains), cache.context.period_index)
     width = sum_weights(item.value for _, _, item in _width_boundaries(plan, context))
     return width < state.current_evaluation.quality_key[index]
+
+
+def _cut_recipes(state, context):
+    """Describe both final slots; period legality is checked after the debit."""
+    chains = state.current_plan.chains
+    for source in _ranked_chain_indices(state, context):
+        for cut in range(1, len(chains[source].nodes)):
+            for prefix_position, suffix_position in permutations(range(len(chains) + 1), 2):
+                yield ("width_chain_cut", source, cut, prefix_position, suffix_position)
+
+
+def _try_chain_cut(state, context, recipe):
+    """Split only the chain, jointly place both intact parts and publish once."""
+    budget, cache = context.factory.budget, context.factory.cache
+    if not budget.allows_search():
+        return False
+    action, source, cut, prefix_position, suffix_position = recipe
+    chains = state.current_plan.chains
+    old = chains[source]
+    pieces = (old.nodes[:cut], old.nodes[cut:])
+    if not all(_has_real(nodes) for nodes in pieces):
+        return False
+    suffix_id = "width-cut-" + fingerprint(
+        (action, old.chain_id, cut, tuple(node.node_id for node in old.nodes))
+    )
+    occupied = {chain.chain_id for chain in chains}
+    while suffix_id in occupied:
+        suffix_id = "_" + suffix_id
+    prefix = _normalize_chain(replace(old, nodes=pieces[0]), context)
+    suffix = _normalize_chain(replace(old, chain_id=suffix_id, nodes=pieces[1]), context)
+    if _weight_rejects(prefix, context) or _weight_rejects(suffix, context):
+        return False
+    remaining = iter(chains[:source] + chains[source + 1 :])
+    candidate = tuple(
+        prefix
+        if position == prefix_position
+        else suffix
+        if position == suffix_position
+        else next(remaining)
+        for position in range(len(chains) + 1)
+    )
+    periods = tuple(cache.context.period_index[chain.assigned_period] for chain in candidate)
+    # Reject illegal raw slots: grouping them would evaluate a duplicate placement
+    # and hide which two positions were actually enumerated and charged.
+    if any(left > right for left, right in pairwise(periods)):
+        return False
+    if not _width_improves(candidate, state, context):
+        return False
+    return try_complete_candidate(
+        state,
+        context,
+        candidate,
+        affected_chain_ids=(old.chain_id,),
+        virtual_sequence=state.virtual_sequence,
+        action_name=action,
+        width_optimization_only=True,
+    )
 
 
 def _weight_rejects(chain, context, *, before_bridge=False):
