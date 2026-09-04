@@ -65,6 +65,58 @@ def _has_real(nodes):
     return any(node.material_role is not MaterialRole.GENERATED_VIRTUAL for node in nodes)
 
 
+def _block_recipes(state, context):
+    """Enumerate non-whole contiguous ranges without reversing their old nodes."""
+    chains = state.current_plan.chains
+    ranked = _ranked_chain_indices(state, context)
+
+    def moves():
+        for i in ranked:
+            for j in ranked:
+                if i == j:
+                    continue
+                for length in range(2, len(chains[i].nodes)):
+                    for start in range(len(chains[i].nodes) - length + 1):
+                        for position in range(len(chains[j].nodes) + 1):
+                            yield (
+                                "width_block_move",
+                                i,
+                                j,
+                                start,
+                                start + length,
+                                position,
+                                position,
+                            )
+
+    def exchanges():
+        for i in ranked:
+            for j in ranked:
+                if i >= j:
+                    continue
+                left_size, right_size = len(chains[i].nodes), len(chains[j].nodes)
+                if min(left_size, right_size) < 2:
+                    continue
+                for total in range(2, left_size + right_size - 1):
+                    for left_length in range(max(1, total - right_size + 1), min(left_size, total)):
+                        right_length = total - left_length
+                        # One-for-one exchanges already belong to the node family.
+                        if left_length == right_length == 1:
+                            continue
+                        for left in range(left_size - left_length + 1):
+                            for right in range(right_size - right_length + 1):
+                                yield (
+                                    "width_block_exchange",
+                                    i,
+                                    j,
+                                    left,
+                                    left + left_length,
+                                    right,
+                                    right + right_length,
+                                )
+
+    yield from _alternate_recipes(moves(), exchanges())
+
+
 def _width_improves(chains, state, context):
     cache = context.factory.cache
     index = chain_order_objective_index(cache.rule_set)
