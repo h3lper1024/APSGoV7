@@ -1,0 +1,2090 @@
+{
+  "schema_version": 1,
+  "status": "pass",
+  "started_at": "2026-09-02T17:35:02.009525+00:00",
+  "manifest_sha256": "4e37a0cf3e378520d4b450dad0cced6f87adc733b7a148a07cb08445b005dcf7",
+  "environment": {
+    "python": "3.10.18",
+    "executable": "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+    "platform": "macOS-27.0-arm64-arm-64bit"
+  },
+  "parameters": {
+    "seed": 590531,
+    "time_budget_seconds": 30,
+    "candidate_check_budget": 100000
+  },
+  "measurement_scope": "Outer process wall time from before launch until exit, including I/O",
+  "warmup_requested": 1,
+  "samples_requested": 20,
+  "warmup": [
+    {
+      "elapsed_seconds": 23.284485500014853,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-mxcnwpm0",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.19775
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:35:25.247182+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:35:25.283876+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:35:02.085920+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "a44bb4b9a35e6ac4171b6985fca6ddaf0987fb6aae9cdc5714d0b8fd90285c2c",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.19775,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-mxcnwpm0\"}\n",
+      "stderr": "",
+      "index": 1
+    }
+  ],
+  "samples": [
+    {
+      "elapsed_seconds": 23.397841459023766,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-383pk828",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.312513
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:35:48.674302+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:35:48.711205+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:35:25.398431+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "d75984d2fc2c54bbe89caf3cea07738d2a4c5d0781cff3327e556fe16b1b15b7",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.312513,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-383pk828\"}\n",
+      "stderr": "",
+      "index": 1
+    },
+    {
+      "elapsed_seconds": 23.693905250023818,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-g44q7mzc",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.604799
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:36:12.393543+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:36:12.432495+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:35:48.827497+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "5571702450ac992a8f7346117c3d463f93d82914537debe48edd03c3a9a608a3",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.604799,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-g44q7mzc\"}\n",
+      "stderr": "",
+      "index": 2
+    },
+    {
+      "elapsed_seconds": 23.483719584008213,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-zbow9dc0",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.39531
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:36:35.906233+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:36:35.944036+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:36:12.548513+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "02e3cd800a8d41c2fc62a6a0e1ec3c502f81b3c673372b83ec535cf958e0a11b",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.39531,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-zbow9dc0\"}\n",
+      "stderr": "",
+      "index": 3
+    },
+    {
+      "elapsed_seconds": 23.63520299998345,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-6yek1qsn",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.548619
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:36:59.571387+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:36:59.609175+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:36:36.060339+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "64dd05164f2ac888b12ef92ea33e4cd11f6ab1d5c920a82bffeed28e6166f7a5",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.548619,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-6yek1qsn\"}\n",
+      "stderr": "",
+      "index": 4
+    },
+    {
+      "elapsed_seconds": 23.563968916016165,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-_r1d6aha",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.476026
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:37:23.163517+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:37:23.201561+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:36:59.725307+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "26f0067cf472b8ff52f03c337c882ce5de016032b45b9bd6ab06be01cfc81fd4",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.476026,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-_r1d6aha\"}\n",
+      "stderr": "",
+      "index": 5
+    },
+    {
+      "elapsed_seconds": 23.571737833990483,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-tp_0i2z6",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.486455
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:37:46.765021+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:37:46.803316+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:37:23.316628+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "49bf02120f32cfc3e7119bc85021c0f299bfa878f1fa3e47c001992f9dc6fb15",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.486455,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-tp_0i2z6\"}\n",
+      "stderr": "",
+      "index": 6
+    },
+    {
+      "elapsed_seconds": 23.618710208014818,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-5hx3172i",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.532273
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:38:10.413593+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:38:10.451545+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:37:46.919009+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "afab03680acb51d0b86eda8765ac04bb5e85f6bdafaa44bf693efcc8092b1550",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.532273,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-5hx3172i\"}\n",
+      "stderr": "",
+      "index": 7
+    },
+    {
+      "elapsed_seconds": 23.76430562499445,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-jkmj_pty",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.677399
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:38:34.206173+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:38:34.245034+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:38:10.567376+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "96215ee28db304e5c7d666de26daf980ebf6c411cdf6f4fb2590ba8070c165bb",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.677399,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-jkmj_pty\"}\n",
+      "stderr": "",
+      "index": 8
+    },
+    {
+      "elapsed_seconds": 23.734708167001372,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-fe8kl33r",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.646032
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:38:57.971563+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:38:58.008097+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:38:34.361838+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "45c32ea48151ad54d8d36ac4438b85882d962c41aa4aa9f9ccc1321a552cb293",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.646032,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-fe8kl33r\"}\n",
+      "stderr": "",
+      "index": 9
+    },
+    {
+      "elapsed_seconds": 23.54532979198848,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-_ngq0h39",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.456824
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:39:21.545568+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:39:21.582354+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:38:58.125335+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "b09d5c11e1d7a76ce7ca5de96cff5d2d5828cc2d1d486739ee09fc3ae7dc6be9",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.456824,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-_ngq0h39\"}\n",
+      "stderr": "",
+      "index": 10
+    },
+    {
+      "elapsed_seconds": 23.66438037500484,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-dcuk0z1i",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.575922
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:39:45.239915+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:39:45.276730+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:39:21.700524+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "ce67fbd2d38a4856354a5a1e85c41be01cbb84083430c30d519738c052d628d3",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.575922,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-dcuk0z1i\"}\n",
+      "stderr": "",
+      "index": 11
+    },
+    {
+      "elapsed_seconds": 23.740567083004862,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-8i6ivk86",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.64952
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:40:09.008170+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:40:09.046261+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:39:45.396522+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "d0e6040f8e088fa41a6bca6893fdaed855cd203c583d5d2b4631db661a64a9fd",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.64952,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-8i6ivk86\"}\n",
+      "stderr": "",
+      "index": 12
+    },
+    {
+      "elapsed_seconds": 23.66814912497648,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-wpoqu9zi",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.579478
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:40:32.708986+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:40:32.744905+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:40:09.165223+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "ade384c2c69b2d9a852ce1d81bba14416af8eb36bc604a10d7c37f2839462dd1",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.579478,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-wpoqu9zi\"}\n",
+      "stderr": "",
+      "index": 13
+    },
+    {
+      "elapsed_seconds": 23.660055833985098,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-0kgc7f2l",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.572711
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:40:56.398772+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:40:56.435899+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:40:32.862980+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "b93244bbff1a4f3875a4ecc3e0e4930ee8f2fe38fc697ca7371381af31b77faf",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.572711,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-0kgc7f2l\"}\n",
+      "stderr": "",
+      "index": 14
+    },
+    {
+      "elapsed_seconds": 23.672985999990487,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-hol3y18r",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.586547
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:41:20.099987+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:41:20.138068+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:40:56.551283+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "0de03a75afd727f9d80a9e6e891aa4cd6a566deffc066b0671c9569012cb272b",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.586547,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-hol3y18r\"}\n",
+      "stderr": "",
+      "index": 15
+    },
+    {
+      "elapsed_seconds": 23.755447458010167,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-vdsbqswv",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.66611
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:41:43.886279+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:41:43.923819+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:41:20.257463+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "0f1762da3d0eff60ac31f0058a85aa450b9213b3def2a2c657e0114ba3c797d0",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.66611,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-vdsbqswv\"}\n",
+      "stderr": "",
+      "index": 16
+    },
+    {
+      "elapsed_seconds": 23.718570583994733,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-z9hg14kx",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.63044
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:42:07.635576+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:42:07.672483+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:41:44.041755+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "bb5812ba63918d3dd9cc341936c9775e477aa3b58b43dc7de1bb1ea095980349",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.63044,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-z9hg14kx\"}\n",
+      "stderr": "",
+      "index": 17
+    },
+    {
+      "elapsed_seconds": 23.85752874999889,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-_qomor0j",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.769187
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:42:31.522911+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:42:31.560968+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:42:07.791569+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "ca3ae7a1de1cf3cf6c573dd4a36b8414dcb17aad136ea92f0e905a1b36e5761c",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.769187,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-_qomor0j\"}\n",
+      "stderr": "",
+      "index": 18
+    },
+    {
+      "elapsed_seconds": 23.932215125008952,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-oi_fhj8t",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.845932
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:42:55.485857+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:42:55.524333+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:42:31.678188+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "35eb5734b6e3b25900a4de8d10140930feee3ca548d6e738ef47edcd11b1316d",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.845932,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-oi_fhj8t\"}\n",
+      "stderr": "",
+      "index": 19
+    },
+    {
+      "elapsed_seconds": 23.92138983399491,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-1wo587ih",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "timed_out": false,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.83611
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:43:19.438980+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:43:19.476972+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-function01-byte-preserved-a_kuc8ld/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:42:55.640602+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "ec80a34eaea4b1583552567b25a083cc5969b2d6695cd885b18aa89480008bc4",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.83611,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-1wo587ih\"}\n",
+      "stderr": "",
+      "index": 20
+    }
+  ],
+  "statistics": {
+    "sample_count": 20,
+    "median_seconds": 23.670567562483484,
+    "p95_seconds": 23.92138983399491,
+    "max_seconds": 23.932215125008952,
+    "median_method": "mean of middle two for even sample size",
+    "p95_method": "nearest rank: sorted[ceil(0.95 * n) - 1]"
+  },
+  "finished_at": "2026-09-02T17:43:19.529014+00:00"
+}

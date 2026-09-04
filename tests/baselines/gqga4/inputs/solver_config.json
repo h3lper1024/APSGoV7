@@ -1,0 +1,403 @@
+{
+  "baseline_id": "schedapp_gqga4_rolling_strict_20260810095338",
+  "historical_solver_policy": {
+    "chain_weight": {
+      "max_weight": 2000.0,
+      "min_weight": 700.0,
+      "target_weight": 2000.0
+    },
+    "process_domain_execution": {
+      "max_concurrent_jobs": 1,
+      "max_workers": 2,
+      "mode": "serial",
+      "native_threads_per_worker": 1,
+      "worker_timeout_seconds": 1800.0
+    },
+    "repair_policy": {
+      "rolling_final_cross_period_repair": {
+        "allow_partial_split": true,
+        "combination_search": {
+          "enabled": false,
+          "max_candidates_per_recipient": 200,
+          "max_donors_per_recipient": 30,
+          "max_nodes_per_move": 2
+        },
+        "enabled": true,
+        "forbid_late_original_due_period": true,
+        "max_moves": 10000,
+        "min_transfer_weight": 1.0,
+        "only_return_future_borrowed_orders": true,
+        "virtual_bridge": {
+          "enabled": true,
+          "max_bridge_nodes_per_move": 2,
+          "max_bridge_weight_per_move": 40.0
+        }
+      },
+      "rolling_final_internal_repair": {
+        "anchor_max_segment_length": 16,
+        "anchor_split_absorb_enabled": true,
+        "borrowed_donor_fill_enabled": true,
+        "cross_grade_residual_scatter_enabled": true,
+        "enabled": false,
+        "final_residual_virtual_bridge_enabled": true,
+        "max_anchor_absorb_moves": 100,
+        "max_rebalance_passes": 2,
+        "max_residual_insert_moves": 300,
+        "max_scatter_repack_passes": 1,
+        "residual_insert_max_segment_length": 32,
+        "residual_scatter_repack_enabled": true,
+        "stage4_cross_rebalance_enabled": true
+      },
+      "rolling_final_residual_compaction": {
+        "enabled": true,
+        "include_compliant_targets": true,
+        "max_moves": 20,
+        "max_segment_length": 8
+      },
+      "rolling_step_internal_repair": {
+        "anchor_max_segment_length": 16,
+        "anchor_split_absorb_enabled": true,
+        "borrowed_donor_fill_enabled": true,
+        "cross_grade_residual_scatter_enabled": true,
+        "enabled": false,
+        "final_residual_virtual_bridge_enabled": true,
+        "max_anchor_absorb_moves": 100,
+        "max_rebalance_passes": 2,
+        "max_residual_insert_moves": 300,
+        "max_scatter_repack_passes": 1,
+        "residual_insert_max_segment_length": 32,
+        "residual_scatter_repack_enabled": true,
+        "stage4_cross_rebalance_enabled": true
+      },
+      "stage2_repair": {
+        "candidate_graph_enabled": true,
+        "donor_segment_max_length": 3,
+        "enable_donor_segment_fill": true,
+        "max_donor_fill_moves": 500,
+        "pruning_enabled": true
+      },
+      "stage3_repair": {
+        "bridge_dynamic_evaluation_cache_enabled": true,
+        "bridge_template_cache_enabled": true,
+        "chain_merge_candidate_index_enabled": true,
+        "max_bridge_candidate_checks": 60000,
+        "max_bridge_exact_evaluations": 400000,
+        "max_search_calls": 400,
+        "max_search_wall_seconds": 300.0,
+        "search_budget_enabled": true
+      }
+    },
+    "resource_policy": {
+      "future_fill_strategy": {
+        "enabled": false,
+        "min_fill_weight": 700.0,
+        "protect_future_periods": true,
+        "protect_last_period": true,
+        "stable_fill_weight": 1200.0,
+        "target_fill_weight": 2000.0
+      },
+      "future_fill_weight_target": 1200.0,
+      "future_pool_borrow_limit_ratio": 1.0
+    },
+    "spec_matrix": {
+      "backend": "auto",
+      "numpy": {
+        "block_rows": 128,
+        "min_pair_count": 100000
+      }
+    },
+    "virtual_sphc": {
+      "budget_ratio": 0.05,
+      "enabled": true,
+      "insert_weight": 20.0,
+      "max_consecutive": 2,
+      "thicknesses": [
+        0.4,
+        0.5,
+        0.6,
+        0.8,
+        1.0,
+        1.2,
+        1.5,
+        2.0,
+        2.5
+      ],
+      "widths": [
+        1000.0,
+        1250.0,
+        1500.0
+      ]
+    }
+  },
+  "input_summary": {
+    "column_count": 44,
+    "order_count": 531,
+    "order_id_unique_count": 531,
+    "original_periods": [
+      {
+        "order_count": 102,
+        "period": "BR_00000001",
+        "real_weight": "5790.37"
+      },
+      {
+        "order_count": 20,
+        "period": "BR_00000002",
+        "real_weight": "847.48"
+      },
+      {
+        "order_count": 5,
+        "period": "BR_00000003",
+        "real_weight": "160.4"
+      },
+      {
+        "order_count": 404,
+        "period": "BR_00000006",
+        "real_weight": "22535.66"
+      }
+    ],
+    "real_weight": "29333.91",
+    "source_order_id_unique_count": 531,
+    "virtual_input_order_count": 0
+  },
+  "period_order": [
+    "BR_00000001",
+    "BR_00000002",
+    "BR_00000003",
+    "BR_00000006"
+  ],
+  "reference_role": "historical_v3_behavior_baseline",
+  "rolling_steps": [
+    {
+      "current_order_split": {
+        "additional_node_count": 0,
+        "conservation_ok": true,
+        "input_node_count": 102,
+        "input_weight": 5790.37,
+        "max_weight": 2000.0,
+        "output_node_count": 102,
+        "output_weight": 5790.37,
+        "split_input_node_count": 0,
+        "split_piece_count": 0,
+        "split_source_count": 0
+      },
+      "current_periods": [
+        "BR_00000001"
+      ],
+      "effective_repair_policy": {
+        "anchor_max_segment_length": 16,
+        "anchor_split_absorb_enabled": false,
+        "borrowed_donor_fill_enabled": true,
+        "cross_grade_residual_scatter_enabled": false,
+        "enabled": false,
+        "final_residual_virtual_bridge_enabled": true,
+        "max_anchor_absorb_moves": 100,
+        "max_rebalance_passes": 2,
+        "max_residual_insert_moves": 300,
+        "max_scatter_repack_passes": 1,
+        "residual_insert_max_segment_length": 32,
+        "residual_scatter_repack_enabled": false,
+        "stage4_cross_rebalance_enabled": false
+      },
+      "effective_stage3_repair_policy": {
+        "bridge_dynamic_evaluation_cache_enabled": true,
+        "bridge_template_cache_enabled": true,
+        "chain_merge_candidate_index_enabled": true,
+        "max_bridge_candidate_checks": 60000,
+        "max_bridge_exact_evaluations": 400000,
+        "max_search_calls": 400,
+        "max_search_wall_seconds": 300.0,
+        "search_budget_enabled": true
+      },
+      "future_fill_weight_target": 1200.0,
+      "future_periods": [
+        "BR_00000002",
+        "BR_00000003",
+        "BR_00000006"
+      ],
+      "future_pool_borrow_limit_ratio": 1.0,
+      "input_fingerprint": "28eec17eb168207c",
+      "job_id": "schedapp_gqga4_rolling_strict_20260810095338_step_001_BR_00000001",
+      "mode": "strict",
+      "rule_fingerprint": "0909f1ff2fd8ed5a",
+      "rule_profile": "general",
+      "scope": "rolling_current_with_future_pool",
+      "step": 1,
+      "target_period": "BR_00000001",
+      "virtual_budget_ratio": 0.05
+    },
+    {
+      "current_order_split": {
+        "additional_node_count": 0,
+        "conservation_ok": true,
+        "input_node_count": 19,
+        "input_weight": 510.75,
+        "max_weight": 2000.0,
+        "output_node_count": 19,
+        "output_weight": 510.75,
+        "split_input_node_count": 0,
+        "split_piece_count": 0,
+        "split_source_count": 0
+      },
+      "current_periods": [
+        "BR_00000002"
+      ],
+      "effective_repair_policy": {
+        "anchor_max_segment_length": 16,
+        "anchor_split_absorb_enabled": false,
+        "borrowed_donor_fill_enabled": true,
+        "cross_grade_residual_scatter_enabled": false,
+        "enabled": false,
+        "final_residual_virtual_bridge_enabled": true,
+        "max_anchor_absorb_moves": 100,
+        "max_rebalance_passes": 2,
+        "max_residual_insert_moves": 300,
+        "max_scatter_repack_passes": 1,
+        "residual_insert_max_segment_length": 32,
+        "residual_scatter_repack_enabled": false,
+        "stage4_cross_rebalance_enabled": false
+      },
+      "effective_stage3_repair_policy": {
+        "bridge_dynamic_evaluation_cache_enabled": true,
+        "bridge_template_cache_enabled": true,
+        "chain_merge_candidate_index_enabled": true,
+        "max_bridge_candidate_checks": 60000,
+        "max_bridge_exact_evaluations": 400000,
+        "max_search_calls": 400,
+        "max_search_wall_seconds": 300.0,
+        "search_budget_enabled": true
+      },
+      "future_fill_weight_target": 1200.0,
+      "future_periods": [
+        "BR_00000003",
+        "BR_00000006"
+      ],
+      "future_pool_borrow_limit_ratio": 1.0,
+      "input_fingerprint": "b92275a51f61a875",
+      "job_id": "schedapp_gqga4_rolling_strict_20260810095338_step_002_BR_00000002",
+      "mode": "strict",
+      "rule_fingerprint": "0909f1ff2fd8ed5a",
+      "rule_profile": "general",
+      "scope": "rolling_current_with_future_pool",
+      "step": 2,
+      "target_period": "BR_00000002",
+      "virtual_budget_ratio": 0.05
+    },
+    {
+      "current_order_split": {
+        "additional_node_count": 0,
+        "conservation_ok": true,
+        "input_node_count": 5,
+        "input_weight": 124.62,
+        "max_weight": 2000.0,
+        "output_node_count": 5,
+        "output_weight": 124.62,
+        "split_input_node_count": 0,
+        "split_piece_count": 0,
+        "split_source_count": 0
+      },
+      "current_periods": [
+        "BR_00000003"
+      ],
+      "effective_repair_policy": {
+        "anchor_max_segment_length": 16,
+        "anchor_split_absorb_enabled": false,
+        "borrowed_donor_fill_enabled": true,
+        "cross_grade_residual_scatter_enabled": false,
+        "enabled": false,
+        "final_residual_virtual_bridge_enabled": true,
+        "max_anchor_absorb_moves": 100,
+        "max_rebalance_passes": 2,
+        "max_residual_insert_moves": 300,
+        "max_scatter_repack_passes": 1,
+        "residual_insert_max_segment_length": 32,
+        "residual_scatter_repack_enabled": false,
+        "stage4_cross_rebalance_enabled": false
+      },
+      "effective_stage3_repair_policy": {
+        "bridge_dynamic_evaluation_cache_enabled": true,
+        "bridge_template_cache_enabled": true,
+        "chain_merge_candidate_index_enabled": true,
+        "max_bridge_candidate_checks": 60000,
+        "max_bridge_exact_evaluations": 400000,
+        "max_search_calls": 400,
+        "max_search_wall_seconds": 300.0,
+        "search_budget_enabled": true
+      },
+      "future_fill_weight_target": 1200.0,
+      "future_periods": [
+        "BR_00000006"
+      ],
+      "future_pool_borrow_limit_ratio": 1.0,
+      "input_fingerprint": "aab0996806330789",
+      "job_id": "schedapp_gqga4_rolling_strict_20260810095338_step_003_BR_00000003",
+      "mode": "strict",
+      "rule_fingerprint": "0909f1ff2fd8ed5a",
+      "rule_profile": "general",
+      "scope": "rolling_current_with_future_pool",
+      "step": 3,
+      "target_period": "BR_00000003",
+      "virtual_budget_ratio": 0.05
+    },
+    {
+      "current_order_split": {
+        "additional_node_count": 0,
+        "conservation_ok": true,
+        "input_node_count": 140,
+        "input_weight": 3725.57,
+        "max_weight": 2000.0,
+        "output_node_count": 140,
+        "output_weight": 3725.57,
+        "split_input_node_count": 0,
+        "split_piece_count": 0,
+        "split_source_count": 0
+      },
+      "current_periods": [
+        "BR_00000006"
+      ],
+      "effective_repair_policy": {
+        "anchor_max_segment_length": 16,
+        "anchor_split_absorb_enabled": false,
+        "borrowed_donor_fill_enabled": true,
+        "cross_grade_residual_scatter_enabled": false,
+        "enabled": false,
+        "final_residual_virtual_bridge_enabled": true,
+        "max_anchor_absorb_moves": 100,
+        "max_rebalance_passes": 2,
+        "max_residual_insert_moves": 300,
+        "max_scatter_repack_passes": 1,
+        "residual_insert_max_segment_length": 32,
+        "residual_scatter_repack_enabled": false,
+        "stage4_cross_rebalance_enabled": false
+      },
+      "effective_stage3_repair_policy": {
+        "bridge_dynamic_evaluation_cache_enabled": true,
+        "bridge_template_cache_enabled": true,
+        "chain_merge_candidate_index_enabled": true,
+        "max_bridge_candidate_checks": 60000,
+        "max_bridge_exact_evaluations": 400000,
+        "max_search_calls": 400,
+        "max_search_wall_seconds": 300.0,
+        "search_budget_enabled": true
+      },
+      "future_fill_weight_target": 1200.0,
+      "future_periods": [],
+      "future_pool_borrow_limit_ratio": 1.0,
+      "input_fingerprint": "216f80fe8b9ea8e3",
+      "job_id": "schedapp_gqga4_rolling_strict_20260810095338_step_004_BR_00000006",
+      "mode": "strict",
+      "rule_fingerprint": "0909f1ff2fd8ed5a",
+      "rule_profile": "general",
+      "scope": "all_current_single_bucket",
+      "step": 4,
+      "target_period": "BR_00000006",
+      "virtual_budget_ratio": 0.05
+    }
+  ],
+  "rule_identity": {
+    "mode": "strict",
+    "product_line_code": "GQGA4",
+    "rule_fingerprint": "0909f1ff2fd8ed5a",
+    "rule_set_version_id": 59
+  },
+  "schema_version": 1
+}

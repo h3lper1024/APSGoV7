@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "status": "frozen",
+  "confirmed_on": "2026-09-03",
+  "reference_manifest_sha256": "4e37a0cf3e378520d4b450dad0cced6f87adc733b7a148a07cb08445b005dcf7",
+  "reference_performance_sha256": "eb64c030397e010c8c092899e4bb1319bc8fafa1e982a38e6823b70a7a40662a",
+  "reference_statistics": {
+    "sample_count": 20,
+    "median_seconds": 23.601609812496463,
+    "p95_seconds": 23.711902249982813,
+    "max_seconds": 23.716102000005776,
+    "median_method": "mean of middle two for even sample size",
+    "p95_method": "nearest rank: sorted[ceil(0.95 * n) - 1]"
+  },
+  "python_version": "3.10.18",
+  "warmup_per_solver": 1,
+  "samples_per_solver": 20,
+  "pair_order": "alternating_reference_first_on_odd_pairs",
+  "measurement_scope": "Outer process wall time from before launch until exit, including input, construction, search, audits and output",
+  "new_solver_maximum_median_seconds": 180,
+  "new_solver_maximum_p95_seconds": 180,
+  "maximum_sample_seconds_is_gate": false,
+  "reference_control_maximum_absolute_median_drift_ratio": 0.2,
+  "reference_control_maximum_absolute_p95_drift_ratio": 0.2,
+  "drift_formula": "abs(control / frozen_reference - 1)",
+  "control_failure_action": "Invalidate the comparison; diagnose the environment without relaxing solver thresholds",
+  "all_samples_retained": true,
+  "note": "The user changed the new solver's full-process threshold to 180 seconds. The reference script's frozen 30-second search budget and historical samples remain unchanged; neither is a substitute for repeated full-process acceptance.",
+  "new_implementation_performance_observed_before_freeze": false
+}

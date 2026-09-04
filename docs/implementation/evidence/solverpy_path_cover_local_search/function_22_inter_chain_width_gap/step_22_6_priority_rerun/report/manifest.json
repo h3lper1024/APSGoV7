@@ -1,0 +1,21 @@
+{
+  "result_fingerprint": "a20c1e8b082a66d828e838431cbbcca4f7a7de9952059764fc3961c054ec7563",
+  "report_sha256": "30a38f423dfa9f616cdef00b6e77267c2e4c571eeada97454ab327f1a22e41cd",
+  "node_count": 549,
+  "chain_count": 22,
+  "source_count": 531,
+  "real_weight": "29333.91",
+  "virtual_count": 16,
+  "virtual_weight": "320.0",
+  "artifact_sha256": {
+    "all_order_details.csv": "c39967261f24c012c4cd918d7e2ac31faf1012483c3b04b926426e24f28a1490",
+    "chain_boundary_detail.csv": "48004179cf8dc1d30597e1aa214ca89246cc847646ad2adfc4d305ef2e852b00",
+    "chain_statistics.csv": "ebe7bd37608ac7bf9e67299e553aa7701bd626a03edafb66203c6b433f37a270",
+    "delivery_distribution.csv": "dbd497f2a4db94fb57d2a293b1e49f0e1417be53baaff2093e6d6f19d23c4158",
+    "report.html": "0fb9cfcf93bdf5c656d385fb914c1603f9407f273465ffce21171abad18d9efd"
+  },
+  "boundary_count": 21,
+  "boundary_total": "11218.0",
+  "boundary_source": "audited_schedule_exports",
+  "boundary_quality_position": 5
+}

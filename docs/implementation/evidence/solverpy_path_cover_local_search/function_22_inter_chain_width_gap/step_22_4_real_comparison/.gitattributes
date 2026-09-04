@@ -1,0 +1,2 @@
+# Keep the embedded, unmodified Plotly JavaScript bytes in the generated report.
+visualization/report.html -diff -text

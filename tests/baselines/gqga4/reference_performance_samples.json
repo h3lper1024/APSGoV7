@@ -1,0 +1,2069 @@
+{
+  "schema_version": 1,
+  "status": "pass",
+  "started_at": "2026-09-02T17:24:52.608354+00:00",
+  "manifest_sha256": "4e37a0cf3e378520d4b450dad0cced6f87adc733b7a148a07cb08445b005dcf7",
+  "environment": {
+    "python": "3.10.18",
+    "executable": "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+    "platform": "macOS-27.0-arm64-arm-64bit"
+  },
+  "parameters": {
+    "seed": 590531,
+    "time_budget_seconds": 30,
+    "candidate_check_budget": 100000
+  },
+  "measurement_scope": "Outer process wall time from before launch until exit, including I/O",
+  "warmup_requested": 1,
+  "samples_requested": 20,
+  "warmup": [
+    {
+      "elapsed_seconds": 22.79281037498731,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-dhaootly",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 22.709367
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:25:15.355924+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:25:15.392346+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:24:52.682759+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "cfc259e8a5d779e5900fa79dd2bb933cd2eb039a7ee58f5bd2e2c2e605cff509",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 22.709367,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-dhaootly\"}\n",
+      "stderr": "",
+      "index": 1
+    }
+  ],
+  "samples": [
+    {
+      "elapsed_seconds": 23.08556429197779,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-aydwa5v0",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 22.999653
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:25:38.467208+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:25:38.504900+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:25:15.505032+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "b41d7e2b090bd7e27247bd62cd34f55a944706d5f1fbd43912061e37f4f1559c",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 22.999653,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-aydwa5v0\"}\n",
+      "stderr": "",
+      "index": 1
+    },
+    {
+      "elapsed_seconds": 23.38817191598355,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-gxpi01mi",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.299915
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:26:01.881836+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:26:01.917680+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:25:38.617563+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "f0dc04fe0850106fc53c33af7a0ee6b9b3d6efb22350f6d8587330b88e726e24",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.299915,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-gxpi01mi\"}\n",
+      "stderr": "",
+      "index": 2
+    },
+    {
+      "elapsed_seconds": 23.297124792006798,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-5kynsmpp",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.212613
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:26:25.208478+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:26:25.246043+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:26:02.033202+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "12aca7fc581e0c23df394d7b8c213c88989982b277719acb0d15c98feded72bd",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.212613,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-5kynsmpp\"}\n",
+      "stderr": "",
+      "index": 3
+    },
+    {
+      "elapsed_seconds": 23.366908833995694,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-_78tl9o9",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.281608
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:26:48.604069+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:26:48.640209+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:26:25.358350+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "60c413fba744824a0c4715bccbbd93b660347c3ff26091f73ebdf1b00af4bfd2",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.281608,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-_78tl9o9\"}\n",
+      "stderr": "",
+      "index": 4
+    },
+    {
+      "elapsed_seconds": 23.345906209025998,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-vnume2f7",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.259733
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:27:11.976145+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:27:12.013874+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:26:48.753932+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "e9f1f8b38080fa25633ef4b521c2219bfe255336b31e218659c15ae4ff7204f6",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.259733,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-vnume2f7\"}\n",
+      "stderr": "",
+      "index": 5
+    },
+    {
+      "elapsed_seconds": 23.36781104101101,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-9j0ui4vj",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.283107
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:27:35.373146+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:27:35.409535+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:27:12.126175+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "f2a5bc989b21a80e8c60ea416336dd6e3a16032ddd5aee751b2b2d5641184b2c",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.283107,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-9j0ui4vj\"}\n",
+      "stderr": "",
+      "index": 6
+    },
+    {
+      "elapsed_seconds": 23.622084624978015,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-93xykalj",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.535877
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:27:59.021324+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:27:59.059224+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:27:35.523103+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "64d0758631bac4685e15f3d48303972059c5092cee85f47f3ba77577bfb46e04",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.535877,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-93xykalj\"}\n",
+      "stderr": "",
+      "index": 7
+    },
+    {
+      "elapsed_seconds": 23.566715749999275,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-knl5e6jf",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.481526
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:28:22.618663+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:28:22.655001+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:27:59.173271+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "74b9bd9fe03a72c969cf30ca7aaae03375ed0ec460ae25ad586f163f5b074dda",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.481526,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-knl5e6jf\"}\n",
+      "stderr": "",
+      "index": 8
+    },
+    {
+      "elapsed_seconds": 23.42327483400004,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-7lfsc0kv",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.335055
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:28:46.069506+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:28:46.106048+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:28:22.770771+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "be1e3f3fef2c457e2577a0310cb286f5a2855aa6c5386bfb93ef52763d1c072e",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.335055,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-7lfsc0kv\"}\n",
+      "stderr": "",
+      "index": 9
+    },
+    {
+      "elapsed_seconds": 23.59161345800385,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-ut7nbnto",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.501371
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:29:09.686979+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:29:09.723224+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:28:46.221654+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "dd1a1d29ffb21db48d317a860121f69098423b4b92143b723c3e0aad1cea4e5c",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.501371,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-ut7nbnto\"}\n",
+      "stderr": "",
+      "index": 10
+    },
+    {
+      "elapsed_seconds": 23.623828416020842,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-hcvrpiyz",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.533417
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:29:33.340879+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:29:33.378470+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:29:09.844827+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "9409de0ddcd826c48ba0a7df070a5032eca1f1b79d7c66afee7182007db7b091",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.533417,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-hcvrpiyz\"}\n",
+      "stderr": "",
+      "index": 11
+    },
+    {
+      "elapsed_seconds": 23.711902249982813,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-z8mjx62j",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.622242
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:29:57.081114+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:29:57.118263+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:29:33.495796+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "99875e94502d8299a58273bc43cb5a1cc59be8b4da452ed464505575717a2c08",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.622242,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-z8mjx62j\"}\n",
+      "stderr": "",
+      "index": 12
+    },
+    {
+      "elapsed_seconds": 23.700901125004748,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-cco7bc_y",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.613703
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:30:20.812138+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:30:20.848948+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:29:57.235011+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "16637b4d6186aed7147b0cc6d3e11c6d2aeed17afaa17d87ae60547f186b34ca",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.613703,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-cco7bc_y\"}\n",
+      "stderr": "",
+      "index": 13
+    },
+    {
+      "elapsed_seconds": 23.550162291998276,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-1fmirt8n",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.460247
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:30:44.390558+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:30:44.427214+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:30:20.966734+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "8ca8ab08fff246c0b4a755a5e8445e031cbdf190ec1746e7757a385213a362e5",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.460247,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-1fmirt8n\"}\n",
+      "stderr": "",
+      "index": 14
+    },
+    {
+      "elapsed_seconds": 23.698125166003592,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-zkodgwn7",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.61073
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:31:08.117679+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:31:08.155357+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:30:44.544408+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "07ee08268954d89c646214f5376c9ec8cc41bffa11b33c18c8651aba4b65c4df",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.61073,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-zkodgwn7\"}\n",
+      "stderr": "",
+      "index": 15
+    },
+    {
+      "elapsed_seconds": 23.650558374996763,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-u6nhlv4e",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.563968
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:31:31.798346+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:31:31.835480+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:31:08.271317+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "79d0baee40f189feac00180d744afba6c7d672b6de1630d368b939e8678be8ff",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.563968,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-u6nhlv4e\"}\n",
+      "stderr": "",
+      "index": 16
+    },
+    {
+      "elapsed_seconds": 23.68393279099837,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-gb4_78ci",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.594294
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:31:55.509828+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:31:55.546962+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:31:31.952456+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "f266b40d7a4bbaaaffc7aed5cccc4dd9c428abbf51ff63a52b83238bce92a981",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.594294,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-gb4_78ci\"}\n",
+      "stderr": "",
+      "index": 17
+    },
+    {
+      "elapsed_seconds": 23.611606166989077,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-v27y0d3u",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.522885
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:32:19.150662+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:32:19.188382+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:31:55.665289+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "4d22521ccc2b7d3ada4d180cae97da216f27d5f76d3bd223bed5ab637358ef2f",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.522885,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-v27y0d3u\"}\n",
+      "stderr": "",
+      "index": 18
+    },
+    {
+      "elapsed_seconds": 23.716102000005776,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-pu0loml2",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.627962
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:32:42.895136+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:32:42.933492+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:32:19.305399+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "b1fee38691a506235f45686629634cd7684a6fbf92328e5d6d1907c93983de15",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.627962,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-pu0loml2\"}\n",
+      "stderr": "",
+      "index": 19
+    },
+    {
+      "elapsed_seconds": 23.66547875001561,
+      "command": [
+        "/Users/miles/anaconda3/envs/apsgo_v6_3.10.18/bin/python",
+        "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+        "--input-orders",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "--optimization-problem",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "--resolved-rules",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "--rule-context",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "--solver-config",
+        "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json",
+        "--output-dir",
+        "/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-mkdjngwh",
+        "--seed",
+        "590531",
+        "--time-budget-seconds",
+        "30",
+        "--candidate-check-budget",
+        "100000"
+      ],
+      "returncode": 0,
+      "comparison": {
+        "status": "pass",
+        "equivalent": true,
+        "first_difference": null,
+        "differences": [],
+        "metadata_differences": {
+          "actual_runtime_seconds": {
+            "expected": 28.771943,
+            "actual": 23.576001
+          },
+          "best_solution_updated_at": {
+            "expected": "2026-09-02T08:45:34.834297+00:00",
+            "actual": "2026-09-02T17:33:06.590133+00:00"
+          },
+          "finished_at": {
+            "expected": "2026-09-02T08:45:34.876729+00:00",
+            "actual": "2026-09-02T17:33:06.627008+00:00"
+          },
+          "input_paths": {
+            "expected": {
+              "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+            },
+            "actual": {
+              "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+              "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+              "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+              "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+              "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+            }
+          },
+          "runtime_environment": {
+            "expected": {
+              "python": "3.9.6",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            },
+            "actual": {
+              "python": "3.10.18",
+              "platform": "macOS-27.0-arm64-arm-64bit"
+            }
+          },
+          "started_at": {
+            "expected": "2026-09-02T08:45:06.104555+00:00",
+            "actual": "2026-09-02T17:32:43.050892+00:00"
+          }
+        },
+        "artifact_hashes": {
+          "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+          "run_manifest.json": "1a8caf2a27fac3be7c3b0a41771cba14b2d078617e84a402779af943259b5960",
+          "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+          "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+        }
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete",
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "reference_internal_runtime_seconds": 23.576001,
+      "stdout": "{\"status\": \"BEST_EFFORT\", \"quality\": [1, 70.3, 0, 0.0, 22, 540.0, 22694.88], \"failed_completion_metrics\": [{\"metric\": \"continuous_real_weight_prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}, {\"metric\": \"prohibited_violation_subject_count\", \"expected\": 0, \"actual\": 1, \"passed\": false}], \"output_dir\": \"/private/var/folders/gr/wzbstdss0ps8t5ss2nbdwkn00000gn/T/apsgo-reference-benchmark-mkdjngwh\"}\n",
+      "stderr": "",
+      "index": 20
+    }
+  ],
+  "statistics": {
+    "sample_count": 20,
+    "median_seconds": 23.601609812496463,
+    "p95_seconds": 23.711902249982813,
+    "max_seconds": 23.716102000005776,
+    "median_method": "mean of middle two for even sample size",
+    "p95_method": "nearest rank: sorted[ceil(0.95 * n) - 1]"
+  },
+  "finished_at": "2026-09-02T17:33:06.680151+00:00"
+}

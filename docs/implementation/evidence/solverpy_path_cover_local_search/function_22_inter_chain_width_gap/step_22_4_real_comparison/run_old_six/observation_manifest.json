@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "code_revision": "bb5d92c1f21b89a0c17091d07bdd486cb59dcdf1",
+  "runner_sha256": "98725e97d54fa31d4d7dfc36d7ff199d09d4170c601a55d9668c1806dfd57c03",
+  "quality_report_sha256": "9769affdbd10bf7ce6dd83a84415ea8495857fa2f2b191a5938baa6c50cda7f4",
+  "artifacts_sha256": {
+    "observation.json": "244d6fbc11d6e1da7ad24d0e04e9d8fd0f6a5a4bbbb855ce9ad492fc09801506",
+    "chain_boundary_detail.csv": "823f570d5956f224223e49c7769122eb7f36fe2593b2d3cf6b4ea3c50fcb3763"
+  }
+}

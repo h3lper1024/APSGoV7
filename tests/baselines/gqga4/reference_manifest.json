@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "script": {
+    "path": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/solver.py",
+    "sha256": "87f564407f0cefeef3c66a7724e534f3621ac0a52207fd5b114a0e33f7f97318"
+  },
+  "inputs": {
+    "input_orders.csv": {
+      "path": "tests/baselines/gqga4/inputs/input_orders.csv",
+      "sha256": "d178cc19ac6ef2807962beb110333f8702c8e2eeec153f9b0f94236913060941",
+      "source": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+      "bytes": 188240
+    },
+    "optimization_problem.json": {
+      "path": "tests/baselines/gqga4/inputs/optimization_problem.json",
+      "sha256": "8edb7f4110384af14d58e9bdc7caec490f3de053401173db952854275966abdc",
+      "source": "dbf5500b6877fcc4290d90486d9ae3614d9652b8:tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+      "bytes": 8585355
+    },
+    "resolved_rules.json": {
+      "path": "tests/baselines/gqga4/inputs/resolved_rules.json",
+      "sha256": "5f045f8415ea0b3fd77256897e28b2e24c9dd6f661cd3e9f0bb48448bb3cf44a",
+      "source": "dbf5500b6877fcc4290d90486d9ae3614d9652b8:baselines/gqga4/resolved_rules.json",
+      "bytes": 317149
+    },
+    "rule_context.json": {
+      "path": "tests/baselines/gqga4/inputs/rule_context.json",
+      "sha256": "90091b7c7bbcf4373c6745a8cde15c4501ff7246628fd5b7824ad69d451347c7",
+      "source": "dbf5500b6877fcc4290d90486d9ae3614d9652b8:baselines/gqga4/rule_context.json",
+      "bytes": 853
+    },
+    "solver_config.json": {
+      "path": "tests/baselines/gqga4/inputs/solver_config.json",
+      "sha256": "f539c3231e524097c964a6751046f1ec0d3e0cd89e7d74ebea0d282f65eec47c",
+      "source": "dbf5500b6877fcc4290d90486d9ae3614d9652b8:baselines/gqga4/solver_config.json",
+      "bytes": 13040
+    }
+  },
+  "static_outputs": {
+    "run_manifest.json": {
+      "path": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/run_manifest.json",
+      "sha256": "41c7127eb1e75308da92e670975f97ea30577dd8fb5954014cef96ed427419f8"
+    },
+    "validation_report.json": {
+      "path": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/validation_report.json",
+      "sha256": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+    },
+    "chain_summary.csv": {
+      "path": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/chain_summary.csv",
+      "sha256": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44"
+    },
+    "schedule_result.csv": {
+      "path": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/outputs/schedule_result.csv",
+      "sha256": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655"
+    }
+  },
+  "parameters": {
+    "seed": 590531,
+    "time_budget_seconds": 30,
+    "candidate_check_budget": 100000
+  },
+  "formal_environment": {
+    "python": "3.10.18",
+    "conda_environment": "apsgo_v6_3.10.18"
+  },
+  "historical_environment": {
+    "python": "3.9.6",
+    "executable": "/usr/bin/python3"
+  },
+  "note": "Reference BEST_EFFORT is not product acceptance; quality and performance gates require user confirmation."
+}

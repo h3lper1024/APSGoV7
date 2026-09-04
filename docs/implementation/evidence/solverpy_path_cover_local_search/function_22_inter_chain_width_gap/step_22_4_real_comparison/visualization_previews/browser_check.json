@@ -1,0 +1,18 @@
+{
+  "chart_count": 4,
+  "width_node_count": 549,
+  "boundary_count": 21,
+  "boundary_sum": 11218,
+  "chain_option_count": 22,
+  "table_row_count": 22,
+  "has_production_order_note": true,
+  "wide_no_overflow": true,
+  "filtered_range": [
+    0.5,
+    37.5
+  ],
+  "native_hover": "序号 1 · 小辊期 01 · 链内 1节点：0002002187-000020真实非过渡材 · 25.0 吨大辊期：BR_00000001 · 交货日期：2026-06-30宽 1815.0 mm · 厚 0.6 mm允许温度：830.0～850.0 °C",
+  "narrow_no_overflow": true,
+  "page_errors": [],
+  "report_sha256": "59cfa2775fa33dcdcb26a3126012b90eea3ad4d1031a9da423bc7f919d5fef61"
+}

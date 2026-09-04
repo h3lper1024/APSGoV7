@@ -1,0 +1,60 @@
+{
+  "status": "pass",
+  "equivalent": true,
+  "first_difference": null,
+  "differences": [],
+  "metadata_differences": {
+    "actual_runtime_seconds": {
+      "expected": 28.771943,
+      "actual": 28.758919
+    },
+    "best_solution_updated_at": {
+      "expected": "2026-09-02T08:45:34.834297+00:00",
+      "actual": "2026-09-02T17:24:06.040037+00:00"
+    },
+    "finished_at": {
+      "expected": "2026-09-02T08:45:34.876729+00:00",
+      "actual": "2026-09-02T17:24:06.089017+00:00"
+    },
+    "input_paths": {
+      "expected": {
+        "input_orders.csv": "/Users/miles/Documents/Codex/2026-09-02/gqga4-531-1-input-orders-csv/work/archive/input_orders.csv",
+        "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/fixtures/migration/gqga4_v5_reference/optimization_problem.json",
+        "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/resolved_rules.json",
+        "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/rule_context.json",
+        "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/baselines/gqga4/solver_config.json"
+      },
+      "actual": {
+        "input_orders.csv": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/input_orders.csv",
+        "optimization_problem.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/optimization_problem.json",
+        "resolved_rules.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/resolved_rules.json",
+        "rule_context.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/rule_context.json",
+        "solver_config.json": "/Users/miles/dev/dev-py/APSGOV6/tests/baselines/gqga4/inputs/solver_config.json"
+      }
+    },
+    "runtime_environment": {
+      "expected": {
+        "python": "3.9.6",
+        "platform": "macOS-27.0-arm64-arm-64bit"
+      },
+      "actual": {
+        "python": "3.10.18",
+        "platform": "macOS-27.0-arm64-arm-64bit"
+      }
+    },
+    "started_at": {
+      "expected": "2026-09-02T08:45:06.104555+00:00",
+      "actual": "2026-09-02T17:23:37.329862+00:00"
+    },
+    "time_budget_seconds": {
+      "expected": 30.0,
+      "actual": 600.0
+    }
+  },
+  "artifact_hashes": {
+    "chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+    "run_manifest.json": "1f00c9ea0c62849c0cffc9aa011cbc2159867e6f71d470592a11c1c25acc8c2b",
+    "schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655",
+    "validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35"
+  }
+}

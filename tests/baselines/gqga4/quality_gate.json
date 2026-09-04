@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "status": "frozen",
+  "confirmed_on": "2026-09-04",
+  "scope": "GQGA4 fixed-input acceptance; not a production rule default",
+  "reference_manifest_sha256": "4e37a0cf3e378520d4b450dad0cced6f87adc733b7a148a07cb08445b005dcf7",
+  "maximum_chain_count": null,
+  "maximum_underweight_chain_count": 0,
+  "maximum_prohibited_violation_count": 0,
+  "expected_real_order_count": 531,
+  "expected_real_weight": "29333.91",
+  "maximum_virtual_output_weight_ratio": "0.05",
+  "maximum_late_original_due_period_move_count": 0,
+  "required_checks": [
+    "complete_coverage_and_conservation",
+    "source_order_weight_conservation",
+    "controlled_split_authorization_and_traceability",
+    "search_and_uncached_audit_agree",
+    "result_contract_self_check"
+  ],
+  "allowed_final_deviations": [],
+  "reference_observation": {
+    "status": "BEST_EFFORT",
+    "chain_count": 22,
+    "underweight_chain_count": 0,
+    "prohibited_violation_count": 1,
+    "passes_this_gate": false
+  },
+  "decision": "User explicitly removed the chain-count acceptance ceiling on 2026-09-04; null means no ceiling. Minimize chain count only as the seventh objective after the first six tie. Keep every other quality and performance requirement unchanged; this authorization is not inferred from a new solve result.",
+  "product_policy_note": "The generic release contract may allow underweight; this fixed GQGA4 acceptance requires zero underweight and zero prohibited violations.",
+  "new_implementation_quality_observed_before_freeze": false
+}

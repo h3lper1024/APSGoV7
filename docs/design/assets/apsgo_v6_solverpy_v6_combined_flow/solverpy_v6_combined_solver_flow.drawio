@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="drawio" version="31.3.2">
+  <diagram id="solverpy-v6-combined-flow" name="组合求解主流程">
+    <mxGraphModel dx="1920" dy="1240" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1240" math="0" shadow="0" background="#ffffff">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <mxCell id="2" value="APSGo V6 × solver.py 单一组合求解主流程" style="text;html=1;align=left;verticalAlign=middle;fontSize=24;fontStyle=1;fontColor=#1f2937;" vertex="1" parent="1">
+          <mxGeometry x="40" y="10" width="820" height="40" as="geometry"/>
+        </mxCell>
+        <mxCell id="3" value="颜色说明：" style="text;html=1;align=left;verticalAlign=middle;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="900" y="15" width="90" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="4" value="" style="rounded=1;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="990" y="21" width="24" height="16" as="geometry"/>
+        </mxCell>
+        <mxCell id="5" value="V6 直接复用" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1020" y="15" width="100" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="6" value="" style="rounded=1;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="1125" y="21" width="24" height="16" as="geometry"/>
+        </mxCell>
+        <mxCell id="7" value="借鉴求解方法并由 V6 落地" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1155" y="15" width="190" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="8" value="" style="rounded=1;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="1360" y="21" width="24" height="16" as="geometry"/>
+        </mxCell>
+        <mxCell id="9" value="新增组合控制" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1390" y="15" width="110" height="30" as="geometry"/>
+        </mxCell>
+        <mxCell id="10" value="" style="rhombus;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1510" y="18" width="22" height="22" as="geometry"/>
+        </mxCell>
+        <mxCell id="11" value="判断" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="1540" y="15" width="50" height="30" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="20" value="A. 一次性准备" style="swimlane;startSize=34;horizontal=1;rounded=1;container=1;pointerEvents=0;whiteSpace=wrap;html=1;fillColor=#f8fafc;swimlaneFillColor=#ffffff;strokeColor=#94a3b8;fontSize=16;fontStyle=1;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="40" y="70" width="1840" height="170" as="geometry"/>
+        </mxCell>
+        <mxCell id="21" value="开始" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" vertex="1" parent="20">
+          <mxGeometry x="30" y="72" width="80" height="45" as="geometry"/>
+        </mxCell>
+        <mxCell id="22" value="1  输入与冻结规则校验&#xa;规则、数据、配置、种子和总预算&#xa;【V6】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" vertex="1" parent="20">
+          <mxGeometry x="170" y="52" width="320" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="23" value="2  创建唯一求解会话&#xa;规则运行时、规格兼容图、候选索引只建一次&#xa;【V6】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" vertex="1" parent="20">
+          <mxGeometry x="590" y="52" width="350" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="24" value="3  建立滚动资源状态&#xa;已锁定前期｜当前活动期｜未排未来资源池&#xa;【V6 状态与台账改造】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" vertex="1" parent="20">
+          <mxGeometry x="1040" y="52" width="390" height="82" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="30" value="B. 当前计划期初始方案" style="swimlane;startSize=34;horizontal=1;rounded=1;container=1;pointerEvents=0;whiteSpace=wrap;html=1;fillColor=#f8fafc;swimlaneFillColor=#ffffff;strokeColor=#94a3b8;fontSize=16;fontStyle=1;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="40" y="260" width="1840" height="190" as="geometry"/>
+        </mxCell>
+        <mxCell id="31" value="4  计算本期实际待排订单&#xa;本期原始订单减去前期已借用量&#xa;【V6 滚动状态】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" vertex="1" parent="30">
+          <mxGeometry x="80" y="62" width="310" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="32" value="5  唯一正式初始构造&#xa;V3 稳定排序、链尾追加和断点回修&#xa;只使用本期真实订单，不用未来或虚拟材料" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=14;" vertex="1" parent="30">
+          <mxGeometry x="480" y="52" width="400" height="102" as="geometry"/>
+        </mxCell>
+        <mxCell id="33" value="6  构造 V6 工作方案&#xa;建立链状态、节点位置和资源占用&#xa;【V6 PlanState】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" vertex="1" parent="30">
+          <mxGeometry x="970" y="62" width="330" height="82" as="geometry"/>
+        </mxCell>
+        <mxCell id="34" value="7  初始完整检查点&#xa;链规则重算、七级评分、保存全局最好方案&#xa;【V6】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;" vertex="1" parent="30">
+          <mxGeometry x="1390" y="62" width="350" height="82" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="40" value="C. 私有局部改进与迭代搜索" style="swimlane;startSize=34;horizontal=1;rounded=1;container=1;pointerEvents=0;whiteSpace=wrap;html=1;fillColor=#f8fafc;swimlaneFillColor=#ffffff;strokeColor=#94a3b8;fontSize=16;fontStyle=1;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="40" y="470" width="1840" height="450" as="geometry"/>
+        </mxCell>
+        <mxCell id="41" value="8  固定顺序局部改进&#xa;整链合并 → 单订单移动 → 连续片段移动&#xa;→ 两链或相关多链重建&#xa;【solver.py 控制节奏 + V6 动作】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=14;" vertex="1" parent="40">
+          <mxGeometry x="45" y="58" width="340" height="112" as="geometry"/>
+        </mxCell>
+        <mxCell id="42" value="9  资源按需开放&#xa;本期真实资源耗尽后开放未来真实订单&#xa;完整订单优先，必要时受控取用部分重量&#xa;直接补链耗尽后才开放受限虚拟桥&#xa;【V6 资格、限额和资源台账】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="40">
+          <mxGeometry x="430" y="58" width="370" height="112" as="geometry"/>
+        </mxCell>
+        <mxCell id="43" value="10  形成轮末完整候选&#xa;索引与标量快速筛选&#xa;只重新计算受影响链并做七级增量评分&#xa;【新增组合执行层】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;" vertex="1" parent="40">
+          <mxGeometry x="845" y="58" width="340" height="112" as="geometry"/>
+        </mxCell>
+        <mxCell id="44" value="11  七级质量&#xa;严格改善？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;fontStyle=1;" vertex="1" parent="40">
+          <mxGeometry x="1235" y="54" width="190" height="120" as="geometry"/>
+        </mxCell>
+        <mxCell id="45" value="12A  接受完整候选&#xa;整轮一次原子提交&#xa;【V6】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="40">
+          <mxGeometry x="1450" y="42" width="160" height="88" as="geometry"/>
+        </mxCell>
+        <mxCell id="46" value="12B  拒绝完整候选&#xa;整轮私有变化回滚&#xa;【V6】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="40">
+          <mxGeometry x="1640" y="42" width="160" height="88" as="geometry"/>
+        </mxCell>
+        <mxCell id="47" value="13  本期达到&#xa;时间、检查次数或停滞条件？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;fontStyle=1;" vertex="1" parent="40">
+          <mxGeometry x="1510" y="270" width="210" height="125" as="geometry"/>
+        </mxCell>
+        <mxCell id="48" value="14  问题驱动受控扰动与统一重建&#xa;小范围打开 → 中范围打开 → 大范围打开&#xa;最大路径覆盖只用于被打开的有限节点集&#xa;随后重新进入同一局部改进流程" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;" vertex="1" parent="40">
+          <mxGeometry x="650" y="288" width="470" height="105" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="50" value="D. 滚动结算与最终收口" style="swimlane;startSize=34;horizontal=1;rounded=1;container=1;pointerEvents=0;whiteSpace=wrap;html=1;fillColor=#f8fafc;swimlaneFillColor=#ffffff;strokeColor=#94a3b8;fontSize=16;fontStyle=1;fontColor=#334155;" vertex="1" parent="1">
+          <mxGeometry x="40" y="940" width="1840" height="280" as="geometry"/>
+        </mxCell>
+        <mxCell id="51" value="15  本期内部提交和资源扣减&#xa;锁定结构，扣减未来订单余量、虚拟和拆分资源&#xa;不是对外发布&#xa;【V6】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="50">
+          <mxGeometry x="40" y="55" width="300" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="52" value="16  还有&#xa;下一计划期？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;fontStyle=1;" vertex="1" parent="50">
+          <mxGeometry x="390" y="55" width="180" height="110" as="geometry"/>
+        </mxCell>
+        <mxCell id="53" value="17  最终跨期归还与受控拆单&#xa;完整分区、来源谱系和重量守恒&#xa;【借鉴 solver.py 拆分后再搜索】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="50">
+          <mxGeometry x="640" y="65" width="300" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="54" value="18  拆单后再次执行&#xa;同一局部改进流程&#xa;【solver.py 节奏 + V6 动作】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=13;" vertex="1" parent="50">
+          <mxGeometry x="1000" y="65" width="260" height="90" as="geometry"/>
+        </mxCell>
+        <mxCell id="55" value="19  正式方案生成与独立审计&#xa;全部链重新计算，覆盖、拆分、借用和虚拟台账复核&#xa;【V6】" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;" vertex="1" parent="50">
+          <mxGeometry x="1320" y="55" width="300" height="100" as="geometry"/>
+        </mxCell>
+        <mxCell id="56" value="20  是否只剩允许的&#xa;链重不足？" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontStyle=1;" vertex="1" parent="50">
+          <mxGeometry x="1660" y="50" width="160" height="115" as="geometry"/>
+        </mxCell>
+        <mxCell id="57" value="发布正式排产结果" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;" vertex="1" parent="50">
+          <mxGeometry x="1480" y="200" width="170" height="48" as="geometry"/>
+        </mxCell>
+        <mxCell id="58" value="拒绝发布并输出问题报告" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;" vertex="1" parent="50">
+          <mxGeometry x="1680" y="200" width="150" height="48" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="100" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="21" target="22"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="101" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="22" target="23"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="102" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="23" target="24"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="103" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="24" target="31"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1275" y="250"/><mxPoint x="275" y="250"/></Array></mxGeometry></mxCell>
+        <mxCell id="104" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="31" target="32"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="105" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="32" target="33"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="106" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="33" target="34"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="107" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="34" target="41"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1605" y="460"/><mxPoint x="255" y="460"/></Array></mxGeometry></mxCell>
+        <mxCell id="108" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="41" target="42"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="109" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="42" target="43"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="110" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="43" target="44"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="111" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=12;exitX=1;exitY=0.35;entryX=0;entryY=0.5;" edge="1" parent="1" source="44" target="45"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="112" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=12;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" edge="1" parent="1" source="44" target="46"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1370" y="690"/><mxPoint x="1660" y="690"/></Array></mxGeometry></mxCell>
+        <mxCell id="113" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.25;entryY=0;" edge="1" parent="1" source="45" target="47"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="114" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;entryX=0.75;entryY=0;" edge="1" parent="1" source="46" target="47"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="115" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=12;exitX=0;exitY=0.65;entryX=1;entryY=0.5;" edge="1" parent="1" source="47" target="48"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="116" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=0;exitY=0.5;entryX=0.5;entryY=1;" edge="1" parent="1" source="48" target="41"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="570" y="810"/><mxPoint x="570" y="875"/><mxPoint x="255" y="875"/></Array></mxGeometry></mxCell>
+        <mxCell id="117" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=12;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="47" target="51"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1410" y="930"/><mxPoint x="230" y="930"/></Array></mxGeometry></mxCell>
+        <mxCell id="118" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="51" target="52"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="119" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=12;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="52" target="53"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="120" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="53" target="54"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="121" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="54" target="55"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="122" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="55" target="56"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="123" value="是" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=12;exitX=0.35;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="56" target="57"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="124" value="否" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=12;exitX=0.7;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="56" target="58"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="125" value="是，进入下一期" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;labelBackgroundColor=#ffffff;fontSize=12;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" edge="1" parent="1" source="52" target="31"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="520" y="1190"/><mxPoint x="20" y="1190"/><mxPoint x="20" y="360"/></Array></mxGeometry></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

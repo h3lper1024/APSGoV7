@@ -1,0 +1,16 @@
+{
+  "result_fingerprint": "1f1d956fb888a071272f5f6523ccb62f03a44221f3ff00da379a7d332163d98b",
+  "report_sha256": "9cdb82d38541fd380860c201d8629e8476ef6f56e7ea81e3d3ad5e4112af5dfe",
+  "node_count": 553,
+  "chain_count": 22,
+  "source_count": 531,
+  "real_weight": "29333.91",
+  "virtual_count": 20,
+  "virtual_weight": "400.0",
+  "artifact_sha256": {
+    "all_order_details.csv": "dfa55a27496e95f1d942f5cf4f606ae9719c32dd76fcdd7cc655c3b42b522e3c",
+    "chain_statistics.csv": "f8e6917c35d5c5f1a125bed958fdd7bce2033f5dee4e6e9ca275f78dcd1112cd",
+    "delivery_distribution.csv": "dbd497f2a4db94fb57d2a293b1e49f0e1417be53baaff2093e6d6f19d23c4158",
+    "report.html": "034ee93cb4b84cada8fbcdea4389ce7e1c1377120802317c560c0790fd7c1f2b"
+  }
+}

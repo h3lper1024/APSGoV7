@@ -1,0 +1,30 @@
+{
+  "actual_transition_customer_grade_exclude_values": [
+    "战略客户"
+  ],
+  "actual_transition_execution_standard_whitelist": [
+    "Q/TB 305-2017"
+  ],
+  "actual_transition_hot_roll_grades": [
+    "SPHC"
+  ],
+  "actual_transition_material_enabled": true,
+  "actual_transition_virtual_belongs_whitelist": [],
+  "allow_consecutive_reverse_width": true,
+  "grade_direct_whitelist": [],
+  "ignore_temperature": false,
+  "max_consecutive_virtual_sphc": 2,
+  "max_reverse_width_count": 2,
+  "missing_grade_class_policy": "fallback_same_hot_roll_grade",
+  "mode": "strict",
+  "require_same_grade_class": false,
+  "require_same_product_type": false,
+  "reverse_width_carrier_grades": [
+    "SPHC"
+  ],
+  "reverse_width_limit": 20.0,
+  "special_grade_class_same_hot_roll": [
+    "顶级牌号780以上"
+  ],
+  "virtual_sphc_temperature_adaptive": true
+}

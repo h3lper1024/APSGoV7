@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "status": "superseded_by_user_confirmed_gates",
+  "superseded_on": "2026-09-03",
+  "superseded_by": [
+    "tests/baselines/gqga4/quality_gate.json",
+    "tests/baselines/gqga4/performance_gate.json"
+  ],
+  "historical_note": "Original proposal retained for traceability only. The user confirmed 22 chains, zero underweight and zero prohibited violations instead of the 37/3 proposal below, then changed both full-process performance limits from 30 to 180 seconds; the reference control policy remains unchanged.",
+  "reference_performance_sha256": "eb64c030397e010c8c092899e4bb1319bc8fafa1e982a38e6823b70a7a40662a",
+  "reference_statistics": {
+    "sample_count": 20,
+    "median_seconds": 23.601609812496463,
+    "p95_seconds": 23.711902249982813,
+    "max_seconds": 23.716102000005776,
+    "median_method": "mean of middle two for even sample size",
+    "p95_method": "nearest rank: sorted[ceil(0.95 * n) - 1]"
+  },
+  "quality": {
+    "maximum_chain_count": 37,
+    "maximum_underweight_chain_count": 3,
+    "maximum_other_prohibited_violation_count": 0,
+    "only_allowed_final_deviation": "chain weight below its configured lower limit"
+  },
+  "performance": {
+    "new_solver_maximum_median_seconds": 30,
+    "new_solver_maximum_p95_seconds": 30,
+    "reference_control_maximum_absolute_median_drift_ratio": 0.2,
+    "reference_control_maximum_absolute_p95_drift_ratio": 0.2,
+    "drift_formula": "abs(control / frozen_reference - 1)"
+  },
+  "rationale": [
+    "Quality threshold retains the user-selected V3 chain/underweight benchmark without inheriting its prohibited violation.",
+    "The reference outer-process median is about23.60s and nearest-rank p95 about23.71s. The proposed30s gates leave about26% margin for product correctness checks; they are not a measured new-solver result.",
+    "The control-group drift proposal protects comparison validity; exceeding it invalidates environment comparison, not permission to relax the new-solver threshold."
+  ],
+  "new_implementation_quality_or_performance_observed": false
+}

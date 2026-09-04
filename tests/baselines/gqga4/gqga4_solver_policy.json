@@ -1,0 +1,10 @@
+{
+  "seed": 590531,
+  "total_time_limit_seconds": 180.0,
+  "finalization_reserve_seconds": 10.0,
+  "candidate_check_limit": 200000,
+  "construction_order_key": "solverpy_stable_order_v1",
+  "numeric_semantics_key": "solverpy_float_epsilon_1e_9",
+  "whole_chain_pair_scan_slack_weight": 40.0,
+  "maximum_virtual_bridge_nodes": 2
+}

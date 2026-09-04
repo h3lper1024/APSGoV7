@@ -1,0 +1,4 @@
+# Frozen benchmark identities use original bytes, including CSV line endings.
+tests/baselines/gqga4/** -text
+# CR belongs to this immutable CSV's CRLF line ending, not trailing whitespace.
+tests/baselines/gqga4/inputs/input_orders.csv whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

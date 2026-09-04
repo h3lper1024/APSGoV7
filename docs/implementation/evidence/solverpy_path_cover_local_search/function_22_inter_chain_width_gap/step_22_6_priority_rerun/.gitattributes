@@ -1,0 +1,2 @@
+# Preserve the embedded Plotly library bytes, following the existing report convention.
+report/report.html -diff -text
