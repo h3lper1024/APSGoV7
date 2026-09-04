@@ -1,0 +1,3607 @@
+{
+  "passed": true,
+  "checks": {
+    "gate_schema": {
+      "passed": true,
+      "actual": [
+        "allowed_final_deviations",
+        "confirmed_on",
+        "decision",
+        "expected_real_order_count",
+        "expected_real_weight",
+        "maximum_chain_count",
+        "maximum_late_original_due_period_move_count",
+        "maximum_prohibited_violation_count",
+        "maximum_underweight_chain_count",
+        "maximum_virtual_output_weight_ratio",
+        "new_implementation_quality_observed_before_freeze",
+        "product_policy_note",
+        "reference_manifest_sha256",
+        "reference_observation",
+        "required_checks",
+        "schema_version",
+        "scope",
+        "status"
+      ],
+      "expected": [
+        "allowed_final_deviations",
+        "confirmed_on",
+        "decision",
+        "expected_real_order_count",
+        "expected_real_weight",
+        "maximum_chain_count",
+        "maximum_late_original_due_period_move_count",
+        "maximum_prohibited_violation_count",
+        "maximum_underweight_chain_count",
+        "maximum_virtual_output_weight_ratio",
+        "new_implementation_quality_observed_before_freeze",
+        "product_policy_note",
+        "reference_manifest_sha256",
+        "reference_observation",
+        "required_checks",
+        "schema_version",
+        "scope",
+        "status"
+      ]
+    },
+    "required_checks_supported": {
+      "passed": true,
+      "actual": [
+        "complete_coverage_and_conservation",
+        "source_order_weight_conservation",
+        "controlled_split_authorization_and_traceability",
+        "search_and_uncached_audit_agree",
+        "result_contract_self_check"
+      ],
+      "expected": [
+        "complete_coverage_and_conservation",
+        "controlled_split_authorization_and_traceability",
+        "result_contract_self_check",
+        "search_and_uncached_audit_agree",
+        "source_order_weight_conservation"
+      ]
+    },
+    "published_release_available": {
+      "passed": true,
+      "actual": true,
+      "expected": true
+    },
+    "maximum_chain_count": {
+      "passed": true,
+      "actual": 22,
+      "expected": null
+    },
+    "maximum_underweight_chain_count": {
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    },
+    "maximum_prohibited_violation_count": {
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    },
+    "maximum_virtual_output_weight_ratio": {
+      "passed": true,
+      "actual": "0.02004415727848450135648834382",
+      "expected": "0.05"
+    },
+    "maximum_late_original_due_period_move_count": {
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    },
+    "expected_real_order_count": {
+      "passed": true,
+      "actual": 531,
+      "expected": 531
+    },
+    "expected_real_weight": {
+      "passed": true,
+      "actual": {
+        "input": "29333.91",
+        "scheduled": "29333.91"
+      },
+      "expected": "29333.91"
+    },
+    "complete_coverage_and_conservation": {
+      "passed": true,
+      "actual": {
+        "covered_parent_count": 531,
+        "missing": [],
+        "unexpected": []
+      },
+      "expected": "exact original parent coverage and weight"
+    },
+    "source_order_weight_conservation": {
+      "passed": true,
+      "actual": [],
+      "expected": "all source weights equal"
+    },
+    "controlled_split_authorization_and_traceability": {
+      "passed": true,
+      "actual": {
+        "audited_counts": [
+          2,
+          2,
+          0
+        ],
+        "recorded_counts": [
+          2,
+          2,
+          0
+        ],
+        "partition_ids": [
+          "partition-12867008acf6a0ea9d8776d23dc778175dc8c9ecf45f1c627e21aad01e519f05",
+          "partition-14eed158aa2fb5d0bb6b46f70510931e923f66a097fc0e062e2687e39b166626"
+        ]
+      },
+      "expected": "passed independent authorization audit and matching partition/mode counts"
+    },
+    "search_and_uncached_audit_agree": {
+      "passed": true,
+      "actual": true,
+      "expected": true
+    },
+    "result_contract_self_check": {
+      "passed": true,
+      "actual": {
+        "status": "completed",
+        "passed": true,
+        "failure_codes": []
+      },
+      "expected": "completed, passed and bound to release"
+    },
+    "allowed_final_deviations": {
+      "passed": true,
+      "actual": [],
+      "expected": []
+    },
+    "metric_record_consistency": {
+      "passed": true,
+      "actual": {
+        "chain_count": 22,
+        "prohibited_violation_record_count": 0
+      },
+      "expected": "named metrics agree with actual chains and violation records"
+    },
+    "underweight_detail_consistency": {
+      "passed": true,
+      "actual": 0,
+      "expected": 0
+    }
+  },
+  "failures": [],
+  "observations": {
+    "status": "success",
+    "stop_reason": "candidate_limit_reached",
+    "quality_key": [
+      0,
+      "0.0",
+      0,
+      "0.00",
+      "10912.0",
+      "600.0",
+      22
+    ],
+    "metrics": {
+      "underweight_chain_count": 0,
+      "underweight_total_gap": "0",
+      "overweight_chain_count": 0,
+      "overweight_total_excess": "0",
+      "chain_target_weight_deviation": "14066.09",
+      "reverse_width_count": 24,
+      "max_consecutive_virtual_sphc": 2,
+      "max_high_surface_run_count": 5,
+      "max_if_narrow_real_run_weight": "500.0",
+      "max_same_spec_real_run_weight": "677.46",
+      "strategic_customer_rank": 505,
+      "late_original_due_period_move_count": 0,
+      "future_fill_total_gap": "3066.18",
+      "virtual_output_weight_ratio": "0.02004415727848450135648834382",
+      "inter_chain_width_gap": "10912.0",
+      "prohibited_violation_count": 0,
+      "prohibited_violation_severity": "0",
+      "chain_count": 22,
+      "generated_virtual_weight": "600.0",
+      "borrowed_future_weight": "21523.38"
+    }
+  },
+  "source_conservation": [
+    {
+      "source_order_id": "0002001995-000010",
+      "input_weight": "19.16",
+      "scheduled_weight": "19.16",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002001998-000190",
+      "input_weight": "42.46",
+      "scheduled_weight": "42.46",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002006-000190",
+      "input_weight": "7.7",
+      "scheduled_weight": "7.7",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002006-000230",
+      "input_weight": "21.76",
+      "scheduled_weight": "21.76",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002009-000020",
+      "input_weight": "8.14",
+      "scheduled_weight": "8.14",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002009-000050",
+      "input_weight": "8.22",
+      "scheduled_weight": "8.22",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002020-000080",
+      "input_weight": "13.01",
+      "scheduled_weight": "13.01",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002021-000070",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002024-000070",
+      "input_weight": "6.04",
+      "scheduled_weight": "6.04",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002044-000070",
+      "input_weight": "18.71",
+      "scheduled_weight": "18.71",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002053-000020",
+      "input_weight": "8.8",
+      "scheduled_weight": "8.8",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002053-000050",
+      "input_weight": "13.67",
+      "scheduled_weight": "13.67",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002053-000070",
+      "input_weight": "25.67",
+      "scheduled_weight": "25.67",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002053-000100",
+      "input_weight": "92.0",
+      "scheduled_weight": "92.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002053-000120",
+      "input_weight": "18.57",
+      "scheduled_weight": "18.57",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002053-000130",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002053-000150",
+      "input_weight": "18.76",
+      "scheduled_weight": "18.76",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002053-000180",
+      "input_weight": "60.0",
+      "scheduled_weight": "60.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000010",
+      "input_weight": "36.83",
+      "scheduled_weight": "36.83",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000040",
+      "input_weight": "36.52",
+      "scheduled_weight": "36.52",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000060",
+      "input_weight": "50.0",
+      "scheduled_weight": "50.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000100",
+      "input_weight": "75.01",
+      "scheduled_weight": "75.01",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000200",
+      "input_weight": "52.56",
+      "scheduled_weight": "52.56",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000230",
+      "input_weight": "2.05",
+      "scheduled_weight": "2.05",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000260",
+      "input_weight": "293.39",
+      "scheduled_weight": "293.39",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000270",
+      "input_weight": "12.7",
+      "scheduled_weight": "12.7",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000310",
+      "input_weight": "11.7",
+      "scheduled_weight": "11.7",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000320",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000340",
+      "input_weight": "102.32",
+      "scheduled_weight": "102.32",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002054-000350",
+      "input_weight": "98.97",
+      "scheduled_weight": "98.97",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002055-000010",
+      "input_weight": "70.55",
+      "scheduled_weight": "70.55",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002055-000030",
+      "input_weight": "66.82",
+      "scheduled_weight": "66.82",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002055-000040",
+      "input_weight": "346.03",
+      "scheduled_weight": "346.03",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002055-000050",
+      "input_weight": "280.12",
+      "scheduled_weight": "280.12",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002055-000070",
+      "input_weight": "491.0",
+      "scheduled_weight": "491.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002055-000080",
+      "input_weight": "5.45",
+      "scheduled_weight": "5.45",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002055-000100",
+      "input_weight": "18.26",
+      "scheduled_weight": "18.26",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002055-000110",
+      "input_weight": "15.3",
+      "scheduled_weight": "15.3",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002055-000120",
+      "input_weight": "570.3",
+      "scheduled_weight": "570.3",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002058-000020",
+      "input_weight": "18.91",
+      "scheduled_weight": "18.91",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002059-000020",
+      "input_weight": "20.43",
+      "scheduled_weight": "20.43",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002073-000010",
+      "input_weight": "600.0",
+      "scheduled_weight": "600.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002074-000010",
+      "input_weight": "150.0",
+      "scheduled_weight": "150.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002148-000010",
+      "input_weight": "300.0",
+      "scheduled_weight": "300.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002152-000010",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002162-000010",
+      "input_weight": "72.0",
+      "scheduled_weight": "72.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002162-000040",
+      "input_weight": "168.0",
+      "scheduled_weight": "168.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002162-000070",
+      "input_weight": "18.0",
+      "scheduled_weight": "18.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002162-000080",
+      "input_weight": "18.0",
+      "scheduled_weight": "18.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002162-000100",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002162-000110",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002169-000010",
+      "input_weight": "25.0",
+      "scheduled_weight": "25.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002169-000030",
+      "input_weight": "30.0",
+      "scheduled_weight": "30.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000010",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000020",
+      "input_weight": "69.0",
+      "scheduled_weight": "69.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000030",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000040",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000050",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000060",
+      "input_weight": "32.0",
+      "scheduled_weight": "32.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000070",
+      "input_weight": "16.0",
+      "scheduled_weight": "16.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000080",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000090",
+      "input_weight": "25.0",
+      "scheduled_weight": "25.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000120",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000130",
+      "input_weight": "55.0",
+      "scheduled_weight": "55.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000140",
+      "input_weight": "16.0",
+      "scheduled_weight": "16.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000150",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000160",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000170",
+      "input_weight": "100.0",
+      "scheduled_weight": "100.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000180",
+      "input_weight": "46.0",
+      "scheduled_weight": "46.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000190",
+      "input_weight": "40.0",
+      "scheduled_weight": "40.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000200",
+      "input_weight": "126.53",
+      "scheduled_weight": "126.53",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000210",
+      "input_weight": "45.97",
+      "scheduled_weight": "45.97",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000220",
+      "input_weight": "46.0",
+      "scheduled_weight": "46.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000230",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000240",
+      "input_weight": "80.0",
+      "scheduled_weight": "80.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000250",
+      "input_weight": "69.0",
+      "scheduled_weight": "69.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000260",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000270",
+      "input_weight": "46.0",
+      "scheduled_weight": "46.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000280",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000290",
+      "input_weight": "50.0",
+      "scheduled_weight": "50.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000300",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000310",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000320",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000330",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000340",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000350",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000360",
+      "input_weight": "40.0",
+      "scheduled_weight": "40.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000370",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000380",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000410",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000420",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002170-000430",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000010",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000030",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000070",
+      "input_weight": "100.0",
+      "scheduled_weight": "100.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000080",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000090",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000100",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000110",
+      "input_weight": "35.0",
+      "scheduled_weight": "35.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000120",
+      "input_weight": "25.0",
+      "scheduled_weight": "25.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000140",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000150",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000160",
+      "input_weight": "13.76",
+      "scheduled_weight": "13.76",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000170",
+      "input_weight": "17.0",
+      "scheduled_weight": "17.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000180",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000190",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000200",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000210",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000220",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000230",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002176-000240",
+      "input_weight": "69.0",
+      "scheduled_weight": "69.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002177-000010",
+      "input_weight": "30.0",
+      "scheduled_weight": "30.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002177-000020",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002177-000030",
+      "input_weight": "15.0",
+      "scheduled_weight": "15.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002179-000010",
+      "input_weight": "41.0",
+      "scheduled_weight": "41.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000010",
+      "input_weight": "39.0",
+      "scheduled_weight": "39.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000030",
+      "input_weight": "89.0",
+      "scheduled_weight": "89.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000040",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000050",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000060",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000130",
+      "input_weight": "34.0",
+      "scheduled_weight": "34.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000140",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000160",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000170",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000270",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000280",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000340",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000350",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000360",
+      "input_weight": "17.08",
+      "scheduled_weight": "17.08",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002180-000380",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000010",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000020",
+      "input_weight": "16.0",
+      "scheduled_weight": "16.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000030",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000040",
+      "input_weight": "92.0",
+      "scheduled_weight": "92.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000060",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000080",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000090",
+      "input_weight": "30.0",
+      "scheduled_weight": "30.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000130",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000160",
+      "input_weight": "16.0",
+      "scheduled_weight": "16.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000170",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000190",
+      "input_weight": "64.0",
+      "scheduled_weight": "64.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000200",
+      "input_weight": "91.34",
+      "scheduled_weight": "91.34",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000210",
+      "input_weight": "25.0",
+      "scheduled_weight": "25.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002184-000220",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000010",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000020",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000030",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000040",
+      "input_weight": "40.0",
+      "scheduled_weight": "40.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000050",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000060",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000070",
+      "input_weight": "92.0",
+      "scheduled_weight": "92.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000080",
+      "input_weight": "40.0",
+      "scheduled_weight": "40.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000090",
+      "input_weight": "1.97",
+      "scheduled_weight": "1.97",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000100",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000110",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000120",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000130",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000140",
+      "input_weight": "30.0",
+      "scheduled_weight": "30.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002185-000150",
+      "input_weight": "16.0",
+      "scheduled_weight": "16.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002187-000010",
+      "input_weight": "25.0",
+      "scheduled_weight": "25.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002187-000020",
+      "input_weight": "25.0",
+      "scheduled_weight": "25.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002193-000020",
+      "input_weight": "260.0",
+      "scheduled_weight": "260.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002193-000030",
+      "input_weight": "52.0",
+      "scheduled_weight": "52.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002193-000040",
+      "input_weight": "104.0",
+      "scheduled_weight": "104.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000010",
+      "input_weight": "10.0",
+      "scheduled_weight": "10.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000020",
+      "input_weight": "44.0",
+      "scheduled_weight": "44.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000030",
+      "input_weight": "22.0",
+      "scheduled_weight": "22.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000040",
+      "input_weight": "64.87",
+      "scheduled_weight": "64.87",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000050",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000060",
+      "input_weight": "61.96",
+      "scheduled_weight": "61.96",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000070",
+      "input_weight": "145.0",
+      "scheduled_weight": "145.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000080",
+      "input_weight": "190.0",
+      "scheduled_weight": "190.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000090",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000100",
+      "input_weight": "230.0",
+      "scheduled_weight": "230.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000110",
+      "input_weight": "110.0",
+      "scheduled_weight": "110.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000120",
+      "input_weight": "72.0",
+      "scheduled_weight": "72.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000140",
+      "input_weight": "72.0",
+      "scheduled_weight": "72.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000150",
+      "input_weight": "175.0",
+      "scheduled_weight": "175.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000160",
+      "input_weight": "635.0",
+      "scheduled_weight": "635.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000170",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000180",
+      "input_weight": "25.0",
+      "scheduled_weight": "25.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000190",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000200",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000210",
+      "input_weight": "8.86",
+      "scheduled_weight": "8.86",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000220",
+      "input_weight": "80.0",
+      "scheduled_weight": "80.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000230",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000240",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002195-000250",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000010",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000020",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000030",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000040",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000050",
+      "input_weight": "25.0",
+      "scheduled_weight": "25.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000060",
+      "input_weight": "46.0",
+      "scheduled_weight": "46.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000070",
+      "input_weight": "16.0",
+      "scheduled_weight": "16.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000080",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000090",
+      "input_weight": "138.0",
+      "scheduled_weight": "138.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000100",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000110",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000120",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000130",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000140",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000150",
+      "input_weight": "25.0",
+      "scheduled_weight": "25.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000160",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000170",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000180",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000190",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000200",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000210",
+      "input_weight": "8.21",
+      "scheduled_weight": "8.21",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000220",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000230",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000240",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000260",
+      "input_weight": "15.93",
+      "scheduled_weight": "15.93",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000270",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000280",
+      "input_weight": "19.0",
+      "scheduled_weight": "19.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000290",
+      "input_weight": "16.0",
+      "scheduled_weight": "16.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0002002202-000300",
+      "input_weight": "30.0",
+      "scheduled_weight": "30.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000545-000020",
+      "input_weight": "9.59",
+      "scheduled_weight": "9.59",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000546-000010",
+      "input_weight": "7.0",
+      "scheduled_weight": "7.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000547-000400",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000548-000050",
+      "input_weight": "7.0",
+      "scheduled_weight": "7.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000562-000050",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000563-000030",
+      "input_weight": "63.0",
+      "scheduled_weight": "63.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000563-000090",
+      "input_weight": "21.0",
+      "scheduled_weight": "21.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000563-000130",
+      "input_weight": "42.0",
+      "scheduled_weight": "42.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000563-000170",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000563-000210",
+      "input_weight": "21.0",
+      "scheduled_weight": "21.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000563-000220",
+      "input_weight": "18.22",
+      "scheduled_weight": "18.22",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000563-000240",
+      "input_weight": "16.0",
+      "scheduled_weight": "16.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000563-000270",
+      "input_weight": "18.0",
+      "scheduled_weight": "18.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000563-000280",
+      "input_weight": "21.0",
+      "scheduled_weight": "21.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000563-000290",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000571-000020",
+      "input_weight": "7.0",
+      "scheduled_weight": "7.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000571-000030",
+      "input_weight": "7.0",
+      "scheduled_weight": "7.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000571-000040",
+      "input_weight": "10.0",
+      "scheduled_weight": "10.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0005000575-000020",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010018206-000010",
+      "input_weight": "31.76",
+      "scheduled_weight": "31.76",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010018206-000080",
+      "input_weight": "8.26",
+      "scheduled_weight": "8.26",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019618-000010",
+      "input_weight": "198.0",
+      "scheduled_weight": "198.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019618-000020",
+      "input_weight": "192.0",
+      "scheduled_weight": "192.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019680-000010",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019680-000020",
+      "input_weight": "69.0",
+      "scheduled_weight": "69.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019680-000030",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019718-000010",
+      "input_weight": "58.0",
+      "scheduled_weight": "58.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019718-000020",
+      "input_weight": "58.0",
+      "scheduled_weight": "58.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019718-000030",
+      "input_weight": "131.46",
+      "scheduled_weight": "131.46",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019718-000040",
+      "input_weight": "144.0",
+      "scheduled_weight": "144.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019718-000050",
+      "input_weight": "96.0",
+      "scheduled_weight": "96.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019881-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019881-000020",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019881-000030",
+      "input_weight": "26.0",
+      "scheduled_weight": "26.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019881-000040",
+      "input_weight": "96.0",
+      "scheduled_weight": "96.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019881-000050",
+      "input_weight": "26.0",
+      "scheduled_weight": "26.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010019881-000060",
+      "input_weight": "96.0",
+      "scheduled_weight": "96.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010020206-000010",
+      "input_weight": "58.48",
+      "scheduled_weight": "58.48",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010020206-000030",
+      "input_weight": "110.0",
+      "scheduled_weight": "110.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010020206-000070",
+      "input_weight": "143.49",
+      "scheduled_weight": "143.49",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010020206-000080",
+      "input_weight": "122.45",
+      "scheduled_weight": "122.45",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010020206-000090",
+      "input_weight": "52.98",
+      "scheduled_weight": "52.98",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010020206-000100",
+      "input_weight": "95.94",
+      "scheduled_weight": "95.94",
+      "passed": true
+    },
+    {
+      "source_order_id": "0010020206-000110",
+      "input_weight": "117.45",
+      "scheduled_weight": "117.45",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030117110-000010",
+      "input_weight": "13.2",
+      "scheduled_weight": "13.2",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030117110-000020",
+      "input_weight": "21.51",
+      "scheduled_weight": "21.51",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030117110-000090",
+      "input_weight": "4.67",
+      "scheduled_weight": "4.67",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030117283-000020",
+      "input_weight": "3.44",
+      "scheduled_weight": "3.44",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030117283-000030",
+      "input_weight": "13.32",
+      "scheduled_weight": "13.32",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030117284-000030",
+      "input_weight": "13.54",
+      "scheduled_weight": "13.54",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030117285-000070",
+      "input_weight": "12.8",
+      "scheduled_weight": "12.8",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030117932-000010",
+      "input_weight": "99.77",
+      "scheduled_weight": "99.77",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030117933-000010",
+      "input_weight": "10.9",
+      "scheduled_weight": "10.9",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030117976-000020",
+      "input_weight": "7.91",
+      "scheduled_weight": "7.91",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118006-000010",
+      "input_weight": "55.45",
+      "scheduled_weight": "55.45",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118006-000020",
+      "input_weight": "29.28",
+      "scheduled_weight": "29.28",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118006-000070",
+      "input_weight": "43.72",
+      "scheduled_weight": "43.72",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118093-000010",
+      "input_weight": "122.84",
+      "scheduled_weight": "122.84",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118093-000020",
+      "input_weight": "135.54",
+      "scheduled_weight": "135.54",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118093-000030",
+      "input_weight": "13.15",
+      "scheduled_weight": "13.15",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118093-000060",
+      "input_weight": "31.46",
+      "scheduled_weight": "31.46",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118261-000010",
+      "input_weight": "57.02",
+      "scheduled_weight": "57.02",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118632-000010",
+      "input_weight": "16.85",
+      "scheduled_weight": "16.85",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118641-000010",
+      "input_weight": "22.03",
+      "scheduled_weight": "22.03",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118641-000020",
+      "input_weight": "6.04",
+      "scheduled_weight": "6.04",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118799-000010",
+      "input_weight": "7.55",
+      "scheduled_weight": "7.55",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118802-000010",
+      "input_weight": "14.77",
+      "scheduled_weight": "14.77",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118921-000020",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118934-000010",
+      "input_weight": "130.44",
+      "scheduled_weight": "130.44",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118934-000020",
+      "input_weight": "238.96",
+      "scheduled_weight": "238.96",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118934-000050",
+      "input_weight": "15.37",
+      "scheduled_weight": "15.37",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118934-000060",
+      "input_weight": "188.59",
+      "scheduled_weight": "188.59",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118957-000010",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030118966-000010",
+      "input_weight": "31.64",
+      "scheduled_weight": "31.64",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119031-000020",
+      "input_weight": "26.67",
+      "scheduled_weight": "26.67",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119032-000020",
+      "input_weight": "10.4",
+      "scheduled_weight": "10.4",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119041-000020",
+      "input_weight": "16.85",
+      "scheduled_weight": "16.85",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119098-000010",
+      "input_weight": "22.98",
+      "scheduled_weight": "22.98",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119098-000060",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119183-000010",
+      "input_weight": "1.02",
+      "scheduled_weight": "1.02",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119215-000010",
+      "input_weight": "22.0",
+      "scheduled_weight": "22.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119597-000010",
+      "input_weight": "7.08",
+      "scheduled_weight": "7.08",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119860-000010",
+      "input_weight": "38.27",
+      "scheduled_weight": "38.27",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119860-000030",
+      "input_weight": "56.58",
+      "scheduled_weight": "56.58",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119860-000040",
+      "input_weight": "180.24",
+      "scheduled_weight": "180.24",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119866-000010",
+      "input_weight": "27.97",
+      "scheduled_weight": "27.97",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119938-000310",
+      "input_weight": "72.86",
+      "scheduled_weight": "72.86",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119938-000320",
+      "input_weight": "24.6",
+      "scheduled_weight": "24.6",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119938-000330",
+      "input_weight": "95.14",
+      "scheduled_weight": "95.14",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119938-000340",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119945-000140",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030119959-000010",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120049-000040",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120727-000030",
+      "input_weight": "300.0",
+      "scheduled_weight": "300.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120745-000010",
+      "input_weight": "12.99",
+      "scheduled_weight": "12.99",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120757-000020",
+      "input_weight": "17.37",
+      "scheduled_weight": "17.37",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120757-000040",
+      "input_weight": "25.98",
+      "scheduled_weight": "25.98",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120757-000050",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120817-000050",
+      "input_weight": "50.0",
+      "scheduled_weight": "50.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120865-000010",
+      "input_weight": "50.0",
+      "scheduled_weight": "50.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120882-000010",
+      "input_weight": "110.0",
+      "scheduled_weight": "110.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120939-000060",
+      "input_weight": "23.45",
+      "scheduled_weight": "23.45",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120939-000070",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120939-000080",
+      "input_weight": "46.0",
+      "scheduled_weight": "46.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120939-000090",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120939-000100",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120940-000030",
+      "input_weight": "18.0",
+      "scheduled_weight": "18.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120940-000110",
+      "input_weight": "8.66",
+      "scheduled_weight": "8.66",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120940-000120",
+      "input_weight": "20.15",
+      "scheduled_weight": "20.15",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120951-000010",
+      "input_weight": "32.24",
+      "scheduled_weight": "32.24",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030120974-000030",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030121196-000020",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030121196-000030",
+      "input_weight": "46.91",
+      "scheduled_weight": "46.91",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030121327-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030121346-000020",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030121432-000010",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030121501-000010",
+      "input_weight": "25.11",
+      "scheduled_weight": "25.11",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030121690-000010",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030121690-000040",
+      "input_weight": "11.87",
+      "scheduled_weight": "11.87",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030121724-000020",
+      "input_weight": "195.2",
+      "scheduled_weight": "195.2",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030121799-000010",
+      "input_weight": "168.0",
+      "scheduled_weight": "168.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122066-000020",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122066-000070",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122080-000010",
+      "input_weight": "14.4",
+      "scheduled_weight": "14.4",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122086-000010",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122476-000030",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122476-000040",
+      "input_weight": "16.09",
+      "scheduled_weight": "16.09",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122476-000050",
+      "input_weight": "8.0",
+      "scheduled_weight": "8.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122476-000060",
+      "input_weight": "8.92",
+      "scheduled_weight": "8.92",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122476-000070",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122476-000080",
+      "input_weight": "8.0",
+      "scheduled_weight": "8.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122480-000040",
+      "input_weight": "72.0",
+      "scheduled_weight": "72.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122480-000070",
+      "input_weight": "108.0",
+      "scheduled_weight": "108.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122480-000080",
+      "input_weight": "69.0",
+      "scheduled_weight": "69.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122480-000090",
+      "input_weight": "22.0",
+      "scheduled_weight": "22.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122480-000100",
+      "input_weight": "154.0",
+      "scheduled_weight": "154.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122480-000110",
+      "input_weight": "110.0",
+      "scheduled_weight": "110.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122488-000010",
+      "input_weight": "110.0",
+      "scheduled_weight": "110.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122488-000020",
+      "input_weight": "96.0",
+      "scheduled_weight": "96.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122488-000030",
+      "input_weight": "110.0",
+      "scheduled_weight": "110.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122647-000550",
+      "input_weight": "72.0",
+      "scheduled_weight": "72.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122647-000560",
+      "input_weight": "72.0",
+      "scheduled_weight": "72.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122647-000570",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122647-000580",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122647-000590",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122759-000010",
+      "input_weight": "22.0",
+      "scheduled_weight": "22.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122759-000020",
+      "input_weight": "22.0",
+      "scheduled_weight": "22.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122759-000030",
+      "input_weight": "88.0",
+      "scheduled_weight": "88.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122760-000020",
+      "input_weight": "18.35",
+      "scheduled_weight": "18.35",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122897-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122897-000030",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122897-000040",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122897-000050",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122897-000060",
+      "input_weight": "72.0",
+      "scheduled_weight": "72.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122897-000070",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122897-000090",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122897-000100",
+      "input_weight": "96.0",
+      "scheduled_weight": "96.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122898-000010",
+      "input_weight": "50.0",
+      "scheduled_weight": "50.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122898-000020",
+      "input_weight": "19.26",
+      "scheduled_weight": "19.26",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122898-000030",
+      "input_weight": "96.0",
+      "scheduled_weight": "96.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122898-000040",
+      "input_weight": "240.0",
+      "scheduled_weight": "240.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122899-000010",
+      "input_weight": "60.0",
+      "scheduled_weight": "60.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122899-000020",
+      "input_weight": "187.98",
+      "scheduled_weight": "187.98",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122899-000030",
+      "input_weight": "170.0",
+      "scheduled_weight": "170.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030122899-000050",
+      "input_weight": "240.0",
+      "scheduled_weight": "240.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123053-000010",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123141-000010",
+      "input_weight": "50.0",
+      "scheduled_weight": "50.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123141-000020",
+      "input_weight": "100.0",
+      "scheduled_weight": "100.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123142-000010",
+      "input_weight": "312.0",
+      "scheduled_weight": "312.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123142-000020",
+      "input_weight": "182.0",
+      "scheduled_weight": "182.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123142-000030",
+      "input_weight": "132.0",
+      "scheduled_weight": "132.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123142-000040",
+      "input_weight": "156.0",
+      "scheduled_weight": "156.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123143-000010",
+      "input_weight": "52.0",
+      "scheduled_weight": "52.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123143-000020",
+      "input_weight": "104.0",
+      "scheduled_weight": "104.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123143-000030",
+      "input_weight": "175.0",
+      "scheduled_weight": "175.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123143-000040",
+      "input_weight": "67.97",
+      "scheduled_weight": "67.97",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123143-000050",
+      "input_weight": "13.39",
+      "scheduled_weight": "13.39",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123143-000060",
+      "input_weight": "78.0",
+      "scheduled_weight": "78.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123143-000070",
+      "input_weight": "88.0",
+      "scheduled_weight": "88.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123145-000010",
+      "input_weight": "51.02",
+      "scheduled_weight": "51.02",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123145-000020",
+      "input_weight": "21.43",
+      "scheduled_weight": "21.43",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123255-000010",
+      "input_weight": "92.0",
+      "scheduled_weight": "92.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123255-000020",
+      "input_weight": "46.0",
+      "scheduled_weight": "46.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123255-000030",
+      "input_weight": "36.0",
+      "scheduled_weight": "36.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123256-000010",
+      "input_weight": "100.0",
+      "scheduled_weight": "100.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123256-000020",
+      "input_weight": "92.21",
+      "scheduled_weight": "92.21",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123256-000030",
+      "input_weight": "46.0",
+      "scheduled_weight": "46.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123256-000040",
+      "input_weight": "69.0",
+      "scheduled_weight": "69.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123425-000010",
+      "input_weight": "132.0",
+      "scheduled_weight": "132.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123425-000020",
+      "input_weight": "130.0",
+      "scheduled_weight": "130.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123508-000010",
+      "input_weight": "138.0",
+      "scheduled_weight": "138.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123646-000010",
+      "input_weight": "12.0",
+      "scheduled_weight": "12.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123647-000010",
+      "input_weight": "6.15",
+      "scheduled_weight": "6.15",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123653-000010",
+      "input_weight": "96.0",
+      "scheduled_weight": "96.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123653-000020",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123653-000030",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123653-000040",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123653-000050",
+      "input_weight": "120.0",
+      "scheduled_weight": "120.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123653-000060",
+      "input_weight": "96.0",
+      "scheduled_weight": "96.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123654-000010",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123654-000020",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123654-000030",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123916-000010",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123916-000020",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123916-000030",
+      "input_weight": "69.0",
+      "scheduled_weight": "69.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123916-000040",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123936-000010",
+      "input_weight": "182.0",
+      "scheduled_weight": "182.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030123936-000020",
+      "input_weight": "327.94",
+      "scheduled_weight": "327.94",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124078-000010",
+      "input_weight": "44.0",
+      "scheduled_weight": "44.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124081-000010",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124170-000010",
+      "input_weight": "69.0",
+      "scheduled_weight": "69.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124199-000010",
+      "input_weight": "26.0",
+      "scheduled_weight": "26.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124207-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124207-000020",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124397-000030",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124437-000010",
+      "input_weight": "18.0",
+      "scheduled_weight": "18.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124437-000020",
+      "input_weight": "22.0",
+      "scheduled_weight": "22.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124438-000010",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124440-000020",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124440-000030",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124440-000040",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124457-000010",
+      "input_weight": "44.0",
+      "scheduled_weight": "44.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124457-000020",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124567-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124574-000010",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124583-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124683-000010",
+      "input_weight": "96.0",
+      "scheduled_weight": "96.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124683-000020",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124683-000030",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124683-000040",
+      "input_weight": "192.0",
+      "scheduled_weight": "192.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124683-000050",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124731-000010",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124731-000020",
+      "input_weight": "54.0",
+      "scheduled_weight": "54.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124734-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124735-000060",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124735-000070",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124735-000080",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124735-000090",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124735-000100",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124735-000110",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124735-000120",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124735-000130",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124772-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124772-000020",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124772-000030",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124772-000060",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124800-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124800-000020",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124800-000030",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124800-000040",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124800-000050",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124800-000060",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124800-000070",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124800-000080",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124824-000010",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124824-000020",
+      "input_weight": "430.0",
+      "scheduled_weight": "430.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124824-000030",
+      "input_weight": "37.29",
+      "scheduled_weight": "37.29",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124824-000040",
+      "input_weight": "92.95",
+      "scheduled_weight": "92.95",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124824-000050",
+      "input_weight": "23.11",
+      "scheduled_weight": "23.11",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124826-000010",
+      "input_weight": "40.0",
+      "scheduled_weight": "40.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124826-000030",
+      "input_weight": "30.0",
+      "scheduled_weight": "30.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124826-000040",
+      "input_weight": "50.0",
+      "scheduled_weight": "50.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124827-000010",
+      "input_weight": "70.0",
+      "scheduled_weight": "70.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124827-000020",
+      "input_weight": "50.0",
+      "scheduled_weight": "50.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000010",
+      "input_weight": "25.0",
+      "scheduled_weight": "25.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000020",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000030",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000040",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000050",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000060",
+      "input_weight": "300.0",
+      "scheduled_weight": "300.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000070",
+      "input_weight": "230.0",
+      "scheduled_weight": "230.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000080",
+      "input_weight": "60.0",
+      "scheduled_weight": "60.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000090",
+      "input_weight": "70.0",
+      "scheduled_weight": "70.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000100",
+      "input_weight": "210.0",
+      "scheduled_weight": "210.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000110",
+      "input_weight": "140.0",
+      "scheduled_weight": "140.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000120",
+      "input_weight": "220.0",
+      "scheduled_weight": "220.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000130",
+      "input_weight": "180.0",
+      "scheduled_weight": "180.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030124871-000140",
+      "input_weight": "30.0",
+      "scheduled_weight": "30.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125097-000010",
+      "input_weight": "7.65",
+      "scheduled_weight": "7.65",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125101-000020",
+      "input_weight": "120.0",
+      "scheduled_weight": "120.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125101-000030",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125102-000010",
+      "input_weight": "72.0",
+      "scheduled_weight": "72.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125147-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125147-000020",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125147-000030",
+      "input_weight": "110.0",
+      "scheduled_weight": "110.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125150-000010",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125150-000020",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125150-000030",
+      "input_weight": "96.0",
+      "scheduled_weight": "96.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125157-000010",
+      "input_weight": "26.0",
+      "scheduled_weight": "26.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125168-000010",
+      "input_weight": "72.0",
+      "scheduled_weight": "72.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125168-000020",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125168-000030",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125168-000040",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125168-000050",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125168-000060",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125168-000070",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125168-000080",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125168-000090",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125170-000010",
+      "input_weight": "20.0",
+      "scheduled_weight": "20.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125184-000010",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125206-000010",
+      "input_weight": "23.0",
+      "scheduled_weight": "23.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000020",
+      "input_weight": "22.0",
+      "scheduled_weight": "22.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000030",
+      "input_weight": "22.0",
+      "scheduled_weight": "22.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000040",
+      "input_weight": "46.0",
+      "scheduled_weight": "46.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000050",
+      "input_weight": "48.0",
+      "scheduled_weight": "48.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000060",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000070",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000080",
+      "input_weight": "46.0",
+      "scheduled_weight": "46.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000090",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000100",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000110",
+      "input_weight": "24.0",
+      "scheduled_weight": "24.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000120",
+      "input_weight": "22.0",
+      "scheduled_weight": "22.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000130",
+      "input_weight": "22.0",
+      "scheduled_weight": "22.0",
+      "passed": true
+    },
+    {
+      "source_order_id": "0030125207-000140",
+      "input_weight": "44.0",
+      "scheduled_weight": "44.0",
+      "passed": true
+    }
+  ],
+  "underweight_chains": [],
+  "scope": "single quality precheck; function 21 and paired performance acceptance remain incomplete",
+  "code_revision": "35642779e4e5bcd4d0c9681b9825b2e4262dd5d1",
+  "python": "3.10.18",
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "request_id": "test-request",
+  "identities": {
+    "request_fingerprint": "0d9ee1cfe251306bb516a12e440120923853bf9114b57df1864880ab0ffa5a35",
+    "problem_fingerprint": "cff6df6e99a6522df007c104d9cd8e3d235948e4bf36286c656d7a0326c82dea",
+    "rule_set_fingerprint": "d963206b01c0d439303c1d6ae7d7374e20eaa0777801d12c0bebc89bfe6349c0",
+    "policy_fingerprint": "b74e8ea92660994a71d96cb42f4717ee7e0514206ca0378458003acf51ab99ba"
+  },
+  "public_result_fingerprint": "3d1689274bfa5f06d30411613e2fccdc14a9adc32464d9f4e7e8163fe0f04f67",
+  "public_release_fingerprint": "0b9deecf98ae11d9622c60874a7cc338e134a3448ccc8ec8bf7183d5661f61b0",
+  "core_result_fingerprint": "656a038a0e0fdf551eba64b8ee9226c7348fa9058f5f3670f8b01748a2189bc7",
+  "core_audit_fingerprint": "f7cdea86926de919eb27b414aeabe2c679ed13683f526ea4fcbdcce5841fe626",
+  "result_audit_fingerprint": "b9e137249e591030a216ea3b6b7d88d30f7c6feae143c184c93d92be8e8fc32a",
+  "trace_fingerprint": "aa9b16a7713d9f00e36c741600c483be9a5bcbbb6772e1d03caa850f122c12ae",
+  "gate": {
+    "schema_version": 1,
+    "status": "frozen",
+    "confirmed_on": "2026-09-04",
+    "scope": "GQGA4 fixed-input acceptance; not a production rule default",
+    "reference_manifest_sha256": "4e37a0cf3e378520d4b450dad0cced6f87adc733b7a148a07cb08445b005dcf7",
+    "maximum_chain_count": null,
+    "maximum_underweight_chain_count": 0,
+    "maximum_prohibited_violation_count": 0,
+    "expected_real_order_count": 531,
+    "expected_real_weight": "29333.91",
+    "maximum_virtual_output_weight_ratio": "0.05",
+    "maximum_late_original_due_period_move_count": 0,
+    "required_checks": [
+      "complete_coverage_and_conservation",
+      "source_order_weight_conservation",
+      "controlled_split_authorization_and_traceability",
+      "search_and_uncached_audit_agree",
+      "result_contract_self_check"
+    ],
+    "allowed_final_deviations": [],
+    "reference_observation": {
+      "status": "BEST_EFFORT",
+      "chain_count": 22,
+      "underweight_chain_count": 0,
+      "prohibited_violation_count": 1,
+      "passes_this_gate": false
+    },
+    "decision": "User explicitly removed the chain-count acceptance ceiling on 2026-09-04; null means no ceiling. Minimize chain count only as the seventh objective after the first six tie. Keep every other quality and performance requirement unchanged; this authorization is not inferred from a new solve result.",
+    "product_policy_note": "The generic release contract may allow underweight; this fixed GQGA4 acceptance requires zero underweight and zero prohibited violations.",
+    "new_implementation_quality_observed_before_freeze": false
+  },
+  "quality_gate_sha256": "c83c9e95b95f1918513830e328e28f6c380525ba2b698cc3a61c28c34441c4c3",
+  "script_sha256": "cf324e7db2b908151aebe1d648b13a277aeeb4691fc66854d39b70986dd361b3",
+  "protected_hashes": {
+    "src/apsgo_scheduler/__init__.py": "bbdd691d2a9bca771463b01d68487539dfcc108ab54c97c717a418c063634cf1",
+    "src/apsgo_scheduler/api/__init__.py": "a4f159942bef352aedbdfae112863d75c87d3c66b1aede57cf66b18adecdc895",
+    "src/apsgo_scheduler/api/diagnostics.py": "bc4335b74f7bfcb5750ab3748058845c54fa2a5687a7b5e78ad7dec1ff0458e6",
+    "src/apsgo_scheduler/api/request.py": "71f796547d7bc96bd50f9054dbb61d6c8ca56a7161e4dcb27d51fc4b5e34b85c",
+    "src/apsgo_scheduler/api/result.py": "73b7dc5f5d51936d4bb3afdcbd451b422161fc8f56245f9b1f9a64bf8e721002",
+    "src/apsgo_scheduler/app/__init__.py": "09c00e292b82e35959e24f1f34f7daf3c20db8b539eefdda696a0685a6924a14",
+    "src/apsgo_scheduler/app/contract_audit.py": "0471c557d5cf8f728456eefcc8799d46f23115a21e9d8f15a6977b55b01cb82f",
+    "src/apsgo_scheduler/app/input_normalizer.py": "1e47e867825942253bbe0e90f09ba508175a430428ef7344b53bf58bf2ae8d31",
+    "src/apsgo_scheduler/app/result_assembler.py": "b3af18153d2f37b1a5090daa8142fe458c938fc73c1306e90aef651613ea66b7",
+    "src/apsgo_scheduler/app/rule_set_loader.py": "5e70907bd5debd177071edc3bff61cd3c90ca5cac57b2986d7be2dbebe958bc6",
+    "src/apsgo_scheduler/app/service.py": "4345d7bb3db83c9683931ae9f7eb03cd46b72bac7d2c8650972823181699690f",
+    "src/apsgo_scheduler/core/__init__.py": "00ce7d57c7a019ce3ee326e2ce81a56f7503a2c1ba70d990fd52b8430a8c4bb2",
+    "src/apsgo_scheduler/core/budget.py": "5febac861f47e8c8ce75f6a94630d17717c6eb87836efcb0a1da6421e8d2b40f",
+    "src/apsgo_scheduler/core/chain_order.py": "2e3b4ab03bf9cea46941035d43e6e5c3c18088df0743e7a7a3eb5fc12ed4f8fe",
+    "src/apsgo_scheduler/core/compatibility.py": "228ed741e251cdcc342879fddf58e15ff08e5bab98a5b8644cfdd61d3a8c0df5",
+    "src/apsgo_scheduler/core/contracts.py": "dfc8f02455656cd07e803ee6f475b6247101cef7900ebb35b83abe909e8e5f2d",
+    "src/apsgo_scheduler/core/controlled_split.py": "d51f411989d6f1b02cbf4ef497aaad6004219b4e3f363af1d341f2630f510b6f",
+    "src/apsgo_scheduler/core/evaluation.py": "8bf72ec57c7caba88c96df74c14c36186b116a97dd51336858954eccf8f5bbae",
+    "src/apsgo_scheduler/core/final_audit.py": "f84027e7c56a106a8fae24a3a22657caa60ed5718a7e4f4abd5864224a4a3eb5",
+    "src/apsgo_scheduler/core/initial_solution.py": "428c71291cf8cda4587abc1d6b04577d6557d70dd1e3aff5b3ba8101d9444d73",
+    "src/apsgo_scheduler/core/model.py": "3b2db98641104efc99d0e5d4ae95b3e429cf80f9f4115f1fe35f2f2939a33742",
+    "src/apsgo_scheduler/core/neighborhoods.py": "41868776b8c96b6ab6f674613e599190815725a9506e2a6c9a90eb94baea7379",
+    "src/apsgo_scheduler/core/path_cover.py": "902d9cce58c88b6bd03ef97c832f6d710318c07a0a766d36ac437216bd810b5d",
+    "src/apsgo_scheduler/core/resource_facts.py": "5f3f4aeedcc38c39b47c3e89609e6e877fb641c3b1562930426d98025c826abd",
+    "src/apsgo_scheduler/core/rules/__init__.py": "f03ca9f19b9c420875c3a262dc95ac531263a6ab93a2776ee760e546d20fe387",
+    "src/apsgo_scheduler/core/rules/base.py": "6fe45ee048aa9ccbf17edb34720512fd04dfcd3afe8f120a506f71daf8095904",
+    "src/apsgo_scheduler/core/rules/concrete.py": "eb85ee7e95a43f63226d60a46a7bbdfdc9f110fdb767b3ae76e2e5b918884554",
+    "src/apsgo_scheduler/core/rules/helpers.py": "5a669654a8880d9474e14a021587709af99d5924bb3188a546d34913e420f65f",
+    "src/apsgo_scheduler/core/rules/rule_set.py": "23246a43f8b55d778820e549a2587e5107df5448aae6f876523a83921a373701",
+    "src/apsgo_scheduler/core/solver.py": "53df13535b3fa5738147a610ec0eb3907a1a5ceaa980afb78cfc033decc02a0c",
+    "src/apsgo_scheduler/core/virtual_material.py": "a9a6454d7b47c53f0e9a90c6857660c4eb50a67ac9f3c292523c0d6d99f3955e",
+    "src/apsgo_scheduler/core/width_optimization.py": "be6ee7b6a5b5f6ad771b4e595e18df1e802c0a1bd9692295f50d6733a219612b",
+    "tests/app/test_input_normalizer.py": "70f77df56c15c0c801a7b9169ec220577f2796961196ac5623fa86bb18259c34",
+    "tests/baselines/gqga4/gqga4_rule_set_spec.json": "76654669df191b3ff15811f4ab5a1e41bca6efa9978b3571d2bdf5c5b42d31f4",
+    "tests/baselines/gqga4/gqga4_rule_set_spec_six_level_historical.json": "7c3f7ae0af00c0e3669657990bce60d505f8eb760820c6a9f47055f82d65bf16",
+    "tests/baselines/gqga4/gqga4_rule_set_spec_width_last_historical.json": "d0a73350aedbb5c7dff0ed427bae8f90110df092cab32089b3905f6c4c596564",
+    "tests/baselines/gqga4/gqga4_solver_policy.json": "c7ca656feae36c690bd253a2ba254a296f00a5401a792ca3b2c1c971c424766d",
+    "tests/baselines/gqga4/inputs/input_orders.csv": "d178cc19ac6ef2807962beb110333f8702c8e2eeec153f9b0f94236913060941",
+    "tests/baselines/gqga4/inputs/optimization_problem.json": "8edb7f4110384af14d58e9bdc7caec490f3de053401173db952854275966abdc",
+    "tests/baselines/gqga4/inputs/resolved_rules.json": "5f045f8415ea0b3fd77256897e28b2e24c9dd6f661cd3e9f0bb48448bb3cf44a",
+    "tests/baselines/gqga4/inputs/rule_context.json": "90091b7c7bbcf4373c6745a8cde15c4501ff7246628fd5b7824ad69d451347c7",
+    "tests/baselines/gqga4/inputs/solver_config.json": "f539c3231e524097c964a6751046f1ec0d3e0cd89e7d74ebea0d282f65eec47c",
+    "tests/baselines/gqga4/performance_gate.json": "e6a472ea83288b67e2902fd47c11cf312d174a3cd9803f91f71b8dbbed8209cb",
+    "tests/baselines/gqga4/quality_gate.json": "c83c9e95b95f1918513830e328e28f6c380525ba2b698cc3a61c28c34441c4c3",
+    "tests/baselines/gqga4/reference_manifest.json": "4e37a0cf3e378520d4b450dad0cced6f87adc733b7a148a07cb08445b005dcf7",
+    "tests/baselines/gqga4/reference_performance_samples.json": "eb64c030397e010c8c092899e4bb1319bc8fafa1e982a38e6823b70a7a40662a",
+    "tests/baselines/gqga4/reference_stage_expectations.json": "90abd195942759fba3dc946a6d4a989e5ab0e5503667b0d0c28569efb539cd45",
+    "tests/baselines/gqga4/v3_reference_manifest.json": "cc617f1282a2f265e862590ba109e627de9b1101f48a3897ac0c16d59f1b0a29"
+  },
+  "reference_hashes": {
+    "script/solver.py": "87f564407f0cefeef3c66a7724e534f3621ac0a52207fd5b114a0e33f7f97318",
+    "inputs/input_orders.csv": "d178cc19ac6ef2807962beb110333f8702c8e2eeec153f9b0f94236913060941",
+    "inputs/optimization_problem.json": "8edb7f4110384af14d58e9bdc7caec490f3de053401173db952854275966abdc",
+    "inputs/resolved_rules.json": "5f045f8415ea0b3fd77256897e28b2e24c9dd6f661cd3e9f0bb48448bb3cf44a",
+    "inputs/rule_context.json": "90091b7c7bbcf4373c6745a8cde15c4501ff7246628fd5b7824ad69d451347c7",
+    "inputs/solver_config.json": "f539c3231e524097c964a6751046f1ec0d3e0cd89e7d74ebea0d282f65eec47c",
+    "static_outputs/run_manifest.json": "41c7127eb1e75308da92e670975f97ea30577dd8fb5954014cef96ed427419f8",
+    "static_outputs/validation_report.json": "4ff4fe71f25cc21d2b42ece7599c642059fcb52dc464625bdb3804dabdf16f35",
+    "static_outputs/chain_summary.csv": "4d0b7f5e69f856443fecb149667c508542076793f8c529f9f0d1aa84e9544c44",
+    "static_outputs/schedule_result.csv": "444927fb70f0afbd602d9de2673ca978b8ec4be9d4c46a964dba0a43d1722655"
+  },
+  "counters": {
+    "graph_edge_check_count": 140715,
+    "graph_allowed_edge_count": 32536,
+    "matching_edge_count": 514,
+    "path_count": 17,
+    "initial_chain_count": 31,
+    "candidate_check_count": 200000,
+    "complete_candidate_evaluation_count": 3603,
+    "accepted_move_count": 58,
+    "accepted_split_count": 2,
+    "accepted_same_period_split_count": 2,
+    "accepted_future_borrow_return_count": 0,
+    "final_chain_count": 22
+  },
+  "timings": {
+    "observed_public_service_seconds": 170.77630037500057,
+    "stage_duration_seconds": {
+      "input_validation": "0.017309874998318264",
+      "construction_graph": "2.0574106669992034",
+      "minimum_path_cover": "0.4638472919978085",
+      "initial_solution": "0.18076458299765363",
+      "local_search": "58.201147791998665",
+      "controlled_split_and_replay": "42.8105230000001",
+      "width_optimization": "66.18147179099833",
+      "core_audit": "0.05943545799891581",
+      "request_preparation": "0.00005750000127591193",
+      "rule_loading": "0.0006770410000171978",
+      "input_normalization": "0.03221745799964992",
+      "core_solve": "170.0962461249983",
+      "result_assembly": "0.1238465409987839",
+      "service_to_result_audit_seconds": "170.4963404580012",
+      "result_contract_audit": "0.2281915410021611",
+      "result_sealing": "0.12281316599910497"
+    }
+  },
+  "cache": {
+    "hits": 2030925,
+    "misses": 199834,
+    "entries": 199834,
+    "hit_ratio": 0.9104188305415332
+  },
+  "instrumentation": "one wrapper per core call/cache construction, returning original objects; no hot-path tracing",
+  "reference_observations": {
+    "solverpy_frozen_gate_observation": {
+      "status": "BEST_EFFORT",
+      "chain_count": 22,
+      "underweight_chain_count": 0,
+      "prohibited_violation_count": 1,
+      "passes_this_gate": false
+    },
+    "solverpy_stage_final": {
+      "quality": [
+        1,
+        70.3,
+        0,
+        0.0,
+        22,
+        540.0,
+        22694.88
+      ],
+      "metrics": {
+        "real_order_count": 531,
+        "real_schedule_node_count": 532,
+        "real_weight": "29333.91",
+        "virtual_node_count": 27,
+        "virtual_weight": "540",
+        "final_output_total_weight": "29873.91",
+        "virtual_output_weight_ratio": "0.018076",
+        "future_real_order_borrowed_weight": "22694.88",
+        "future_pool_real_weight": "23543.54",
+        "future_pool_borrowed_ratio": "0.963954",
+        "late_original_due_period_move_count": 0,
+        "nonempty_chain_count": 22,
+        "controlled_split_source_count": 1
+      },
+      "candidate_checks": 94024,
+      "stop_reason": "search_complete"
+    },
+    "v3_metrics": {
+      "chain_count": 37,
+      "underweight_chain_count": 3,
+      "real_weight": "29333.91",
+      "virtual_weight": "1080",
+      "prohibited_violation_chain_count_excluding_underweight": 1
+    },
+    "v3_quality_note": "The 570.3-ton chain BR_00000001|flexible|stage1|chain_0034 violates chain_if_narrow_real_weight_lte as well as chain_weight_range; V3 is not free of prohibited violations.",
+    "count_warning": "V3 prohibited_violation_chain_count counts chains, target prohibited_violation_count counts violation records; not interchangeable."
+  },
+  "artifacts_sha256": {
+    "accepted_trace.canonical.json": "9364d8b7c994bf7fb2944090a69ceb8e04ba2a41ce79f0ca323e43bfe5542136",
+    "chain_detail.csv": "332a0c65ec892b8af615b05a1a4f15d38467a16e528386d3b0c909b35c845421",
+    "public_result.canonical.json": "4fac857fed893f91545d7e4580f2016383016c8396ce99edc864f4e5296e359a",
+    "schedule_detail.csv": "bdef77cb712c34ee81a3f0a2fb274b161ff01fada52e4379c99ada1e13c56173",
+    "source_conservation.csv": "5437cd7181f807616e250a0a30120f5d7b4b52c7844ec7c4e0383674ea10336e"
+  }
+}

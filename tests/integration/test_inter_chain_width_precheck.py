@@ -106,9 +106,12 @@ def test_real_order_stage_keeps_state_trace_counts_and_budget_clock_calls(observ
 
 
 @pytest.mark.parametrize("native", (False, True))
-def test_real_public_pipeline_returns_original_release_and_core_trace(
+def test_pre_width_public_pipeline_returns_original_release_and_core_trace(
     observer, checker, monkeypatch, native
 ):
+    if native:
+        # This legacy observer covers the pipeline before concentrated width refinement.
+        monkeypatch.setattr(checker.core_solver, "run_width_optimization", lambda state, _: state)
     request = small_request(monkeypatch, native=native)
     monkeypatch.setattr(service, "monotonic", lambda: 100.0)
     baseline = checker.solve_request(request)
@@ -231,9 +234,13 @@ def test_observation_context_restores_all_patches_after_error(observer, checker)
     )
 
 
-def test_supplement_runs_real_precheck_keeps_six_files_and_binds_new_artifacts(
-    observer, checker, monkeypatch, tmp_path
+@pytest.mark.parametrize("legacy_only", (True, False))
+def test_legacy_supplement_keeps_old_contract_or_rejects_unobserved_width_work(
+    observer, checker, monkeypatch, tmp_path, legacy_only
 ):
+    if legacy_only:
+        # Current-pipeline success belongs to test_width_optimization_observation.py.
+        monkeypatch.setattr(checker.core_solver, "run_width_optimization", lambda state, _: state)
     request = small_request(monkeypatch)
     active = load_rule_set(request.rule_set_spec)
     problem = normalize_input(request, active)
@@ -264,26 +271,38 @@ def test_supplement_runs_real_precheck_keeps_six_files_and_binds_new_artifacts(
         return status
 
     monkeypatch.setattr(checker, "main", precheck)
+    arguments = [
+        "--code-root",
+        str(ROOT),
+        "--code-repository",
+        str(ROOT),
+        "--code-revision",
+        "synthetic",
+        "--output-dir",
+        str(output),
+    ]
     # The unchanged formal 531-order gate must fail for this three-order test, not be weakened.
-    assert (
-        observer.main(
-            [
-                "--code-root",
-                str(ROOT),
-                "--code-repository",
-                str(ROOT),
-                "--code-revision",
-                "synthetic",
-                "--output-dir",
-                str(output),
-            ]
-        )
-        == 2
-    )
+    if legacy_only:
+        assert observer.main(arguments) == 2
+    else:
+        with pytest.raises(
+            ValueError, match="exclusive observed stage counts disagree with actual core metrics"
+        ):
+            observer.main(arguments)
     assert len(original_files) == 6
     assert all(
         (output / name).read_bytes() == contents for name, contents in original_files.items()
     )
+    if not legacy_only:
+        assert all(
+            not (output / name).exists()
+            for name in (
+                "observation.json",
+                "observation_manifest.json",
+                "chain_boundary_detail.csv",
+            )
+        )
+        return
     manifest = json.loads((output / "observation_manifest.json").read_text())
     assert manifest["quality_report_sha256"] == checker.sha256(output / "quality_report.json")
     assert manifest["runner_sha256"] == checker.sha256(SCRIPT)
