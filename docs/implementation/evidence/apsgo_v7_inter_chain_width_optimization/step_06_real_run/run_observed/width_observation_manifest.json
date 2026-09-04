@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "code_revision": "6902be0862ce6573f27d5fa28291655e9e8e482a",
+  "quality_report_sha256": "21a1d7b75550e941305c6d1b587c53b0996518a8173be0498f103f06ae519433",
+  "runner_sha256": "91c1abe188c1f468f973974f1772e8910828a7befc9bf15867fecef2e0545cb8",
+  "dependency_sha256": {
+    "docs/implementation/evidence/solverpy_path_cover_local_search/function_22_inter_chain_width_gap/step_22_4_real_comparison/run_observed_precheck.py": "98725e97d54fa31d4d7dfc36d7ff199d09d4170c601a55d9668c1806dfd57c03",
+    "docs/implementation/evidence/solverpy_path_cover_local_search/function_21_complete_acceptance/quality_precheck.py": "cf324e7db2b908151aebe1d648b13a277aeeb4691fc66854d39b70986dd361b3",
+    "tools/capture_solverpy_reference.py": "262503121da3e10d3a028de326eb4ff9f4d49b3564348cdae590c2da45a9018e"
+  },
+  "artifacts_sha256": {
+    "width_observation.json": "3c3b6da969dd2ddf3e82e50fd299fc82bd07aaf97f9358062fcba0ef3cd3122b"
+  }
+}

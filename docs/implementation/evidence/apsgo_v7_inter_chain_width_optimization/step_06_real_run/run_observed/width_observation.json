@@ -1,0 +1,703 @@
+{
+  "schema_version": 1,
+  "code_revision": "6902be0862ce6573f27d5fa28291655e9e8e482a",
+  "quality_gate_passed": true,
+  "problem_fingerprint": "cff6df6e99a6522df007c104d9cd8e3d235948e4bf36286c656d7a0326c82dea",
+  "rule_set_fingerprint": "d963206b01c0d439303c1d6ae7d7374e20eaa0777801d12c0bebc89bfe6349c0",
+  "policy_fingerprint": "b74e8ea92660994a71d96cb42f4717ee7e0514206ca0378458003acf51ab99ba",
+  "public_result_fingerprint": "3d1689274bfa5f06d30411613e2fccdc14a9adc32464d9f4e7e8163fe0f04f67",
+  "core_result_fingerprint": "656a038a0e0fdf551eba64b8ee9226c7348fa9058f5f3670f8b01748a2189bc7",
+  "trace_fingerprint": "aa9b16a7713d9f00e36c741600c483be9a5bcbbb6772e1d03caa850f122c12ae",
+  "width_quality_position": 5,
+  "initial_quality_key": [
+    2,
+    "170.3",
+    15,
+    "4003.93",
+    "11183.0",
+    "0.0",
+    31
+  ],
+  "final_quality_key": [
+    0,
+    "0.0",
+    0,
+    "0.00",
+    "10912.0",
+    "600.0",
+    22
+  ],
+  "final_width_gap": "10912.0",
+  "stages": [
+    {
+      "stage": "local_search",
+      "nested": false,
+      "before": {
+        "counters": {
+          "candidate_check_count": 0,
+          "complete_candidate_evaluation_count": 0,
+          "accepted_move_count": 0
+        },
+        "quality_key": [
+          2,
+          "170.3",
+          15,
+          "4003.93",
+          "11183.0",
+          "0.0",
+          31
+        ],
+        "chain_count": 31,
+        "stop_reason": null
+      },
+      "after": {
+        "counters": {
+          "candidate_check_count": 78524,
+          "complete_candidate_evaluation_count": 1224,
+          "accepted_move_count": 34
+        },
+        "quality_key": [
+          2,
+          "170.3",
+          1,
+          "194.42",
+          "11295.0",
+          "280.0",
+          22
+        ],
+        "chain_count": 22,
+        "stop_reason": "local_search_complete"
+      },
+      "delta": {
+        "candidate_check_count": 78524,
+        "complete_candidate_evaluation_count": 1224,
+        "accepted_move_count": 34
+      }
+    },
+    {
+      "stage": "controlled_split_and_replay",
+      "nested": false,
+      "before": {
+        "counters": {
+          "candidate_check_count": 78524,
+          "complete_candidate_evaluation_count": 1224,
+          "accepted_move_count": 34
+        },
+        "quality_key": [
+          2,
+          "170.3",
+          1,
+          "194.42",
+          "11295.0",
+          "280.0",
+          22
+        ],
+        "chain_count": 22,
+        "stop_reason": "local_search_complete"
+      },
+      "after": {
+        "counters": {
+          "candidate_check_count": 94518,
+          "complete_candidate_evaluation_count": 2627,
+          "accepted_move_count": 50
+        },
+        "quality_key": [
+          0,
+          "0.0",
+          0,
+          "0.00",
+          "11218.0",
+          "320.0",
+          22
+        ],
+        "chain_count": 22,
+        "stop_reason": "local_search_complete"
+      },
+      "delta": {
+        "candidate_check_count": 15994,
+        "complete_candidate_evaluation_count": 1403,
+        "accepted_move_count": 16
+      }
+    },
+    {
+      "stage": "post_split_replay",
+      "nested": true,
+      "before": {
+        "counters": {
+          "candidate_check_count": 78526,
+          "complete_candidate_evaluation_count": 1226,
+          "accepted_move_count": 36
+        },
+        "quality_key": [
+          0,
+          "0.0",
+          4,
+          "918.12",
+          "11047.0",
+          "320.0",
+          24
+        ],
+        "chain_count": 24,
+        "stop_reason": null
+      },
+      "after": {
+        "counters": {
+          "candidate_check_count": 94518,
+          "complete_candidate_evaluation_count": 2627,
+          "accepted_move_count": 50
+        },
+        "quality_key": [
+          0,
+          "0.0",
+          0,
+          "0.00",
+          "11218.0",
+          "320.0",
+          22
+        ],
+        "chain_count": 22,
+        "stop_reason": "local_search_complete"
+      },
+      "delta": {
+        "candidate_check_count": 15992,
+        "complete_candidate_evaluation_count": 1401,
+        "accepted_move_count": 14
+      }
+    },
+    {
+      "stage": "width_optimization",
+      "nested": false,
+      "before": {
+        "counters": {
+          "candidate_check_count": 94518,
+          "complete_candidate_evaluation_count": 2627,
+          "accepted_move_count": 50
+        },
+        "quality_key": [
+          0,
+          "0.0",
+          0,
+          "0.00",
+          "11218.0",
+          "320.0",
+          22
+        ],
+        "chain_count": 22,
+        "stop_reason": "local_search_complete"
+      },
+      "after": {
+        "counters": {
+          "candidate_check_count": 200000,
+          "complete_candidate_evaluation_count": 3603,
+          "accepted_move_count": 58
+        },
+        "quality_key": [
+          0,
+          "0.0",
+          0,
+          "0.00",
+          "10912.0",
+          "600.0",
+          22
+        ],
+        "chain_count": 22,
+        "stop_reason": "candidate_limit_reached"
+      },
+      "delta": {
+        "candidate_check_count": 105482,
+        "complete_candidate_evaluation_count": 976,
+        "accepted_move_count": 8
+      }
+    }
+  ],
+  "actions": {
+    "width_node_move": {
+      "candidate_check_count": 39092,
+      "complete_candidate_evaluation_count": 258,
+      "accepted_move_count": 7,
+      "exception_count": 0
+    },
+    "width_node_exchange": {
+      "candidate_check_count": 39085,
+      "complete_candidate_evaluation_count": 662,
+      "accepted_move_count": 1,
+      "exception_count": 0
+    },
+    "width_block_move": {
+      "candidate_check_count": 6749,
+      "complete_candidate_evaluation_count": 0,
+      "accepted_move_count": 0,
+      "exception_count": 0
+    },
+    "width_block_exchange": {
+      "candidate_check_count": 6749,
+      "complete_candidate_evaluation_count": 56,
+      "accepted_move_count": 0,
+      "exception_count": 0
+    },
+    "width_chain_cut": {
+      "candidate_check_count": 13497,
+      "complete_candidate_evaluation_count": 0,
+      "accepted_move_count": 0,
+      "exception_count": 0
+    },
+    "width_chain_order_relocation": {
+      "candidate_check_count": 310,
+      "complete_candidate_evaluation_count": 0,
+      "accepted_move_count": 0,
+      "exception_count": 0
+    }
+  },
+  "batches": [
+    {
+      "family": "_node_recipes",
+      "generation": 50,
+      "allowance": 26370,
+      "before": {
+        "candidate_check_count": 94518,
+        "complete_candidate_evaluation_count": 2627,
+        "accepted_move_count": 50
+      },
+      "accepted": true,
+      "exhausted": false,
+      "outcome": "accepted",
+      "after": {
+        "candidate_check_count": 95777,
+        "complete_candidate_evaluation_count": 2648,
+        "accepted_move_count": 51
+      },
+      "delta": {
+        "candidate_check_count": 1259,
+        "complete_candidate_evaluation_count": 21,
+        "accepted_move_count": 1
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_node_recipes",
+      "generation": 51,
+      "allowance": 26055,
+      "before": {
+        "candidate_check_count": 95777,
+        "complete_candidate_evaluation_count": 2648,
+        "accepted_move_count": 51
+      },
+      "accepted": true,
+      "exhausted": false,
+      "outcome": "accepted",
+      "after": {
+        "candidate_check_count": 98526,
+        "complete_candidate_evaluation_count": 2696,
+        "accepted_move_count": 52
+      },
+      "delta": {
+        "candidate_check_count": 2749,
+        "complete_candidate_evaluation_count": 48,
+        "accepted_move_count": 1
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_node_recipes",
+      "generation": 52,
+      "allowance": 25368,
+      "before": {
+        "candidate_check_count": 98526,
+        "complete_candidate_evaluation_count": 2696,
+        "accepted_move_count": 52
+      },
+      "accepted": true,
+      "exhausted": false,
+      "outcome": "accepted",
+      "after": {
+        "candidate_check_count": 105459,
+        "complete_candidate_evaluation_count": 2819,
+        "accepted_move_count": 53
+      },
+      "delta": {
+        "candidate_check_count": 6933,
+        "complete_candidate_evaluation_count": 123,
+        "accepted_move_count": 1
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_node_recipes",
+      "generation": 53,
+      "allowance": 23635,
+      "before": {
+        "candidate_check_count": 105459,
+        "complete_candidate_evaluation_count": 2819,
+        "accepted_move_count": 53
+      },
+      "accepted": true,
+      "exhausted": false,
+      "outcome": "accepted",
+      "after": {
+        "candidate_check_count": 114966,
+        "complete_candidate_evaluation_count": 2978,
+        "accepted_move_count": 54
+      },
+      "delta": {
+        "candidate_check_count": 9507,
+        "complete_candidate_evaluation_count": 159,
+        "accepted_move_count": 1
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_node_recipes",
+      "generation": 54,
+      "allowance": 21258,
+      "before": {
+        "candidate_check_count": 114966,
+        "complete_candidate_evaluation_count": 2978,
+        "accepted_move_count": 54
+      },
+      "accepted": true,
+      "exhausted": false,
+      "outcome": "accepted",
+      "after": {
+        "candidate_check_count": 126541,
+        "complete_candidate_evaluation_count": 3128,
+        "accepted_move_count": 55
+      },
+      "delta": {
+        "candidate_check_count": 11575,
+        "complete_candidate_evaluation_count": 150,
+        "accepted_move_count": 1
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_node_recipes",
+      "generation": 55,
+      "allowance": 18364,
+      "before": {
+        "candidate_check_count": 126541,
+        "complete_candidate_evaluation_count": 3128,
+        "accepted_move_count": 55
+      },
+      "accepted": true,
+      "exhausted": false,
+      "outcome": "accepted",
+      "after": {
+        "candidate_check_count": 143438,
+        "complete_candidate_evaluation_count": 3294,
+        "accepted_move_count": 56
+      },
+      "delta": {
+        "candidate_check_count": 16897,
+        "complete_candidate_evaluation_count": 166,
+        "accepted_move_count": 1
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_node_recipes",
+      "generation": 56,
+      "allowance": 14140,
+      "before": {
+        "candidate_check_count": 143438,
+        "complete_candidate_evaluation_count": 3294,
+        "accepted_move_count": 56
+      },
+      "accepted": true,
+      "exhausted": false,
+      "outcome": "accepted",
+      "after": {
+        "candidate_check_count": 150950,
+        "complete_candidate_evaluation_count": 3375,
+        "accepted_move_count": 57
+      },
+      "delta": {
+        "candidate_check_count": 7512,
+        "complete_candidate_evaluation_count": 81,
+        "accepted_move_count": 1
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_node_recipes",
+      "generation": 57,
+      "allowance": 12262,
+      "before": {
+        "candidate_check_count": 150950,
+        "complete_candidate_evaluation_count": 3375,
+        "accepted_move_count": 57
+      },
+      "accepted": true,
+      "exhausted": false,
+      "outcome": "accepted",
+      "after": {
+        "candidate_check_count": 159197,
+        "complete_candidate_evaluation_count": 3457,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 8247,
+        "complete_candidate_evaluation_count": 82,
+        "accepted_move_count": 1
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_node_recipes",
+      "generation": 58,
+      "allowance": 10200,
+      "before": {
+        "candidate_check_count": 159197,
+        "complete_candidate_evaluation_count": 3457,
+        "accepted_move_count": 58
+      },
+      "accepted": false,
+      "exhausted": false,
+      "outcome": "batch_exhausted",
+      "after": {
+        "candidate_check_count": 169397,
+        "complete_candidate_evaluation_count": 3535,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 10200,
+        "complete_candidate_evaluation_count": 78,
+        "accepted_move_count": 0
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_block_recipes",
+      "generation": 58,
+      "allowance": 10200,
+      "before": {
+        "candidate_check_count": 169397,
+        "complete_candidate_evaluation_count": 3535,
+        "accepted_move_count": 58
+      },
+      "accepted": false,
+      "exhausted": false,
+      "outcome": "batch_exhausted",
+      "after": {
+        "candidate_check_count": 179597,
+        "complete_candidate_evaluation_count": 3583,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 10200,
+        "complete_candidate_evaluation_count": 48,
+        "accepted_move_count": 0
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_cut_recipes",
+      "generation": 58,
+      "allowance": 10200,
+      "before": {
+        "candidate_check_count": 179597,
+        "complete_candidate_evaluation_count": 3583,
+        "accepted_move_count": 58
+      },
+      "accepted": false,
+      "exhausted": false,
+      "outcome": "batch_exhausted",
+      "after": {
+        "candidate_check_count": 189797,
+        "complete_candidate_evaluation_count": 3583,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 10200,
+        "complete_candidate_evaluation_count": 0,
+        "accepted_move_count": 0
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_order_recipes",
+      "generation": 58,
+      "allowance": 10200,
+      "before": {
+        "candidate_check_count": 189797,
+        "complete_candidate_evaluation_count": 3583,
+        "accepted_move_count": 58
+      },
+      "accepted": false,
+      "exhausted": true,
+      "outcome": "naturally_exhausted",
+      "after": {
+        "candidate_check_count": 190107,
+        "complete_candidate_evaluation_count": 3583,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 310,
+        "complete_candidate_evaluation_count": 0,
+        "accepted_move_count": 0
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_node_recipes",
+      "generation": 58,
+      "allowance": 3297,
+      "before": {
+        "candidate_check_count": 190107,
+        "complete_candidate_evaluation_count": 3583,
+        "accepted_move_count": 58
+      },
+      "accepted": false,
+      "exhausted": false,
+      "outcome": "batch_exhausted",
+      "after": {
+        "candidate_check_count": 193404,
+        "complete_candidate_evaluation_count": 3595,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 3297,
+        "complete_candidate_evaluation_count": 12,
+        "accepted_move_count": 0
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_block_recipes",
+      "generation": 58,
+      "allowance": 3297,
+      "before": {
+        "candidate_check_count": 193404,
+        "complete_candidate_evaluation_count": 3595,
+        "accepted_move_count": 58
+      },
+      "accepted": false,
+      "exhausted": false,
+      "outcome": "batch_exhausted",
+      "after": {
+        "candidate_check_count": 196701,
+        "complete_candidate_evaluation_count": 3603,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 3297,
+        "complete_candidate_evaluation_count": 8,
+        "accepted_move_count": 0
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_cut_recipes",
+      "generation": 58,
+      "allowance": 3297,
+      "before": {
+        "candidate_check_count": 196701,
+        "complete_candidate_evaluation_count": 3603,
+        "accepted_move_count": 58
+      },
+      "accepted": false,
+      "exhausted": false,
+      "outcome": "batch_exhausted",
+      "after": {
+        "candidate_check_count": 199998,
+        "complete_candidate_evaluation_count": 3603,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 3297,
+        "complete_candidate_evaluation_count": 0,
+        "accepted_move_count": 0
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_node_recipes",
+      "generation": 58,
+      "allowance": 1,
+      "before": {
+        "candidate_check_count": 199998,
+        "complete_candidate_evaluation_count": 3603,
+        "accepted_move_count": 58
+      },
+      "accepted": false,
+      "exhausted": false,
+      "outcome": "batch_exhausted",
+      "after": {
+        "candidate_check_count": 199999,
+        "complete_candidate_evaluation_count": 3603,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 1,
+        "complete_candidate_evaluation_count": 0,
+        "accepted_move_count": 0
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_block_recipes",
+      "generation": 58,
+      "allowance": 1,
+      "before": {
+        "candidate_check_count": 199999,
+        "complete_candidate_evaluation_count": 3603,
+        "accepted_move_count": 58
+      },
+      "accepted": false,
+      "exhausted": false,
+      "outcome": "batch_exhausted",
+      "after": {
+        "candidate_check_count": 200000,
+        "complete_candidate_evaluation_count": 3603,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 1,
+        "complete_candidate_evaluation_count": 0,
+        "accepted_move_count": 0
+      },
+      "stop_reason": null
+    },
+    {
+      "family": "_cut_recipes",
+      "generation": 58,
+      "allowance": 1,
+      "before": {
+        "candidate_check_count": 200000,
+        "complete_candidate_evaluation_count": 3603,
+        "accepted_move_count": 58
+      },
+      "accepted": false,
+      "exhausted": false,
+      "outcome": "interrupted",
+      "after": {
+        "candidate_check_count": 200000,
+        "complete_candidate_evaluation_count": 3603,
+        "accepted_move_count": 58
+      },
+      "delta": {
+        "candidate_check_count": 0,
+        "complete_candidate_evaluation_count": 0,
+        "accepted_move_count": 0
+      },
+      "stop_reason": "candidate_limit_reached"
+    }
+  ],
+  "reconciled_counts": {
+    "stage_totals": {
+      "candidate_check_count": 200000,
+      "complete_candidate_evaluation_count": 3603,
+      "accepted_move_count": 58
+    },
+    "width_action_totals": {
+      "candidate_check_count": 105482,
+      "complete_candidate_evaluation_count": 976,
+      "accepted_move_count": 8
+    },
+    "width_batch_totals": {
+      "candidate_check_count": 105482,
+      "complete_candidate_evaluation_count": 976,
+      "accepted_move_count": 8
+    }
+  },
+  "instrumentation": "Evidence-only wrappers return original objects and read existing counters; no candidate peeking, budget, cancellation or solver-clock polling. Timings include observer overhead and are not performance acceptance."
+}

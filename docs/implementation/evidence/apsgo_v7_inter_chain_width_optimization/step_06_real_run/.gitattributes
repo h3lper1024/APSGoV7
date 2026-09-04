@@ -1,0 +1,4 @@
+*.csv -text
+*.json -text
+# Preserve the generated offline Plotly bundle exactly, as in the existing reports.
+report/report.html -diff -text
