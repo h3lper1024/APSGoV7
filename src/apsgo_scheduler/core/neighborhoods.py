@@ -296,6 +296,59 @@ def _authorized_split_replacement(state, context, plan, affected, subject, decis
     return budget.allows_search()
 
 
+def _width_candidate_nodes_valid(plan, before, after, context):
+    """Preserve old nodes and validate only newly proposed interface bridges."""
+    budget, factory = context.factory.budget, context.factory
+    for identity, node in before.items():
+        if not budget.allows_search() or after.get(identity) != node:
+            return False
+    prototypes = {item.prototype_id: item for item in factory.cache.problem.virtual_prototypes}
+    for chain in plan.chains:
+        position = 0
+        while position < len(chain.nodes):
+            if not budget.allows_search():
+                return False
+            if chain.nodes[position].node_id in before:
+                position += 1
+                continue
+            start = position
+            while position < len(chain.nodes) and chain.nodes[position].node_id not in before:
+                if not budget.allows_search():
+                    return False
+                position += 1
+            if (
+                start == 0
+                or position == len(chain.nodes)
+                or position - start > context.policy.maximum_virtual_bridge_nodes
+            ):
+                return False
+            left, right = chain.nodes[start - 1], chain.nodes[position]
+            for node in chain.nodes[start:position]:
+                if not budget.allows_search():
+                    return False
+                if node.material_role is not MaterialRole.GENERATED_VIRTUAL:
+                    return False
+                lineage = node.virtual_lineage
+                prototype = prototypes.get(lineage.prototype_id)
+                if (
+                    lineage.purpose is not VirtualPurpose.EDGE_BRIDGE
+                    or lineage.related_partition_id is not None
+                    or prototype is None
+                ):
+                    return False
+                # Both nodes of a double bridge use the same old interface anchors.
+                expected = factory.materialize(
+                    prototype,
+                    left,
+                    right,
+                    purpose=VirtualPurpose.EDGE_BRIDGE,
+                    sequence=lineage.accepted_sequence,
+                )
+                if not budget.allows_search() or node != expected:
+                    return False
+    return budget.allows_search()
+
+
 def try_complete_candidate(
     state: SearchState,
     context: SearchContext,
@@ -307,11 +360,14 @@ def try_complete_candidate(
     split_subject: ControlledSplitRuleSubject | None = None,
     split_decision: ControlledSplitDecision | None = None,
     chain_order_only: bool = False,
+    width_optimization_only: bool = False,
 ) -> bool:
     """Evaluate one structurally complete candidate; no business-wide hard filters."""
     _validate_search(state, context)
     if type(chain_order_only) is not bool:
         raise ValueError("chain_order_only must be boolean")
+    if type(width_optimization_only) is not bool:
+        raise ValueError("width_optimization_only must be boolean")
     if (split_subject is None) != (split_decision is None) or (
         split_subject is not None
         and (
@@ -330,12 +386,20 @@ def try_complete_candidate(
     if not set(affected) <= current.keys():
         raise ValueError("affected chain identity is absent from the current plan")
     budget, cache = context.factory.budget, context.factory.cache
-    order_index = chain_order_objective_index(cache.rule_set) if chain_order_only else None
+    order_index = (
+        chain_order_objective_index(cache.rule_set)
+        if chain_order_only or width_optimization_only
+        else None
+    )
     if chain_order_only and (
         order_index is None
         or split_subject is not None
         or virtual_sequence != state.virtual_sequence
         or {chain.chain_id: chain for chain in chains} != current
+    ):
+        return False
+    if width_optimization_only and (
+        order_index is None or split_subject is not None or state.current_evaluation.violations
     ):
         return False
     if not budget.allows_search():
@@ -407,6 +471,8 @@ def try_complete_candidate(
         for offset, sequence in enumerate(sorted(new_sequences), start=1)
     ):
         return False
+    if width_optimization_only and not _width_candidate_nodes_valid(plan, before, after, context):
+        return False
     # Split authorization consumes the local append order; group only after all locks pass.
     if has_inter_chain_width_rule(cache.rule_set):
         if not budget.allows_search():
@@ -421,11 +487,13 @@ def try_complete_candidate(
         or not evaluation.quality_key < state.current_evaluation.quality_key
     ):
         return False
-    if chain_order_only and (
+    if width_optimization_only and evaluation.violations:
+        return False
+    if (chain_order_only or width_optimization_only) and (
         evaluation.quality_key[:order_index] != state.current_evaluation.quality_key[:order_index]
         or evaluation.quality_key[order_index] >= state.current_evaluation.quality_key[order_index]
     ):
-        # Reordering must not turn floating accumulation drift into a higher-priority gain.
+        # Width-only changes must preserve every higher-priority objective exactly.
         return False
     sources = tuple(
         dict.fromkeys(
