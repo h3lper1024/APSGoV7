@@ -9,7 +9,9 @@ from .contracts import SearchStopReason, fingerprint, sum_weights
 from .model import MaterialRole, SchedulePlan
 from .neighborhoods import (
     _boundary_join,
+    _chain_order_positions,
     _normalize_chain,
+    _relocate_chain,
     _validate_search,
     try_complete_candidate,
 )
@@ -262,6 +264,49 @@ def _alternate_recipes(first, second):
                 yield recipe
 
 
+def _order_recipes(state, context):
+    chains = state.current_plan.chains
+    for source in range(len(chains)):
+        for position in _chain_order_positions(chains, source):
+            yield ("width_chain_order_relocation", source, position)
+
+
+def _try_chain_order(state, context, recipe):
+    if not context.factory.budget.allows_search():
+        return False
+    action, source, position = recipe
+    chains = state.current_plan.chains
+    candidate = _relocate_chain(chains, source, position)
+    if not _width_improves(candidate, state, context):
+        return False
+    return try_complete_candidate(
+        state,
+        context,
+        candidate,
+        affected_chain_ids=(chains[source].chain_id,),
+        virtual_sequence=state.virtual_sequence,
+        action_name=action,
+        chain_order_only=True,
+        width_optimization_only=True,
+    )
+
+
+def _try_width_recipe(state, context, recipe):
+    action = recipe[0]
+    if action in (
+        "width_node_move",
+        "width_node_exchange",
+        "width_block_move",
+        "width_block_exchange",
+    ):
+        return _try_segment_edit(state, context, recipe)
+    if action == "width_chain_cut":
+        return _try_chain_cut(state, context, recipe)
+    if action == "width_chain_order_relocation":
+        return _try_chain_order(state, context, recipe)
+    raise ValueError(f"Unknown width optimization action: {action}")
+
+
 def _scan_width_batch(state, context, recipes, try_recipe, allowance):
     """Return (accepted, exhausted); consume the shared quota before business work."""
     budget = context.factory.budget
@@ -313,3 +358,22 @@ def _scan_width_families(state, context, family_factories, try_recipe):
             return state
         # Accepted edits invalidate every previous iterator and endpoint summary.
     return state
+
+
+def run_width_optimization(state, context):
+    """Refine one compliant plan after the old repair/split sequence, before audit."""
+    _validate_search(state, context)
+    if (
+        chain_order_objective_index(context.factory.cache.rule_set) is None
+        or state.current_evaluation.violations
+    ):
+        return state
+    budget = context.factory.budget
+    if budget.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE:
+        budget.stop_reason = None
+    return _scan_width_families(
+        state,
+        context,
+        (_node_recipes, _block_recipes, _cut_recipes, _order_recipes),
+        _try_width_recipe,
+    )

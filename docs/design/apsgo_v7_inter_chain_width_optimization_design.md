@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.3 / 2026-09-04 |
-| 状态 | 用户已授权按计划持续实施；基线与反例先行，新增算法收益尚未验证 |
+| 版本 / 日期 | v0.4 / 2026-09-04 |
+| 状态 | 步骤 0～4 已提交，集中精修接线及验证中；新增算法的 GQGA4 收益尚未验证 |
 | 仓库 / 分支 | `/Users/miles/dev/dev-py/APSGOV7` / `codex/inter-chain-width-optimization` |
 | 实施前基线 | `bb2a31bf49e40e739edc7b6b11be620f6561549d`；`main` 保持此迁入基线 |
 | 受众 | 求解开发、测试及业务评审人员 |
@@ -216,12 +216,12 @@
 
 ## 8. 模块复用和观测
 
-建议新增一个生产模块 `core/width_optimization.py` 集中放候选枚举和精修循环；这是本专项职责分离，不是新的算子注册平台。
+已按本设计建立生产模块 `core/width_optimization.py`，集中放候选枚举和精修循环；这是本专项职责分离，不是新的算子注册平台。
 
 | 模块 | 处理方式 |
 |---|---|
 | `core/neighborhoods.py` | 扩展唯一候选入口的新阶段保护；必要时提取可复用的无提交枚举逻辑，旧默认调用不变 |
-| `core/width_optimization.py` | 待新建：单节点/段/切链候选、分批扫描和阶段入口 |
+| `core/width_optimization.py` | 单节点/段/切链候选、分批扫描和阶段入口 |
 | `core/solver.py` | 在原受控拆单及其重放之后、核心审计之前调用一次集中精修 |
 | `core/controlled_split.py` | 不增加新拆单轮次，不改变授权；通常无需修改算法正文 |
 | `core/chain_order.py`、`core/virtual_material.py` | 复用目标定位、期序分组、连接缓存与虚拟桥 |

@@ -909,6 +909,21 @@ def improve_virtual_weight_fill(state: SearchState, context: SearchContext) -> S
     return state
 
 
+def _chain_order_positions(chains, source_index):
+    """Keep the legacy absolute insertion order, excluding the unchanged position."""
+    return tuple(
+        index
+        for index, chain in enumerate(chains)
+        if index != source_index and chain.assigned_period == chains[source_index].assigned_period
+    )
+
+
+def _relocate_chain(chains, source_index, position):
+    """Insert after removal at the original absolute position; do not decrement it."""
+    remaining = chains[:source_index] + chains[source_index + 1 :]
+    return remaining[:position] + (chains[source_index],) + remaining[position:]
+
+
 def improve_chain_order(state: SearchState, context: SearchContext) -> SearchState:
     """Relocate one whole chain within its period, restarting on first improvement."""
     _validate_search(state, context)
@@ -921,18 +936,10 @@ def improve_chain_order(state: SearchState, context: SearchContext) -> SearchSta
         for source_index, moved in enumerate(chains):
             if not budget.allows_search():
                 return state
-            positions = [
-                index
-                for index, chain in enumerate(chains)
-                if chain.assigned_period == moved.assigned_period
-            ]
-            for position in positions:
-                if position == source_index:
-                    continue
+            for position in _chain_order_positions(chains, source_index):
                 if not budget.consume_candidate_check():
                     return state
-                remaining = chains[:source_index] + chains[source_index + 1 :]
-                candidate = remaining[:position] + (moved,) + remaining[position:]
+                candidate = _relocate_chain(chains, source_index, position)
                 if try_complete_candidate(
                     state,
                     context,

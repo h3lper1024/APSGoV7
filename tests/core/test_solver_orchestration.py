@@ -11,6 +11,7 @@ from apsgo_scheduler.core.budget import SolveRuntimeBudget
 from apsgo_scheduler.core.contracts import (
     CoreAuditStatus,
     DiagnosticPhase,
+    RuleScope,
     SearchStopReason,
     SolveStatus,
     fingerprint,
@@ -19,9 +20,11 @@ from apsgo_scheduler.core.model import SchedulingProblem
 from tests.core.graph.test_construction_order import node, rules
 from tests.core.rules.test_inter_chain_width_gap import rule as width_gap_rule
 from tests.core.rules.test_inter_chain_width_gap import with_gap
+from tests.core.search.test_chain_order_integration import add_gap
 from tests.core.search.test_controlled_order_split import split_case
 from tests.core.search.test_single_real_node_relocation import Stop
 from tests.core.search.test_virtual_material_factory import prototype
+from tests.core.test_quality_key import SeverityRule, ruleset
 from tests.core.test_solver_policy import policy as make_policy
 
 D = Decimal
@@ -424,3 +427,286 @@ def test_plan_width_requirement_also_guards_direct_core_virtual_prototypes(enabl
     else:
         assert result.release is not None and result.core_audit.passed
         assert not any(item.code == "missing_required_field" for item in result.issues)
+
+
+def width_split_solver_case(*, accepted_split=True, **changes):
+    _, previous = add_gap(*split_case(enabled=accepted_split, narrow_enabled=accepted_split))
+    cache = previous.factory.cache
+    return solver_case(
+        nodes=cache.problem.nodes,
+        rule_set=cache.rule_set,
+        prototypes=cache.problem.virtual_prototypes,
+        period_order=cache.problem.period_order,
+        **changes,
+    )
+
+
+@pytest.mark.parametrize("accepted_split", (False, True))
+@pytest.mark.parametrize("entry_stop", (None, SearchStopReason.LOCAL_SEARCH_COMPLETE))
+def test_width_phase_runs_once_after_split_and_optional_old_replay_with_shared_state(
+    accepted_split, entry_stop, monkeypatch
+):
+    values = width_split_solver_case(accepted_split=accepted_split)
+    problem, active, policy, runtime = values
+    calls, captured = [], {}
+    initial = solver.construct_initial_plan
+    local = solver.run_local_search
+    split = solver.run_controlled_order_split
+    replay = controlled_split.run_local_search
+    width = solver.run_width_optimization
+    audit = solver.audit_core_without_search_cache
+    expected = ["old_search", "controlled_split"] + (["old_replay"] if accepted_split else [])
+    budget_identity = (
+        runtime.started_at_monotonic,
+        runtime.search_deadline_monotonic,
+        runtime.final_deadline_monotonic,
+        runtime.candidate_check_limit,
+        runtime.clock,
+        runtime.cancellation,
+    )
+
+    def observed_initial(current, graph, cover, cache, budget):
+        assert current is problem and budget is runtime
+        captured["cache"] = cache
+        captured["initial"] = initial(current, graph, cover, cache, budget)
+        return captured["initial"]
+
+    def observed_local(state, context):
+        calls.append("old_search")
+        assert state.current_plan is captured["initial"].candidate.plan
+        assert state.current_evaluation is captured["initial"].candidate.search_evaluation
+        assert context.factory.cache is captured["cache"]
+        assert context.factory.budget is runtime and context.policy is policy
+        captured["state"], captured["context"] = state, context
+        captured["factory"] = context.factory
+        return local(state, context)
+
+    def observed_split(state, context):
+        calls.append("controlled_split")
+        assert state is captured["state"] and context is captured["context"]
+        result = split(state, context)
+        assert result is state and runtime.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE
+        assert not state.current_evaluation.violations
+        captured["before_width"] = fingerprint(state)
+        captured["checks"] = runtime.candidate_check_count
+        captured["evaluations"] = context.complete_candidate_evaluation_count
+        captured["trace"] = context.accepted_move_traces
+        runtime.stop_reason = entry_stop
+        return result
+
+    def observed_replay(state, context):
+        assert calls == ["old_search", "controlled_split"]
+        calls.append("old_replay")
+        assert state is captured["state"] and context is captured["context"]
+        assert state.split_sequence == 1
+        return replay(state, context)
+
+    def observed_width(state, context):
+        assert calls == expected
+        calls.append("width_optimization")
+        assert state is captured["state"] and context is captured["context"]
+        assert context.factory is captured["factory"]
+        assert context.factory.cache is captured["cache"]
+        assert context.factory.budget is runtime and runtime.stop_reason is entry_stop
+        assert context.accepted_move_traces is captured["trace"]
+        assert fingerprint(state) == captured["before_width"]
+        assert runtime.candidate_check_count == captured["checks"]
+        assert context.complete_candidate_evaluation_count == captured["evaluations"]
+        result = width(state, context)
+        assert result is state and fingerprint(state) == captured["before_width"]
+        assert runtime.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE
+        assert (
+            runtime.started_at_monotonic,
+            runtime.search_deadline_monotonic,
+            runtime.final_deadline_monotonic,
+            runtime.candidate_check_limit,
+            runtime.clock,
+            runtime.cancellation,
+        ) == budget_identity
+        return result
+
+    def observed_audit(candidate, current, rules, budget):
+        assert calls == expected + ["width_optimization"]
+        calls.append("audit")
+        assert candidate.plan is captured["state"].current_plan
+        assert candidate.search_evaluation is captured["state"].current_evaluation
+        assert current is problem and rules is active and budget is runtime
+        return audit(candidate, current, rules, budget)
+
+    for name, function in (
+        ("construct_initial_plan", observed_initial),
+        ("run_local_search", observed_local),
+        ("run_controlled_order_split", observed_split),
+        ("run_width_optimization", observed_width),
+        ("audit_core_without_search_cache", observed_audit),
+    ):
+        monkeypatch.setattr(solver, name, function)
+    monkeypatch.setattr(controlled_split, "run_local_search", observed_replay)
+    result = solver.solve(*values)
+    assert calls == expected + ["width_optimization", "audit"]
+    assert result.status is SolveStatus.SUCCESS and result.core_audit.passed
+    assert result.release.canonical_plan is captured["state"].current_plan
+    assert result.trace == captured["trace"]
+    assert result.metrics.accepted_move_count == int(accepted_split)
+    assert result.metrics.accepted_split_count == int(accepted_split)
+    assert result.metrics.accepted_same_period_split_count == int(accepted_split)
+    assert result.metrics.accepted_future_borrow_return_count == 0
+    assert captured["state"].virtual_sequence == 2 * int(accepted_split)
+    assert result.metrics.complete_candidate_evaluation_count == captured["evaluations"]
+    assert result.metrics.candidate_check_count == runtime.candidate_check_count
+    assert (runtime.candidate_check_count > captured["checks"]) is accepted_split
+    phases = tuple(result.metrics.stage_duration_seconds)
+    assert phases[-3:] == ("controlled_split_and_replay", "width_optimization", "core_audit")
+    assert result.metrics.stage_duration_seconds["width_optimization"] >= 0
+
+
+@pytest.mark.parametrize("mode", ("absent", "disabled", "diagnostic", "underweight", "prohibited"))
+def test_ineligible_width_phase_is_not_called_or_reported_and_keeps_the_split_result(
+    mode, monkeypatch
+):
+    base = ruleset()
+    member = node("real", weight="500" if mode == "underweight" else "800")
+    if mode == "prohibited":
+        base = ruleset((SeverityRule("severity", "severity", RuleScope.CHAIN, True, "1", {}),))
+        member = replace(member, rule_attributes={"severity": D(1)})
+    if mode in {"underweight", "prohibited", "diagnostic"}:
+        active = with_gap(base)
+        if mode == "diagnostic":
+            active = replace(active, quality_spec=base.quality_spec)
+    else:
+        active = (
+            replace(base, rules=base.rules + (width_gap_rule(enabled=False),))
+            if (mode == "disabled")
+            else base
+        )
+    values = solver_case(nodes=(member,), rule_set=active)
+    captured, calls = {}, []
+    split, audit = solver.run_controlled_order_split, solver.audit_core_without_search_cache
+
+    def observed_split(state, context):
+        calls.append("controlled_split")
+        split(state, context)
+        captured["state"], captured["context"] = state, context
+        captured["before"] = fingerprint(state)
+        captured["checks"] = context.factory.budget.candidate_check_count
+        assert bool(state.current_evaluation.violations) is (mode in {"underweight", "prohibited"})
+        return state
+
+    def observed_audit(candidate, *args):
+        calls.append("audit")
+        assert fingerprint(captured["state"]) == captured["before"]
+        assert candidate.plan is captured["state"].current_plan
+        assert candidate.search_evaluation is captured["state"].current_evaluation
+        assert captured["context"].factory.budget.candidate_check_count == captured["checks"]
+        return audit(candidate, *args)
+
+    monkeypatch.setattr(solver, "run_controlled_order_split", observed_split)
+    monkeypatch.setattr(solver, "audit_core_without_search_cache", observed_audit)
+    monkeypatch.setattr(
+        solver,
+        "run_width_optimization",
+        lambda *_: pytest.fail("an ineligible phase must not be called"),
+    )
+    result = solver.solve(*values)
+    assert calls == ["controlled_split", "audit"]
+    assert "width_optimization" not in result.metrics.stage_duration_seconds
+    assert result.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE
+    assert result.core_audit.status is CoreAuditStatus.COMPLETED
+    assert result.status is (
+        SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION
+        if mode == "underweight"
+        else SolveStatus.COMPLETE_NOT_PUBLISHABLE
+        if mode == "prohibited"
+        else SolveStatus.SUCCESS
+    )
+
+
+@pytest.mark.parametrize(
+    "reason",
+    tuple(
+        reason
+        for reason in SearchStopReason
+        if reason is not SearchStopReason.LOCAL_SEARCH_COMPLETE
+    ),
+)
+def test_width_phase_does_not_reopen_a_real_stop_from_the_previous_stage(reason, monkeypatch):
+    values = width_split_solver_case(accepted_split=False)
+    captured, calls = {}, []
+    split, audit = solver.run_controlled_order_split, solver.audit_core_without_search_cache
+
+    def stopped_split(state, context):
+        split(state, context)
+        assert not state.current_evaluation.violations
+        context.factory.budget.stop_reason = reason
+        captured["state"], captured["before"] = state, fingerprint(state)
+        return state
+
+    def observed_audit(candidate, *args):
+        calls.append("audit")
+        assert values[-1].stop_reason is reason
+        assert fingerprint(captured["state"]) == captured["before"]
+        assert candidate.plan is captured["state"].current_plan
+        return audit(candidate, *args)
+
+    monkeypatch.setattr(solver, "run_controlled_order_split", stopped_split)
+    monkeypatch.setattr(solver, "audit_core_without_search_cache", observed_audit)
+    monkeypatch.setattr(
+        solver,
+        "run_width_optimization",
+        lambda *_: pytest.fail("a real stop cannot enter the width phase"),
+    )
+    result = solver.solve(*values)
+    assert calls == ["audit"]
+    assert result.stop_reason is reason
+    assert "width_optimization" not in result.metrics.stage_duration_seconds
+    assert result.diagnostic_candidate.plan is captured["state"].current_plan
+
+
+def test_width_phase_exception_preserves_the_completed_split_without_audit_or_release(monkeypatch):
+    values = width_split_solver_case()
+    captured, calls = {}, []
+    replay, width = controlled_split.run_local_search, solver.run_width_optimization
+
+    def observed_replay(state, context):
+        calls.append("old_replay")
+        return replay(state, context)
+
+    def fail_width(state, context):
+        calls.append("width_optimization")
+        width(state, context)
+        captured["state"], captured["context"] = state, context
+        captured["before"] = fingerprint(state)
+        raise RuntimeError("fault after width scan")
+
+    monkeypatch.setattr(controlled_split, "run_local_search", observed_replay)
+    monkeypatch.setattr(solver, "run_width_optimization", fail_width)
+    monkeypatch.setattr(
+        solver,
+        "audit_core_without_search_cache",
+        lambda *_: pytest.fail("an interrupted width phase cannot continue to audit"),
+    )
+    result = solver.solve(*values)
+    assert calls == ["old_replay", "width_optimization"]
+    assert (
+        result.status is SolveStatus.FAILED and result.stop_reason is SearchStopReason.SYSTEM_ERROR
+    )
+    assert result.release is None and result.core_audit.status is CoreAuditStatus.NOT_RUN
+    assert result.diagnostic_candidate.plan is captured["state"].current_plan
+    assert result.diagnostic_candidate.search_evaluation is captured["state"].current_evaluation
+    assert fingerprint(captured["state"]) == captured["before"]
+    assert result.trace == captured["context"].accepted_move_traces
+    assert tuple(move.action_name for move in result.trace) == ("controlled_order_split",)
+    assert result.metrics.accepted_split_count == result.metrics.accepted_move_count == 1
+    assert result.metrics.candidate_check_count == values[-1].candidate_check_count
+    assert (
+        result.metrics.complete_candidate_evaluation_count
+        == captured["context"].complete_candidate_evaluation_count
+    )
+    assert "width_optimization" in result.metrics.stage_duration_seconds
+    assert "core_audit" not in result.metrics.stage_duration_seconds
+    assert any(
+        issue.phase is DiagnosticPhase.SEARCH
+        and "width_optimization" in issue.message
+        and "fault after width scan" in issue.message
+        for issue in result.issues
+    )

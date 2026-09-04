@@ -5,6 +5,7 @@ from decimal import Decimal
 from time import perf_counter
 
 from .budget import SolveRuntimeBudget
+from .chain_order import chain_order_objective_index
 from .compatibility import RuleEdgeDecisionCache, _finite_projection, build_construction_dag
 from .contracts import (
     AuditedCoreRelease,
@@ -33,6 +34,7 @@ from .rules.base import RuleEvaluationContext
 from .rules.concrete import WEIGHT_EPSILON, ChainWeightRangeRule
 from .rules.rule_set import ProcessRuleSet
 from .virtual_material import VirtualFactory
+from .width_optimization import run_width_optimization
 
 
 def _values(value, excluded=()):
@@ -547,9 +549,17 @@ def solve(
         run_local_search(state, context)
         durations[phase] = Decimal(str(perf_counter() - started))
         phase, started = "controlled_split_and_replay", perf_counter()
-        # This stage alone resumes natural completion and owns the optional single replay.
+        # This stage owns the optional single replay of the original local search.
         run_controlled_order_split(state, context)
         durations[phase] = Decimal(str(perf_counter() - started))
+        if (
+            chain_order_objective_index(rule_set) is not None
+            and not state.current_evaluation.violations
+            and runtime.stop_reason in (None, SearchStopReason.LOCAL_SEARCH_COMPLETE)
+        ):
+            phase, started = "width_optimization", perf_counter()
+            run_width_optimization(state, context)
+            durations[phase] = Decimal(str(perf_counter() - started))
         phase, started = "core_audit", perf_counter()
         snapshot = CoreCandidateSnapshot(state.current_plan, state.current_evaluation)
         audit = audit_core_without_search_cache(snapshot, problem, rule_set, runtime)
