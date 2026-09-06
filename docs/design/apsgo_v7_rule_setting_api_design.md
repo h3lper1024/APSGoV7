@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | 待实施；接口、数据与宿主边界已确认 |
-| 文档版本 | v0.2 |
+| 文档状态 | 实施中；阶段 0、阶段 1 已完成，下一阶段为 GQGA4 完整规则编译 |
+| 文档版本 | v0.3 |
 | 编写日期 | 2026-09-06 |
 | 适用范围 | GQGA4、默认工序、月计划场景 |
 | 规则集身份 | `GQGA4/default/month` |
@@ -180,7 +180,7 @@ GET /api/v1/rule-sets/GQGA4/default/month/getActiveRules
   "virtual_prototypes": [],
   "remark": "GQGA4 月计划规则",
   "activated_at": "2026-09-06T10:00:00+08:00",
-  "activated_by": "user-id"
+  "activated_by": "service-process"
 }
 ```
 
@@ -235,6 +235,8 @@ Content-Type: application/json
 | `remark` | 否 | 前端 | 本次变更说明；去除首尾空白后可为空。 |
 
 前端不得提交或控制规则类型、名称、范围、顺序、规则版本、规则集版本、评分目标、允许最终偏差或指纹。这些字段由服务端固定模板与 V7 契约产生。
+
+请求对象采用严格字段集合：顶层、规则项和虚拟材料原型出现未知字段时直接拒绝，不静默忽略；`parameters` 与 `rule_attributes` 内部仍按各自声明处理。这样可避免前端拼错字段后仍收到成功响应。
 
 ### 9.3 成功响应
 
@@ -299,14 +301,14 @@ Content-Type: application/json
 
 ### 11.1 处理顺序
 
-1. 校验请求结构并规范化可编辑内容；JSON 小数字面量直接解析为 Python `Decimal`，整数先保留为 `int`，不得经过二进制浮点数。规则参数由服务端固定模板在编译时按参数类型归一。
-2. 计算规范化请求摘要 `request_hash`。
+1. 校验请求结构；JSON 小数字面量直接解析为 Python `Decimal`，整数先保留为 `int`，不得经过二进制浮点数。调用阶段 2 的 GQGA4 固定模板，将规则参数归一到声明类型、按固定 17 条规则顺序排列，并生成唯一的规范化页面快照。
+2. 由规范化页面快照计算请求摘要 `request_hash`。复用现有 `fingerprint()` 的稳定编码与 SHA-256；摘要包含规则集路径身份、`expected_active_version_id`、按固定 17 条模板排序的规则、保持用户顺序的虚拟材料原型和去除首尾空白后的 `remark`。`save_operation_id` 只作幂等查找键，不进入摘要。禁止直接对原始请求文本或未归一的数据传输对象计算摘要。
 3. 开始事务并锁定 `GQGA4/default/month` 的规则集主记录。
 4. **先检查 `save_operation_id`**：
    - 已存在且 `request_hash` 相同：不重新执行写入，读取当前活动版本并返回；同时返回原 `saved_version_id`，`idempotent_replay=true`。
    - 已存在但 `request_hash` 不同：返回 `409`。
 5. 再比较 `expected_active_version_id` 与当前活动版本；不一致返回 `409`。
-6. 校验规则标识完整性，按照服务端固定顺序补齐规则类型、名称、范围和规则版本。
+6. 使用已归一内容和新版本号，按照服务端固定顺序补齐规则类型、名称、范围和规则版本。
 7. 注入固定七级 `quality_spec` 与固定 `allowed_final_deviation_codes`。
 8. 生成新版本号和 `RuleSetSpec.version`，构造完整 `RuleSetSpec`。
 9. 使用现有 `compute_rule_set_fingerprint()` 计算指纹，并使用现有 `load_rule_set()` 执行权威规则校验。
@@ -330,7 +332,9 @@ sequenceDiagram
 
     User->>UI: 点击保存并启用
     UI->>API: POST 完整规则 + 操作标识 + 期望版本
-    API->>API: 校验请求并计算请求摘要
+    API->>Compiler: 按固定模板归一请求
+    Compiler-->>API: 规范化页面快照
+    API->>API: 由规范化快照计算请求摘要
     API->>DB: 开启事务并锁定规则集
     DB-->>API: 当前活动版本与同操作记录
     alt 同操作标识且内容相同
@@ -467,7 +471,9 @@ sequenceDiagram
 - `rules` 必须是数组，恰好覆盖固定 17 个规则标识，每个标识出现一次。
 - `enabled` 必须是 JSON 布尔值，不能接受 `0/1` 或文本替代。
 - `parameters` 必须是 JSON 对象；数组次序对厚度区间等有序参数具有业务含义。
+- 规则参数以 `parameters` 根对象为第 0 层，任一值距根最多 64 层；超过时在冻结或序列化前拒绝，避免递归异常逃逸。当前 GQGA4 参数远低于该边界。
 - `virtual_prototypes` 必须完整覆盖当前页面管理的原型；原型标识不得重复。
+- 顶层对象、每条规则和每个虚拟材料原型只接受已声明字段；未知字段严格拒绝。顶层字段诊断路径直接使用字段名，嵌套字段使用数组下标路径。
 - 服务端设置字符串长度、数组长度和请求体大小上限，防止异常载荷耗尽资源；具体上限依据当前正式 GQGA4 基线在实施时冻结。
 
 ### 14.2 业务校验
@@ -580,9 +586,9 @@ sequenceDiagram
 
 首次部署通过一次性初始化命令或数据库迁移种子完成，不通过页面手工重建：
 
-1. 读取仓内正式 `tests/baselines/gqga4/gqga4_rule_set_spec.json` 作为初始规则内容来源。
-2. 使用生产代码路径重新构造、计算指纹并加载，不能直接信任文件中已有指纹。
-3. 导入与当前月计划一致的虚拟材料原型快照。
+1. 从 `apsgo_v7_service` 包内的 GQGA4 生产种子读取初始规则和虚拟材料原型，不在生产运行时读取 `tests/`。
+2. 使用生产代码路径重新构造、计算指纹并加载，不能直接信任种子或测试文件中已有指纹。
+3. 开发期使用 `tests/baselines/gqga4/gqga4_rule_set_spec.json` 核对 17 条规则内容；使用冻结的 `inputs/optimization_problem.json` 核对 27 个虚拟材料原型及顺序。测试文件只作等价证据，不是部署输入或运行时回退。
 4. 在一个事务中建立规则集、初始版本、17 条规则行并设置活动版本。
 5. 回读验证 17 条规则、16 条启用、1 条指定停用、7 项评分、允许偏差和指纹。
 6. 初始化重复执行必须检测已有身份并安全退出，不覆盖生产活动版本。
