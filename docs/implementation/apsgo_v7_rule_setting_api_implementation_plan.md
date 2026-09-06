@@ -5,7 +5,7 @@
 | 项目 | 内容 |
 |---|---|
 | 文档状态 | 待实施 |
-| 文档版本 | v0.1 |
+| 文档版本 | v0.2 |
 | 编写日期 | 2026-09-06 |
 | 实施基线 | `main@6d12365` |
 | 开发分支 | `codex/rule-setting-api-integration` |
@@ -89,30 +89,35 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 - C# GQGA4 页面当前仍使用 `PipelineV3ApiClient` 的目录、表单规范、草稿、启用和预览流程。
 - `PipelineV3ApiClient` 还可能被其他页面使用，本计划不得整体删除。
 
-### 5.3 当前文档准备结果
+### 5.3 宿主冻结结果
 
 - 已从 `main@6d12365` 建立 `codex/rule-setting-api-integration`。
 - 已固定两条接口地址、完整快照边界、逻辑数据模型和页面迁移方案。
-- 尚未确认实际 HTTP 宿主、数据库引擎、迁移工具和可信用户身份传递方式；这些由第一实施阶段现场冻结。
+- 已确认在 APSGOV7 内新增独立 `apsgo_v7_service` FastAPI 服务，默认且首期只监听 `127.0.0.1:8001`。
+- C# 复用 `BACKEND_ALGORITHM_URL`，不增加新的 V7 地址配置键。
+- 已确认使用 V7 独立 SQLite 和标准库 `sqlite3`，不复用 V3 数据库、不同时实现 MySQL。
+- 首期不增加登录鉴权；服务端进程身份作为审计主体，客户端用户名不可信。
+- 现状证据见 `docs/implementation/evidence/apsgo_v7_rule_setting_api/stage_00_environment_baseline/README.md`。
 
 ## 6. 目标文件规划
 
-下表是最小预期落点；HTTP 宿主与数据库文件名必须在第一实施阶段根据现有工程确认，不能先造一套新框架。
+下表是已确认的最小落点：
 
 | 工程 | 预期文件 | 用途 |
 |---|---|---|
 | V7 | `src/apsgo_scheduler/api/rule_management.py` | GET/POST 的框架无关请求、响应和诊断契约。 |
 | V7 | `src/apsgo_scheduler/app/rule_set_compiler.py` | GQGA4 固定模板补全、指纹、权威加载和回读验证。 |
 | V7 | `src/apsgo_scheduler/app/rule_set_binding.py` | 活动编译快照到 `SchedulingRequest` 的启动时绑定。 |
-| HTTP 宿主 | 第一实施阶段确认 | 两条精确路由、鉴权、错误映射。 |
-| 数据库宿主 | 第一实施阶段确认 | 迁移、事务仓储和初始数据导入。 |
+| V7 服务 | `src/apsgo_v7_service/app.py` | FastAPI 应用、仅回环启动和两条精确路由。 |
+| V7 服务 | `src/apsgo_v7_service/rule_store.py` | SQLite schema、事务、查询、并发与幂等。 |
+| V7 服务 | `src/apsgo_v7_service/gqga4.py` | GQGA4 固定模板、初始配置和原型导入。 |
 | C# | `SchedApp/ApsgoV7RuleApiClient.cs` | V7 专用 GET/POST 客户端和 DTO。 |
 | C# | `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.cs` | 页面加载、映射、保存和错误处理。 |
 | C# | `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.designer.cs` | 按钮和旧预览区域调整。 |
-| C# | `SchedApp/App.config` | V7 服务地址配置。 |
+| C# | `SchedApp/App.config` | 复用现有 `BACKEND_ALGORITHM_URL`，只删除不用的 GQGA4 旧规则路径时才改。 |
 | C# | `SchedApp/SchedApp.csproj` | 旧式工程需要时显式加入新增源码。 |
 
-若现有 HTTP 宿主可以直接复用 V7 `app` 服务，则不增加额外领域层或单实现接口；只在真实测试需要替换数据库时使用现有项目惯用的依赖注入方式。
+`apsgo_v7_service` 单向依赖 `apsgo_scheduler`；`apsgo_scheduler` 不得反向导入 FastAPI、SQLite 或服务包。GQGA4 字面模板位于服务包，通用编译器不含具体产线名称，保持现有生产核心门禁。
 
 ## 7. 阶段与提交总览
 
@@ -137,7 +142,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 
 ### 8.1 目的
 
-解决当前仅靠 V7 和 C# 代码无法确认的部署事实，避免把 HTTP 框架、数据库或鉴权方式设计错。
+冻结 HTTP、数据库、身份和请求组装现状，避免把 V3 服务或未实现的 `8001` 服务误认为 V7 现有能力。
 
 ### 8.2 操作
 
@@ -148,12 +153,13 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 5. 核对 C# GQGA4 页面当前所有规则控件、默认值、V3 请求和按钮事件。
 6. 保存文件、方法、调用链、构建命令和测试命令的现状记录。
 
-### 8.3 验收
+### 8.3 实际结论与验收
 
-- 明确唯一 HTTP 宿主、唯一数据库方案和唯一鉴权接入点。
-- 每一后续阶段都有精确文件落点，不再使用“某服务”占位。
-- 若宿主要求改变 V7 包结构或引入框架依赖，先更新设计并取得用户确认。
-- 不修改生产逻辑。
+- 已确认新建独立 `apsgo_v7_service` FastAPI 服务，默认且首期只监听 `127.0.0.1:8001`。
+- 已确认 V7 独立 SQLite、标准库事务和服务端进程审计身份。
+- 已确认 C# 复用 `BACKEND_ALGORITHM_URL`；V3 `8008` 服务与数据库均不复用。
+- 已确认通用求解核心继续无 Web/数据库依赖，GQGA4 模板位于外层服务包。
+- 本阶段只修改文档和证据，不修改生产逻辑。
 
 ## 9. 阶段 1：建立规则管理接口契约
 
@@ -162,14 +168,15 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 - 定义 GET 完整活动版本响应。
 - 定义 POST 完整保存请求和成功响应。
 - 定义可定位错误、并发版本、操作标识、原保存版本和当前活动版本的幂等重放字段。
-- 提供稳定的 JSON 解析/序列化入口，业务数值直接进入 `Decimal`。
+- 提供稳定的 JSON 解析/序列化入口：小数字面量直接进入 `Decimal`，整数保留为 `int`；规则参数的目标类型由阶段 2 固定模板归一。
 - 不把 HTTP 框架、数据库实体或 C# DTO 混入 V7 核心契约。
 
 ### 9.2 测试
 
 - 合法完整请求往返不丢字段或数值精度。
 - 布尔值、正整数、UUID、规则数组和原型数组的边界失败可定位。
-- 数字 `20`、`20.0` 与等价十进制内容规范化后行为一致。
+- `20.0` 与 `20.00` 等价且不经过 `float`；通用契约暂时保留规则参数 `20` 与 `20.0` 的类型差异，阶段 2 再按固定模板归一。
+- 虚拟材料原型等已有明确字段类型的数值允许将 `20` 与 `20.0` 归一为同一 `Decimal`。
 - 未知顶层字段按现场统一 API 策略处理并固定测试。
 
 ### 9.3 验收
@@ -182,7 +189,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 
 ### 10.1 实现
 
-1. 从正式 GQGA4 规则定义建立一份服务端固定模板，包含 17 个规则标识、类型、名称、范围、版本和顺序。
+1. 在 `apsgo_v7_service` 从正式 GQGA4 规则定义建立固定模板，包含 17 个规则标识、类型、名称、范围、版本和顺序；`apsgo_scheduler.app` 的编译器保持产线无关。
 2. 接受客户端完整的 `rule_id + enabled + parameters` 集合，拒绝缺失、重复和未知标识。
 3. 注入现有固定七级评分定义与允许最终偏差。
 4. 将数据库 `version_no` 的无前导零十进制文本作为新 `RuleSetSpec.version`，构造 `RuleSetSpec`。
@@ -207,11 +214,11 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 
 ### 11.1 实现
 
-- 按已确认数据库引擎建立 `v7_rule_set`、`v7_rule_set_version`、`v7_rule_definition` 对应迁移。
+- 使用标准库 `sqlite3` 建立 `v7_rule_set`、`v7_rule_set_version`、`v7_rule_definition` schema 和向前初始化。
 - 建立规则集业务身份、版本号、保存操作标识、版本内规则标识和顺序的唯一约束。
 - 保存完整编译 JSON、指纹、虚拟原型、页面快照、基础版本和可信审计字段。
 - 建立当前活动版本指针；历史版本记录不可更新。
-- 使用现有数据库事务接口实现最小仓储操作，不建设通用仓储框架。
+- 使用单个 SQLite 连接和 `BEGIN IMMEDIATE` 实现最小存储操作，不建设通用仓储接口或第二种数据库后端。
 
 ### 11.2 测试
 
@@ -258,7 +265,7 @@ GET 服务从活动版本读取规则行与编译快照，核对规则数量、�
 
 - 并发与幂等使用真实事务测试验证。
 - 不存在“规则行已更新但完整快照或活动指针未更新”的可见状态。
-- 服务端操作者和时间来自可信上下文，不信任请求体伪造值。
+- 服务端操作者来自进程身份、时间来自服务器；请求体不接受可信操作者字段。
 
 ## 13. 阶段 5：接入两条 HTTP 路由
 
@@ -266,7 +273,7 @@ GET 服务从活动版本读取规则行与编译快照，核对规则数量、�
 
 - 精确注册 `GET /api/v1/rule-sets/GQGA4/default/month/getActiveRules`。
 - 精确注册 `POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules`。
-- 接入现有鉴权、权限、请求大小限制、日志和统一异常处理。
+- 服务首期只绑定回环地址；接入请求大小限制、日志和统一异常处理，不虚构不存在的登录鉴权。
 - 将应用诊断稳定映射为 `400/404/409/422/500/503`。
 - 返回 JSON 字段和大小写严格遵守详细设计；不额外发布草稿、启用或 V3 兼容路由。
 
@@ -276,7 +283,7 @@ GET 服务从活动版本读取规则行与编译快照，核对规则数量、�
 - GET 无请求体并返回完整活动版本。
 - POST 仅接受 JSON，对缺失、重复、未知规则返回字段级 `422`。
 - 并发与操作标识冲突返回 `409`。
-- 未认证、无权限和内部错误不泄露堆栈或数据库信息。
+- 非回环启动被拒绝，内部错误不泄露堆栈或数据库信息。
 - OpenAPI 或宿主路由表中不存在本专项未设计的写接口。
 
 ### 13.3 验收
@@ -329,7 +336,7 @@ GET 服务从活动版本读取规则行与编译快照，核对规则数量、�
 ### 16.1 实现
 
 - 新建 V7 专用客户端和最少 DTO，只包含两个接口需要的字段。
-- 在 `App.config` 增加独立 V7 服务地址；端口以阶段 0 现场结果为准。
+- 复用 `BACKEND_ALGORITHM_URL`，默认 `http://127.0.0.1:8001`，不增加第二个 V7 地址键。
 - GET/POST 路径使用常量并保持已确认的 camelCase。
 - JSON 数值使用适合现有 .NET 版本的十进制类型；不经 `double` 修改后回传。
 - 解析统一错误、字段问题、当前版本和幂等重放标识。
@@ -390,7 +397,7 @@ GET 服务从活动版本读取规则行与编译快照，核对规则数量、�
 | 编译 | 17/16/1/7、固定评分、指纹、双重加载、非法配置。 |
 | 数据库 | 约束、事务回滚、活动指针、历史不可变。 |
 | 并发与幂等 | 两编辑者冲突、丢响应重试、操作标识复用冲突。 |
-| HTTP | 两条精确路由、方法、状态码、鉴权和无信息泄露。 |
+| HTTP | 两条精确路由、方法、仅回环启动、状态码和无信息泄露。 |
 | 求解绑定 | 启动快照隔离、损坏失败、搜索零数据库查询。 |
 | C# | DTO、映射、错误处理、Windows 构建。 |
 
