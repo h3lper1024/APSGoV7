@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | 实施中；阶段 0～7 已完成，下一阶段为建立 C# V7 规则客户端 |
-| 文档版本 | v0.9 |
+| 文档状态 | 实施中；阶段 0～8 已完成代码与静态契约验证，下一阶段为改造 GQGA4 页面加载；Windows 构建仍待最终联调关闭 |
+| 文档版本 | v0.10 |
 | 编写日期 | 2026-09-07 |
 | 实施基线 | `main@6d12365` |
 | 开发分支 | `codex/rule-setting-api-integration` |
@@ -13,7 +13,7 @@
 | 求解器工程 | `/Users/miles/dev/dev-py/APSGOV7` |
 | 前端工程 | `/Users/miles/dev/dev-cs/aps-code-0806` |
 
-> 阶段 0～7 已完成。求解启动绑定已经通过临时数据库和完整 GQGA4 功能验收；C# 页面尚未实现，所有验收均未创建或修改正式默认数据库。
+> 阶段 0～8 已完成。求解启动绑定已经通过临时数据库和完整 GQGA4 功能验收；C# V7 客户端已完成代码与静态契约验证，页面尚未改造，Windows/.NET Framework 构建留作最终联调强制门禁。所有后端验收均未创建或修改正式默认数据库。
 
 ## 2. 实施目标
 
@@ -132,7 +132,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 | 5 | 接入两条 HTTP 路由 | 已完成：精确 GET/POST、输入上限、错误映射、脱敏日志与回环启动 | `#feat 接入V7规则设置HTTP接口` |
 | 6 | 初始化 GQGA4 活动版本 | 已完成：正式规则与原型种子、原子写入、重复安全执行及完整回读 | `#feat 初始化GQGA4启用规则版本` |
 | 7 | 绑定排程任务规则快照 | 已完成：无规则任务输入、启动单次读取、绑定/结果身份、失败关闭及完整 GQGA4 验收 | `#feat 绑定排程请求启用规则快照` |
-| 8 | 建立 C# V7 规则客户端 | 配置、请求/响应数据结构、GET/POST | `#feat 建立月计划V7规则客户端` |
+| 8 | 建立 C# V7 规则客户端 | 已提交 `cefc3f1`：精确请求/响应数据结构、GET/POST、Decimal 与统一错误处理；Windows 构建待最终联调 | `#feat 建立月计划V7规则客户端` |
 | 9 | 改造 GQGA4 页面加载 | 单 GET、稳定标识映射 | `#feat 接入GQGA4活动规则查询` |
 | 10 | 改造保存并启用流程 | 单 POST、冲突处理、移除旧步骤 | `#feat 接入GQGA4规则保存并启用` |
 | 11 | 完成联调与验收 | 事务、接口、页面、求解绑定证据 | `#fix 收口规则设置接口联调与验收` |
@@ -424,11 +424,12 @@ GET 服务从活动版本读取规则行与编译快照，核对数据库版本�
 ### 16.1 实现
 
 - 新建 V7 专用客户端和最少请求/响应数据结构，只包含两个接口需要的字段。
-- 复用 `BACKEND_ALGORITHM_URL`，默认 `http://127.0.0.1:8001`，不增加第二个 V7 地址键。
+- 复用现有 `App.config` 中的 `BACKEND_ALGORITHM_URL=http://127.0.0.1:8001`，不增加第二个 V7 地址键；配置缺失、空白或非法时明确失败，不在代码中静默回退。
 - GET/POST 路径使用常量并保持已确认的 camelCase。
 - JSON 数值使用适合现有 .NET 版本的十进制类型；不经 `double` 修改后回传。
 - 解析统一错误、字段问题、当前版本和幂等重放标识。
 - 保留现有 `PipelineV3ApiClient`，不影响其他页面。
+- 规则接口固定使用 60 秒超时，不复用求解流程 1800 秒超时；当前没有增加额外超时配置键。
 
 ### 16.2 测试与验收
 
@@ -436,6 +437,15 @@ GET 服务从活动版本读取规则行与编译快照，核对数据库版本�
 - POST 请求不包含服务端所有字段。
 - 配置缺失、超时、非成功状态和无效 JSON均有明确错误。
 - 在项目支持的 Windows/.NET 环境完成构建；macOS 静态检查不能替代该构建结论。
+
+### 16.3 实际实施结果
+
+- C# 分支 `codex/v7-rule-client-integration` 从 `d207cc2` 实施，提交为 `cefc3f1 #feat 建立月计划V7规则客户端`，精确暂存树为 `9fc6b607e8ff0b6b7f5bdf48725d9f6fd56a788a`。
+- 只新增 `SchedApp/ApsgoV7RuleApiClient.cs` 并在 `SchedApp.csproj` 登记一次；没有修改 `PipelineV3ApiClient`、GQGA4 页面、`App.config`、数据库或业务数据。用户已有未跟踪 `.gitignore` 保持原字节且未进入提交。
+- GET 响应、POST 独立请求与响应、质量声明、虚拟原型和统一错误均按后端 snake_case 字段定义；所有必返字段显式声明，缺失布尔值或数值不能静默成为默认值。
+- Json.NET 以 `Decimal` 读取规则参数，原型物理数值使用 `decimal` / `decimal?`，出站 `JObject` 拒绝二进制浮点节点。超出 .NET `decimal` 范围的服务端通用数值会明确失败，不回退 `double`；正式 GQGA4 配置在支持范围内。
+- 临时 SQLite 的真实 V7 响应与精确暂存树静态交叉核对通过：GET/POST 为 `200/200`，旧版本冲突为 `409`，缺少规则为 `422`；活动快照为 17 条规则、16 条启用、7 项评分和 27 个原型。XML、工程登记、UTF-8 无 BOM 及 `git diff --check` 通过。
+- 当前 macOS 无 .NET Framework 编译器、MSBuild、NuGet 及 DevExpress 构建环境，因此未声称 C# 构建或真实 HttpClient 往返通过。Windows 构建、运行时序列化和页面交互必须在阶段 11 最终联调前关闭；详见 [阶段 8 C# V7 规则客户端验证](evidence/apsgo_v7_rule_setting_api/stage_08_csharp_rule_client/README.md)。
 
 ## 17. 阶段 9：改造 GQGA4 页面加载
 
