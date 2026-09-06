@@ -1,10 +1,10 @@
-"""Transactional GQGA4 rule reads and save-and-activate operations."""
+"""Transactional GQGA4 rule initialization, reads, and save-and-activate operations."""
 
 from __future__ import annotations
 
 import json
 from collections.abc import Callable
-from dataclasses import fields
+from dataclasses import dataclass, fields
 from datetime import datetime, timezone
 from decimal import Decimal, DecimalException
 from pathlib import Path
@@ -23,6 +23,8 @@ from apsgo_scheduler.app.rule_set_compiler import load_compiled_rule_set_json
 from apsgo_scheduler.core.contracts import fingerprint
 
 from .gqga4 import (
+    GQGA4_INITIAL_RULES,
+    GQGA4_INITIAL_VIRTUAL_PROTOTYPES,
     GQGA4_RULE_SET_TEMPLATE,
     compile_gqga4_rule_set,
     normalize_gqga4_rule_snapshot,
@@ -30,6 +32,15 @@ from .gqga4 import (
 from .rule_store import RuleSetRecord, RuleStore, RuleStoreConflict
 
 DEFAULT_AUDIT_ACTOR = "v7-rule-service"
+INITIALIZATION_OPERATION_ID = "bootstrap:gqga4:v1"
+
+
+@dataclass(frozen=True, slots=True)
+class RuleInitializationResult:
+    """The verified active snapshot and whether this call created it."""
+
+    created: bool
+    active_rules: ActiveRulesResponse
 
 
 class RuleManagementServiceError(RuntimeError):
@@ -58,6 +69,12 @@ def _timestamp(clock: Callable[[], datetime]) -> str:
     if not isinstance(value, datetime) or value.tzinfo is None or value.utcoffset() is None:
         raise ValueError("clock must return a timezone-aware datetime")
     return value.astimezone(timezone.utc).isoformat(timespec="microseconds")
+
+
+def _audit_actor(value: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError("audit_actor must be nonempty text")
+    return value.strip()
 
 
 def _record_data(value) -> dict:
@@ -161,6 +178,21 @@ def _find_rule_set(store: RuleStore) -> RuleSetRecord:
     if rule_set is None:
         raise RuleManagementServiceError("rule_set_not_initialized", "GQGA4 月计划规则尚未初始化。")
     return rule_set
+
+
+def _create_rule_definitions(store: RuleStore, version_id: int, rules) -> None:
+    for sequence_no, rule in enumerate(rules, start=1):
+        store.create_rule_definition(
+            version_id,
+            sequence_no,
+            rule.rule_id,
+            rule.rule_type,
+            rule.name,
+            rule.scope.value,
+            rule.enabled,
+            rule.version,
+            dumps_exact_json(rule.parameters),
+        )
 
 
 def _read_active_rules(store: RuleStore, rule_set: RuleSetRecord) -> ActiveRulesResponse:
@@ -274,6 +306,63 @@ def get_active_gqga4_rules(
             return response
 
 
+def initialize_gqga4_rules(
+    database_path: str | Path | None = None,
+    *,
+    audit_actor: str = DEFAULT_AUDIT_ACTOR,
+    clock: Callable[[], datetime] = _utc_now,
+    timeout_seconds: float = 5.0,
+) -> RuleInitializationResult:
+    """Create and verify the initial GQGA4 rule version, or verify the existing one."""
+
+    with RuleStore.initialize(database_path, timeout_seconds=timeout_seconds) as store:
+        with store.transaction(write=True):
+            template = GQGA4_RULE_SET_TEMPLATE
+            rule_set = store.find_rule_set(
+                template.product_line_code,
+                template.process_code,
+                template.scenario,
+            )
+            if rule_set is not None:
+                active = _read_active_rules(store, rule_set)
+                dumps_active_rules_response(active)
+                return RuleInitializationResult(created=False, active_rules=active)
+
+            actor = _audit_actor(audit_actor)
+            rules, prototypes = normalize_gqga4_rule_snapshot(
+                GQGA4_INITIAL_RULES, GQGA4_INITIAL_VIRTUAL_PROTOTYPES
+            )
+            compiled = compile_gqga4_rule_set(rules, 1)
+            timestamp = _timestamp(clock)
+            rule_set_id = store.create_rule_set(
+                template.product_line_code,
+                template.process_code,
+                template.scenario,
+                created_at=timestamp,
+            )
+            version_id = store.create_version(
+                rule_set_id,
+                1,
+                None,
+                INITIALIZATION_OPERATION_ID,
+                _request_hash(None, rules, prototypes, ""),
+                compiled.compiled_rule_set_json,
+                compiled.rule_set_spec.fingerprint,
+                _virtual_prototypes_json(prototypes),
+                _editor_snapshot_json(rules, prototypes, ""),
+                "",
+                actor,
+                timestamp,
+                actor,
+                timestamp,
+            )
+            _create_rule_definitions(store, version_id, compiled.rule_set_spec.rules)
+            store.activate_version(rule_set_id, version_id, None, updated_at=timestamp)
+            active = _read_active_rules(store, _find_rule_set(store))
+            dumps_active_rules_response(active)
+            return RuleInitializationResult(created=True, active_rules=active)
+
+
 def set_active_gqga4_rules(
     request: SetActiveRulesRequest,
     database_path: str | Path | None = None,
@@ -286,9 +375,7 @@ def set_active_gqga4_rules(
 
     if not isinstance(request, SetActiveRulesRequest):
         raise ValueError("request must be SetActiveRulesRequest")
-    if not isinstance(audit_actor, str) or not audit_actor.strip():
-        raise ValueError("audit_actor must be nonempty text")
-    actor = audit_actor.strip()
+    actor = _audit_actor(audit_actor)
     normalized_rules, normalized_prototypes = normalize_gqga4_rule_snapshot(
         request.rules, request.virtual_prototypes
     )
@@ -358,18 +445,7 @@ def set_active_gqga4_rules(
                     actor,
                     timestamp,
                 )
-                for sequence_no, rule in enumerate(compiled.rule_set_spec.rules, start=1):
-                    store.create_rule_definition(
-                        version_id,
-                        sequence_no,
-                        rule.rule_id,
-                        rule.rule_type,
-                        rule.name,
-                        rule.scope.value,
-                        rule.enabled,
-                        rule.version,
-                        dumps_exact_json(rule.parameters),
-                    )
+                _create_rule_definitions(store, version_id, compiled.rule_set_spec.rules)
                 store.activate_version(rule_set.id, version_id, previous, updated_at=timestamp)
                 active = _read_active_rules(store, _find_rule_set(store))
                 response = SetActiveRulesResponse(
@@ -395,7 +471,10 @@ def set_active_gqga4_rules(
 
 __all__ = [
     "DEFAULT_AUDIT_ACTOR",
+    "INITIALIZATION_OPERATION_ID",
+    "RuleInitializationResult",
     "RuleManagementServiceError",
     "get_active_gqga4_rules",
+    "initialize_gqga4_rules",
     "set_active_gqga4_rules",
 ]
