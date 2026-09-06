@@ -1,0 +1,251 @@
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import FrozenInstanceError, replace
+from decimal import Decimal
+from threading import Event
+
+import pytest
+
+from apsgo_scheduler.api.request import PeriodInput
+from apsgo_scheduler.api.rule_management import SetActiveRulesRequest
+from apsgo_scheduler.app import solve_request
+from apsgo_scheduler.core.contracts import SolveStatus
+from apsgo_scheduler.core.model import MaterialRole
+from apsgo_v7_service import scheduling
+from apsgo_v7_service.gqga4 import (
+    GQGA4_INITIAL_RULES,
+    GQGA4_INITIAL_VIRTUAL_PROTOTYPES,
+)
+from apsgo_v7_service.rule_management import (
+    RuleManagementServiceError,
+    initialize_gqga4_rules,
+    set_active_gqga4_rules,
+)
+from apsgo_v7_service.rule_store import RuleStore
+from tests.app.test_input_normalizer import make_order, make_request, make_spec
+
+
+def _base_task_input():
+    attributes = {
+        "surface_grade": None,
+        "grade_class": "普通钢",
+        "hot_roll_grade": "DC01",
+        "soft_hard_class": "soft",
+        "customer_name": None,
+    }
+    orders = (
+        make_order(
+            0,
+            source_period="P0",
+            weight=Decimal("600"),
+            width=Decimal("1000"),
+            grade="DC01",
+            material_role=MaterialRole.NORMAL_REAL,
+            rule_attributes=attributes,
+        ),
+        make_order(
+            1,
+            source_period="P0",
+            weight=Decimal("600"),
+            width=Decimal("990"),
+            grade="DC01",
+            material_role=MaterialRole.NORMAL_REAL,
+            rule_attributes=attributes,
+        ),
+    )
+    request = make_request(
+        rule_set_spec=make_spec(),
+        orders=orders,
+        periods=(PeriodInput("P0", 0),),
+    )
+    return scheduling.SchedulingTaskInput(
+        contract_version=request.contract_version,
+        request_id=request.request_id,
+        product_line_code="GQGA4",
+        process_code="default",
+        scenario="month",
+        orders=request.orders,
+        periods=request.periods,
+        policy=request.policy,
+    )
+
+
+def _changed_rules():
+    result = []
+    for rule in GQGA4_INITIAL_RULES:
+        if rule.rule_id == "chain_weight_range":
+            rule = replace(
+                rule,
+                parameters={**rule.parameters, "min_weight": Decimal("701")},
+            )
+        result.append(rule)
+    return tuple(result)
+
+
+def _consume_unrelated_version_id(database_path):
+    stamp = "2026-09-07T00:00:00.000000+00:00"
+    with RuleStore.initialize(database_path) as store:
+        with store.transaction(write=True):
+            rule_set_id = store.create_rule_set(
+                "OTHER",
+                "default",
+                "month",
+                created_at=stamp,
+            )
+            store.create_version(
+                rule_set_id,
+                1,
+                None,
+                "unrelated-version",
+                "0" * 64,
+                "{}",
+                "1" * 64,
+                "[]",
+                "{}",
+                "",
+                "test",
+                stamp,
+                "test",
+                stamp,
+            )
+
+
+def test_binding_constructs_request_from_database_snapshot_and_records_version(tmp_path):
+    database_path = tmp_path / "rules.sqlite3"
+    _consume_unrelated_version_id(database_path)
+    active = initialize_gqga4_rules(database_path).active_rules
+    task_input = _base_task_input()
+
+    task = scheduling.bind_gqga4_scheduling_task(task_input, database_path)
+
+    assert task.active_rule_set_version_id == active.active_version_id == 2
+    assert task.active_rule_set_version_id != int(task.request.rule_set_spec.version)
+    assert task.rule_set_fingerprint == task.request.rule_set_spec.fingerprint
+    assert task.request.rule_set_spec == active.rule_set_spec
+    assert task.request.virtual_prototypes == active.virtual_prototypes
+    assert task.request_fingerprint != "" and task.binding_fingerprint != ""
+    assert task.request.orders == task_input.orders
+    assert task.request.periods == task_input.periods
+    assert task.request.policy == task_input.policy
+    assert not hasattr(task_input, "rule_set_spec")
+    assert not hasattr(task_input, "virtual_prototypes")
+    with pytest.raises(FrozenInstanceError):
+        task.active_rule_set_version_id = 9
+    with pytest.raises(ValueError, match="does not match"):
+        replace(task, rule_set_fingerprint="wrong")
+
+
+def test_wrong_identity_fails_before_reading_the_rule_store(monkeypatch):
+    task_input = replace(_base_task_input(), product_line_code="OTHER")
+    calls = []
+
+    def unexpected_read(*args, **kwargs):
+        calls.append((args, kwargs))
+        raise AssertionError("rule store must not be read")
+
+    monkeypatch.setattr(scheduling, "get_active_gqga4_rules", unexpected_read)
+    with pytest.raises(ValueError, match="GQGA4/default/month"):
+        scheduling.bind_gqga4_scheduling_task(task_input)
+    assert calls == []
+
+
+def test_binding_failure_does_not_fall_back_or_start_the_solver(monkeypatch):
+    task_input = _base_task_input()
+    solve_calls = []
+
+    def failed_read(*args, **kwargs):
+        raise RuleManagementServiceError(
+            "stored_snapshot_inconsistent",
+            "活动规则版本损坏。",
+        )
+
+    monkeypatch.setattr(scheduling, "get_active_gqga4_rules", failed_read)
+    monkeypatch.setattr(scheduling, "solve_request", lambda *args: solve_calls.append(args))
+
+    with pytest.raises(RuleManagementServiceError) as caught:
+        scheduling.solve_gqga4_scheduling_task(task_input)
+
+    assert caught.value.code == "stored_snapshot_inconsistent"
+    assert solve_calls == []
+
+
+def test_bound_request_solves_after_all_rule_store_access_is_disabled(tmp_path, monkeypatch):
+    database_path = tmp_path / "rules.sqlite3"
+    initialize_gqga4_rules(database_path)
+    task = scheduling.bind_gqga4_scheduling_task(_base_task_input(), database_path)
+
+    def forbidden_open(*args, **kwargs):
+        raise AssertionError("search must not open the rule store")
+
+    monkeypatch.setattr(RuleStore, "open", classmethod(forbidden_open))
+    result = solve_request(task.request)
+
+    assert result.status is SolveStatus.SUCCESS
+    assert result.release is not None
+    assert result.release.evaluation.violations == ()
+    assert result.core_audit.passed and result.audit_report.passed
+    assert result.run_manifest.request_fingerprint == task.request_fingerprint
+    assert result.run_manifest.rule_set_fingerprint == task.rule_set_fingerprint
+
+
+def test_running_task_keeps_version_a_while_a_new_task_gets_version_b(tmp_path, monkeypatch):
+    database_path = tmp_path / "rules.sqlite3"
+    first = initialize_gqga4_rules(database_path).active_rules
+    task_input = _base_task_input()
+    entered_solver = Event()
+    release_solver = Event()
+    captured_requests = []
+    read_count = 0
+    original_read = scheduling.get_active_gqga4_rules
+    original_solve = scheduling.solve_request
+
+    def counted_read(*args, **kwargs):
+        nonlocal read_count
+        read_count += 1
+        return original_read(*args, **kwargs)
+
+    def paused_solve(bound_request, cancellation=None):
+        captured_requests.append(bound_request)
+        entered_solver.set()
+        assert release_solver.wait(10)
+        return original_solve(bound_request, cancellation)
+
+    monkeypatch.setattr(scheduling, "get_active_gqga4_rules", counted_read)
+    monkeypatch.setattr(scheduling, "solve_request", paused_solve)
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        future_a = pool.submit(
+            scheduling.solve_gqga4_scheduling_task,
+            task_input,
+            database_path,
+        )
+        assert entered_solver.wait(10)
+        second = set_active_gqga4_rules(
+            SetActiveRulesRequest(
+                save_operation_id="00000000-0000-4000-8000-000000000701",
+                expected_active_version_id=first.active_version_id,
+                rules=_changed_rules(),
+                virtual_prototypes=GQGA4_INITIAL_VIRTUAL_PROTOTYPES,
+                remark="任务运行期间启用新版本",
+            ),
+            database_path,
+        ).active_rules
+        release_solver.set()
+        result_a = future_a.result(timeout=10)
+
+    result_b = scheduling.solve_gqga4_scheduling_task(task_input, database_path)
+
+    assert read_count == 2
+    assert result_a.active_rule_set_version_id == first.active_version_id
+    assert result_a.rule_set_fingerprint == first.rule_set_spec.fingerprint
+    assert result_b.active_rule_set_version_id == second.active_version_id
+    assert result_b.rule_set_fingerprint == second.rule_set_spec.fingerprint
+    assert result_a.rule_set_fingerprint != result_b.rule_set_fingerprint
+    assert captured_requests[0].rule_set_spec == first.rule_set_spec
+    assert captured_requests[1].rule_set_spec == second.rule_set_spec
+    for result in (result_a, result_b):
+        assert result.result.status is SolveStatus.SUCCESS
+        assert result.result.run_manifest.rule_set_fingerprint == result.rule_set_fingerprint
+        assert result.result.run_manifest.request_fingerprint == result.request_fingerprint
+        assert result.bound_result_fingerprint != ""
+    with pytest.raises(ValueError, match="binding identity"):
+        replace(result_a, active_rule_set_version_id=result_b.active_rule_set_version_id)
