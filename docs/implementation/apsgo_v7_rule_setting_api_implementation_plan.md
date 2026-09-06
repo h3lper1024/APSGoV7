@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | 实施中；阶段 0～3 已完成，下一阶段为实现保存并启用事务 |
-| 文档版本 | v0.5 |
+| 文档状态 | 实施中；阶段 0～4 已完成，下一阶段为接入两条 HTTP 路由 |
+| 文档版本 | v0.6 |
 | 编写日期 | 2026-09-07 |
 | 实施基线 | `main@6d12365` |
 | 开发分支 | `codex/rule-setting-api-integration` |
@@ -13,7 +13,7 @@
 | 求解器工程 | `/Users/miles/dev/dev-py/APSGOV7` |
 | 前端工程 | `/Users/miles/dev/dev-cs/aps-code-0806` |
 
-> 阶段 0～3 已完成。保存并启用业务流程、HTTP 接口、初始化写库、求解绑定和 C# 页面尚未实现。
+> 阶段 0～4 已完成。HTTP 接口、正式初始化写库、求解绑定和 C# 页面尚未实现。
 
 ## 2. 实施目标
 
@@ -84,7 +84,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 
 ### 5.2 当前代码边界
 
-- V7 已建立框架无关规则管理请求、响应、错误和 JSON 契约，以及通用规则编译器和 GQGA4 生产模板；尚无 HTTP 框架、数据库依赖或具体路由。
+- V7 已建立框架无关规则管理契约、通用编译器和 GQGA4 生产模板；外层服务已用标准库 SQLite 实现版本存储与保存并启用事务。`apsgo_scheduler` 仍无数据库依赖，当前尚无 HTTP 框架和具体路由。
 - `apsgo_scheduler` 生产包当前只允许 `api/core/app`，依赖方向保持 `app -> api/core`、`api -> core`、`core -> 标准库/自身`；新增 `apsgo_v7_service` 只允许单向依赖 `apsgo_scheduler`，后者不得反向导入服务包。
 - C# GQGA4 页面当前仍使用 `PipelineV3ApiClient` 的目录、表单规范、草稿、启用和预览流程。
 - `PipelineV3ApiClient` 还可能被其他页面使用，本计划不得整体删除。
@@ -111,6 +111,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 | V7 服务 | `src/apsgo_v7_service/app.py` | FastAPI 应用、仅回环启动和两条精确路由。 |
 | V7 服务 | `src/apsgo_v7_service/rule_store.py` | SQLite schema、事务、查询、并发与幂等。 |
 | V7 服务 | `src/apsgo_v7_service/gqga4.py` | GQGA4 固定模板、初始配置和原型导入。 |
+| V7 服务 | `src/apsgo_v7_service/rule_management.py` | 活动规则回读以及保存、编译、幂等、并发控制和原子启用。 |
 | C# | `SchedApp/ApsgoV7RuleApiClient.cs` | V7 专用 GET/POST 客户端和请求/响应数据结构。 |
 | C# | `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.cs` | 页面加载、映射、保存和错误处理。 |
 | C# | `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.designer.cs` | 按钮和旧预览区域调整。 |
@@ -127,7 +128,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 | 1 | 建立规则管理接口契约 | 已完成：框架无关数据对象、JSON 和错误契约 | `#feat 建立V7规则设置接口契约` |
 | 2 | 实现 GQGA4 完整规则编译 | 已完成：固定模板、Decimal、指纹、双重加载 | `#feat 实现GQGA4规则配置编译` |
 | 3 | 建立规则版本存储 | 已完成：三类逻辑表、约束、存储原语与向前初始化 | `#feat 建立V7规则版本存储` |
-| 4 | 实现保存并启用事务 | 完整保存、并发和幂等 | `#feat 实现规则保存并启用事务` |
+| 4 | 实现保存并启用事务 | 已完成：完整保存、并发、幂等、回读和回滚 | `#feat 实现规则保存并启用事务` |
 | 5 | 接入两条 HTTP 路由 | GET/POST 和错误码映射 | `#feat 接入V7规则设置HTTP接口` |
 | 6 | 初始化 GQGA4 活动版本 | 正式规则与原型种子、回读验证 | `#feat 初始化GQGA4启用规则版本` |
 | 7 | 绑定排程任务规则快照 | 启动读取一次、审计身份、失败关闭 | `#feat 绑定排程请求启用规则快照` |
@@ -301,6 +302,16 @@ GET 服务从活动版本读取规则行与编译快照，核对数据库版本�
 - 并发与幂等使用真实事务测试验证。
 - 不存在“规则行已更新但完整快照或活动指针未更新”的可见状态。
 - 服务端操作者来自进程身份、时间来自服务器；请求体不接受可信操作者字段。
+
+### 12.4 实际实施结果
+
+- 新增两个框架无关应用服务入口：查询当前启用规则，以及保存完整页面快照并立即启用。每次调用自行打开当前线程的 SQLite 连接，不增加仓储接口、ORM、连接池或缓存。
+- 请求在事务外按 GQGA4 模板规范化，摘要按固定 17 条规则顺序、原型顺序、基础活动版本和规范化备注计算，不包含保存操作标识。同一操作先幂等回放，再检查当前活动版本。
+- 新保存在一个 `BEGIN IMMEDIATE` 事务中完成版本、17 条规则、原型与页面快照写入、条件活动指针切换、完整回读和响应序列化。编译、数据库写入、条件切换、回读或序列化任一失败均不留下新版本。
+- 幂等回放在原版本已被替代后只返回当前活动视图，不重新启用历史版本。活动版本回读会核对业务身份、版本、指纹、逐条规则、原型、页面快照、请求摘要和备注规范化。
+- 用真实文件型 SQLite 及两个独立连接验证写锁重叠：不同操作的后到请求返回活动版本冲突，同一操作的后到请求进行幂等回放，两者都只产生一个新版本。
+- 阶段 4 专项测试 35 项、事务服务/存储/架构聚焦 128 项、共享树累计 3098 项通过；最终干净导出结果由阶段证据与本项提交记录固定。
+- 本阶段不包含 HTTP 路由、正式数据库初始化、求解请求绑定或 C# 改动；下一阶段只接入两条已确认的 HTTP 路由及错误映射。
 
 ## 13. 阶段 5：接入两条 HTTP 路由
 
@@ -476,7 +487,7 @@ git status --short
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider \
-  tests/architecture tests/api tests/app tests/core
+  tests/architecture tests/api tests/app tests/core tests/service
 ```
 
 提交前：
