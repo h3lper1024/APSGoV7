@@ -93,13 +93,16 @@ def verify(client_root: Path) -> dict[str, object]:
     ):
         if load.index(reset) > get_index:
             raise AssertionError(f"load precondition occurs after GET: {reset}")
-    apply_index = load.index("ApplyV7ActiveRules(")
+    if "AcceptV7ActiveRulesResponse(response)" not in load:
+        raise AssertionError("load must validate, map, and commit one complete V7 response")
+    accept = named_method(page, "AcceptV7ActiveRulesResponse")
+    apply_index = accept.index("ApplyV7ActiveRules(")
     for commit in (
         "activeRulesSnapshot = response;",
         "activeRulesById = rules;",
         "currentRuleValidated = true;",
     ):
-        if load.index(commit) < apply_index:
+        if accept.index(commit) < apply_index:
             raise AssertionError(f"successful state committed before mapping: {commit}")
     if "SetRuleOperationButtonsEnabled(true)" in load:
         raise AssertionError("stage 9 must not enable the legacy V3 save path")
@@ -119,7 +122,7 @@ def verify(client_root: Path) -> dict[str, object]:
         raise AssertionError("rule lookup must use exact case-sensitive identifiers")
     if not re.search(
         r"BuildV7VirtualPrototypeSetting\(\s*response\.VirtualPrototypes(?:\s*,|\s*\))",
-        load,
+        accept,
     ):
         raise AssertionError("the complete prototype response is not validated for projection")
     for cache in ("ApsgoV7ActiveRulesResponse activeRulesSnapshot", "activeRulesById"):
@@ -233,13 +236,11 @@ def verify(client_root: Path) -> dict[str, object]:
     ):
         if lifecycle not in page:
             raise AssertionError(f"missing form lifecycle action: {lifecycle}")
-    for disabled_action in (
-        "saveRuleDraftBTN.Visible = false;",
-        "activateRuleBTN.Visible = false;",
-        "SetRuleOperationButtonsEnabled(false);",
-    ):
-        if disabled_action not in page:
-            raise AssertionError(f"legacy save action remains reachable: {disabled_action}")
+    for legacy_action in ("SaveRuleDraft", "ActivateRule", "saveRuleDraftBTN", "activateRuleBTN"):
+        if legacy_action in page:
+            raise AssertionError(f"legacy save action remains reachable: {legacy_action}")
+    if "SetRuleOperationButtonsEnabled(false);" not in load:
+        raise AssertionError("loading must disable rule operations before issuing GET")
 
     dialog_index = command.index("dialog.ShowDialog() != DialogResult.OK")
     database_index = command.index("DatabaseService.CreateDbClient()")
