@@ -15,7 +15,12 @@ dev = ["pytest>=8.4,<9", "ruff>=0.11"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
-include = ["apsgo_scheduler", "apsgo_scheduler.*"]
+include = [
+    "apsgo_scheduler",
+    "apsgo_scheduler.*",
+    "apsgo_v7_service",
+    "apsgo_v7_service.*",
+]
 namespaces = false
 
 [tool.pytest.ini_options]

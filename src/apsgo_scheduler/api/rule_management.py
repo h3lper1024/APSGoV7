@@ -18,6 +18,7 @@ from ..core.contracts import (
     require_int,
     require_text,
 )
+from .json_codec import dumps_exact_json
 from .request import RuleSetSpec, VirtualPrototypeInput
 
 _MAX_RULE_PARAMETER_DEPTH = 64
@@ -401,51 +402,6 @@ def loads_set_active_rules_request(payload: str | bytes | bytearray) -> SetActiv
     )
 
 
-def _decimal_json(value: Decimal) -> str:
-    if not value.is_finite():
-        raise ValueError("JSON Decimal must be finite")
-    sign, raw_digits, exponent = value.as_tuple()
-    if not any(raw_digits):
-        return "0.0"
-    raw = "".join(str(digit) for digit in raw_digits)
-    digits = raw.rstrip("0")
-    exponent += len(raw) - len(digits)
-    prefix = "-" if sign else ""
-    point = len(digits) + exponent
-    if point <= 0 and -point <= 64:
-        return f"{prefix}0.{('0' * -point)}{digits}"
-    if point >= len(digits) and point <= 64:
-        return f"{prefix}{digits}{'0' * (point - len(digits))}.0"
-    if 0 < point < len(digits):
-        return f"{prefix}{digits[:point]}.{digits[point:]}"
-    fraction = f".{digits[1:]}" if len(digits) > 1 else ""
-    return f"{prefix}{digits[0]}{fraction}e{point - 1}"
-
-
-def _dumps_json(value) -> str:
-    if value is None:
-        return "null"
-    if type(value) is bool:
-        return "true" if value else "false"
-    if type(value) is int:
-        return str(value)
-    if isinstance(value, Decimal):
-        return _decimal_json(value)
-    if isinstance(value, str):
-        return json.dumps(value, ensure_ascii=True, allow_nan=False)
-    if isinstance(value, Mapping):
-        if any(not isinstance(key, str) for key in value):
-            raise ValueError("JSON object keys must be text")
-        return (
-            "{"
-            + ",".join(f"{_dumps_json(key)}:{_dumps_json(value[key])}" for key in sorted(value))
-            + "}"
-        )
-    if isinstance(value, (tuple, list)):
-        return "[" + ",".join(_dumps_json(item) for item in value) + "]"
-    raise ValueError(f"unsupported JSON value type: {type(value).__name__}")
-
-
 def _prototype_data(value: VirtualPrototypeInput) -> dict:
     return {
         "prototype_id": value.prototype_id,
@@ -517,7 +473,7 @@ def _active_rules_data(value: ActiveRulesResponse) -> dict:
 def dumps_set_active_rules_request(value: SetActiveRulesRequest) -> str:
     if not isinstance(value, SetActiveRulesRequest):
         raise ValueError("value must be SetActiveRulesRequest")
-    return _dumps_json(
+    return dumps_exact_json(
         {
             "save_operation_id": value.save_operation_id,
             "expected_active_version_id": value.expected_active_version_id,
@@ -531,7 +487,7 @@ def dumps_set_active_rules_request(value: SetActiveRulesRequest) -> str:
 def dumps_active_rules_response(value: ActiveRulesResponse) -> str:
     if not isinstance(value, ActiveRulesResponse):
         raise ValueError("value must be ActiveRulesResponse")
-    return _dumps_json(_active_rules_data(value))
+    return dumps_exact_json(_active_rules_data(value))
 
 
 def dumps_set_active_rules_response(value: SetActiveRulesResponse) -> str:
@@ -547,13 +503,13 @@ def dumps_set_active_rules_response(value: SetActiveRulesResponse) -> str:
             "idempotent_replay": value.idempotent_replay,
         }
     )
-    return _dumps_json(data)
+    return dumps_exact_json(data)
 
 
 def dumps_rule_management_error(value: RuleManagementError) -> str:
     if not isinstance(value, RuleManagementError):
         raise ValueError("value must be RuleManagementError")
-    return _dumps_json(
+    return dumps_exact_json(
         {
             "error": {
                 "code": value.code,

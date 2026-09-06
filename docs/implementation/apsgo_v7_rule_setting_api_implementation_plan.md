@@ -4,16 +4,16 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | 实施中；阶段 0、阶段 1 已完成，下一阶段为 GQGA4 完整规则编译 |
-| 文档版本 | v0.3 |
-| 编写日期 | 2026-09-06 |
+| 文档状态 | 实施中；阶段 0～2 已完成，下一阶段为建立规则版本存储 |
+| 文档版本 | v0.4 |
+| 编写日期 | 2026-09-07 |
 | 实施基线 | `main@6d12365` |
 | 开发分支 | `codex/rule-setting-api-integration` |
 | 权威设计 | [APSGo V7 月计划规则设置接口详细设计](../design/apsgo_v7_rule_setting_api_design.md) |
 | 求解器工程 | `/Users/miles/dev/dev-py/APSGOV7` |
 | 前端工程 | `/Users/miles/dev/dev-cs/aps-code-0806` |
 
-> 阶段 0、阶段 1 已完成。阶段 2 及其后的 GQGA4 编译、数据库、HTTP 接口、求解绑定和 C# 页面尚未实现。
+> 阶段 0～2 已完成。数据库、HTTP 接口、求解绑定和 C# 页面尚未实现。
 
 ## 2. 实施目标
 
@@ -80,12 +80,12 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 | 允许最终偏差 | `chain_weight_below_minimum` |
 | 指纹 | `d963206b01c0d439303c1d6ae7d7374e20eaa0777801d12c0bebc89bfe6349c0` |
 
-阶段 2 与阶段 6 将相同业务内容固化为 `apsgo_v7_service` 包内的生产种子；测试基线只用于证明生产种子等价，不作为部署后运行时输入。样本中的指纹只作核对，不可绕过生产路径重新计算。
+阶段 2 已将业务内容固化为 `apsgo_v7_service` 包内的生产种子；阶段 6 使用该种子初始化并核验数据库活动版本。测试基线只用于证明生产种子等价，不作为部署后运行时输入。样本中的指纹只作核对，不可绕过生产路径重新计算。
 
 ### 5.2 当前代码边界
 
-- V7 已建立框架无关规则管理请求、响应、错误和 JSON 契约；尚无 HTTP 框架、数据库依赖或具体路由。
-- V7 生产包当前只允许 `apsgo_scheduler.api/core/app`，依赖方向保持 `app -> api/core`、`api -> core`、`core -> 标准库/自身`。
+- V7 已建立框架无关规则管理请求、响应、错误和 JSON 契约，以及通用规则编译器和 GQGA4 生产模板；尚无 HTTP 框架、数据库依赖或具体路由。
+- `apsgo_scheduler` 生产包当前只允许 `api/core/app`，依赖方向保持 `app -> api/core`、`api -> core`、`core -> 标准库/自身`；新增 `apsgo_v7_service` 只允许单向依赖 `apsgo_scheduler`，后者不得反向导入服务包。
 - C# GQGA4 页面当前仍使用 `PipelineV3ApiClient` 的目录、表单规范、草稿、启用和预览流程。
 - `PipelineV3ApiClient` 还可能被其他页面使用，本计划不得整体删除。
 
@@ -106,7 +106,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 | 工程 | 预期文件 | 用途 |
 |---|---|---|
 | V7 | `src/apsgo_scheduler/api/rule_management.py` | GET/POST 的框架无关请求、响应和诊断契约。 |
-| V7 | `src/apsgo_scheduler/app/rule_set_compiler.py` | GQGA4 固定模板补全、指纹、权威加载和回读验证。 |
+| V7 | `src/apsgo_scheduler/app/rule_set_compiler.py` | 接收外部固定模板，补全通用规则元数据并完成指纹、权威加载和回读验证。 |
 | V7 | `src/apsgo_scheduler/app/rule_set_binding.py` | 活动编译快照到 `SchedulingRequest` 的启动时绑定。 |
 | V7 服务 | `src/apsgo_v7_service/app.py` | FastAPI 应用、仅回环启动和两条精确路由。 |
 | V7 服务 | `src/apsgo_v7_service/rule_store.py` | SQLite schema、事务、查询、并发与幂等。 |
@@ -125,7 +125,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 |---:|---|---|---|
 | 0 | 冻结接口宿主与数据库现状 | 已提交 `426bf49`：可验证的现状记录和精确代码落点 | `#feat 固定V7规则接口实施基线` |
 | 1 | 建立规则管理接口契约 | 已完成：框架无关数据对象、JSON 和错误契约 | `#feat 建立V7规则设置接口契约` |
-| 2 | 实现 GQGA4 完整规则编译 | 固定模板、Decimal、指纹、双重加载 | `#feat 实现GQGA4规则配置编译` |
+| 2 | 实现 GQGA4 完整规则编译 | 已完成：固定模板、Decimal、指纹、双重加载 | `#feat 实现GQGA4规则配置编译` |
 | 3 | 建立规则版本存储 | 三类逻辑表、约束、仓储与迁移 | `#feat 建立V7规则版本存储` |
 | 4 | 实现保存并启用事务 | 完整保存、并发和幂等 | `#feat 实现规则保存并启用事务` |
 | 5 | 接入两条 HTTP 路由 | GET/POST 和错误码映射 | `#feat 接入V7规则设置HTTP接口` |
@@ -219,9 +219,19 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 
 ### 10.3 验收
 
-- 编译逻辑只有一个生产入口；初始化、POST 和求解绑定复用同一规范化/加载规则。
+- 阶段 2 只提供一条生产规范化、编译和回读路径；初始化、POST 和求解绑定是否正确复用，分别留在阶段 6、阶段 4 和阶段 7 验收。
 - 不复制现有规则类的业务判断。
 - 不访问数据库、测试路径或本机绝对路径。
+
+### 10.4 实际实施结果
+
+- 新增产线无关编译器：按服务端模板校验完整规则标识集合、归一参数类型与顺序、补齐固定元数据和版本、计算指纹，并在精确 JSON 回读前后分别调用既有 `load_rule_set()`。
+- 新增 `apsgo_v7_service` 生产包与 GQGA4 固定种子。初始规则为 17 条、16 条启用、`forbid_consecutive_reverse_width` 一条停用、七级评分和唯一允许偏差 `chain_weight_below_minimum`；版本 `1` 的规则指纹为 `d963206b01c0d439303c1d6ae7d7374e20eaa0777801d12c0bebc89bfe6349c0`。
+- 固化 27 个虚拟 SPHC 原型，按原顺序的完整元组指纹为 `33cea496fa6909ec53e6048f142776eba25d2bdca19fee9b565f775b64df965c`。生产运行不读取 `tests/`、个人目录或外部脚本。
+- 原型在活动版本生成前完成文本规范化、修剪后判重、核心字段遮蔽保护、数值和启用规则必需物理字段校验；停用相应规则后不会保留隐藏字段要求。
+- 17 条规则逐项覆盖合法编辑或权威诊断；规则缺失、重复、未知、参数形状/类型、非法停用评分生产者、指纹篡改和 JSON 结构损坏均有回归。
+- 专项编译测试 44 项、阶段 2 编译/规则管理/架构聚焦 142 项、共享树累计 3043 项通过；最终精确暂存树的残留、累计回归、编译和构建结果由本阶段提交记录固定。
+- 本阶段没有实现数据库、保存事务、HTTP 路由、初始化写库、求解绑定或 C# 页面；下一阶段只建立 SQLite 规则版本存储。
 
 ## 11. 阶段 3：建立规则版本存储
 

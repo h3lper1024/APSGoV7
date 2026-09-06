@@ -1,0 +1,367 @@
+"""Fixed rule metadata and initial virtual-material seed for the monthly line."""
+
+from decimal import Decimal
+
+from apsgo_scheduler.api.request import VirtualPrototypeInput
+from apsgo_scheduler.api.rule_management import EditableRuleInput
+from apsgo_scheduler.app.rule_set_compiler import (
+    CompiledRuleSetSnapshot,
+    compile_rule_set,
+    load_compiled_rule_set_json,
+    normalize_rule_set_snapshot,
+)
+
+_INITIAL_RULE_SET_JSON = r"""{
+  "product_line_code": "GQGA4",
+  "process_code": "default",
+  "scenario": "month",
+  "version": "1",
+  "rules": [
+    {
+      "rule_id": "chain_weight_range",
+      "rule_type": "ChainWeightRangeRule",
+      "name": "链重范围",
+      "scope": "chain",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "min_weight": 700.0,
+        "max_weight": 2000.0,
+        "target_weight": 2000.0
+      }
+    },
+    {
+      "rule_id": "forbid_consecutive_reverse_width",
+      "rule_type": "ConsecutiveReverseWidthRule",
+      "name": "连续逆宽禁止",
+      "scope": "chain",
+      "enabled": false,
+      "version": "1",
+      "parameters": {}
+    },
+    {
+      "rule_id": "max_reverse_width_count",
+      "rule_type": "ReverseWidthCountRule",
+      "name": "链内逆宽次数",
+      "scope": "chain",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "max_count": 2
+      }
+    },
+    {
+      "rule_id": "max_consecutive_virtual_sphc",
+      "rule_type": "ConsecutiveVirtualMaterialRule",
+      "name": "连续虚拟材料数量",
+      "scope": "chain",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "max_count": 2
+      }
+    },
+    {
+      "rule_id": "reverse_width_limit",
+      "rule_type": "WidthTransitionRule",
+      "name": "宽度连接",
+      "scope": "edge",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "max_reverse_width": 20.0,
+        "virtual_width_tolerance": 200.0
+      }
+    },
+    {
+      "rule_id": "thickness_jump_limit",
+      "rule_type": "ThicknessTransitionRule",
+      "name": "厚度跳跃",
+      "scope": "edge",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "basis": "thinner",
+        "ranges": [
+          {
+            "calculation_mode": "absolute",
+            "include_max": false,
+            "include_min": true,
+            "max": 0.6,
+            "min": null,
+            "tolerance": 0.1
+          },
+          {
+            "calculation_mode": "absolute",
+            "include_max": true,
+            "include_min": true,
+            "max": 1.1,
+            "min": 0.6,
+            "tolerance": 0.2
+          },
+          {
+            "calculation_mode": "absolute",
+            "include_max": false,
+            "include_min": false,
+            "max": 1.5,
+            "min": 1.1,
+            "tolerance": 0.3
+          },
+          {
+            "calculation_mode": "absolute",
+            "include_max": true,
+            "include_min": true,
+            "max": null,
+            "min": 1.5,
+            "tolerance": 0.5
+          }
+        ],
+        "fallback_tolerance": 0.1
+      }
+    },
+    {
+      "rule_id": "temperature_overlap_min",
+      "rule_type": "TemperatureOverlapRule",
+      "name": "温度区间重叠",
+      "scope": "edge",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "min_overlap": 10.0,
+        "ignore_temperature": false,
+        "virtual_temperature_adaptive": true
+      }
+    },
+    {
+      "rule_id": "gqga4_soft_hard_connection",
+      "rule_type": "SoftHardConnectionRule",
+      "name": "软硬材连接",
+      "scope": "edge",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "virtual_sphc_allows_bridge": true,
+        "transition_material_breaks_soft_hard": true,
+        "missing_grade_policy": "fallback_same_hot_roll_grade"
+      }
+    },
+    {
+      "rule_id": "chain_high_surface_run_count_lte",
+      "rule_type": "HighSurfaceRunCountRule",
+      "name": "高表面连续数量",
+      "scope": "chain",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "surface_grades": [
+          "FC",
+          "FD"
+        ],
+        "max_run_count": 5
+      }
+    },
+    {
+      "rule_id": "chain_if_narrow_real_weight_lte",
+      "rule_type": "ContinuousNarrowSteelWeightRule",
+      "name": "窄钢连续真实重量",
+      "scope": "chain",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "grade_class": "IF钢",
+        "width_upper_exclusive": 1400.0,
+        "max_real_weight": 500.0
+      }
+    },
+    {
+      "rule_id": "chain_same_spec_real_weight_lte",
+      "rule_type": "SameSpecContinuousRealWeightRule",
+      "name": "同规格连续真实重量",
+      "scope": "chain",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "group_by_fields": [
+          "thickness",
+          "width",
+          "grade"
+        ],
+        "max_real_weight": 1000.0
+      }
+    },
+    {
+      "rule_id": "strategic_customer_priority_objective",
+      "rule_type": "StrategicCustomerPriorityRule",
+      "name": "战略客户优先级",
+      "scope": "node",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "contains_any": [
+          "上汽",
+          "吉利",
+          "宝马"
+        ],
+        "rank": 0,
+        "default_rank": 1
+      }
+    },
+    {
+      "rule_id": "forbid_late_original_due_period",
+      "rule_type": "LateOriginalPeriodMoveRule",
+      "name": "原订单延后计划期禁止",
+      "scope": "plan",
+      "enabled": true,
+      "version": "1",
+      "parameters": {}
+    },
+    {
+      "rule_id": "future_fill_weight_target",
+      "rule_type": "FutureFillWeightTargetRule",
+      "name": "未来填充目标",
+      "scope": "plan",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "future_fill_weight_target": 1200.0
+      }
+    },
+    {
+      "rule_id": "virtual_output_weight_ratio_limit",
+      "rule_type": "VirtualOutputRatioRule",
+      "name": "虚拟材料产出比例",
+      "scope": "plan",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "max_ratio": 0.05
+      }
+    },
+    {
+      "rule_id": "controlled_order_split",
+      "rule_type": "ControlledOrderSplitRule",
+      "name": "受控订单拆分",
+      "scope": "action_eligibility",
+      "enabled": true,
+      "version": "1",
+      "parameters": {
+        "grade_class": "IF钢",
+        "width_upper_exclusive": 1400.0,
+        "maximum_piece_weight": 500.0,
+        "minimum_piece_weight": 1.0,
+        "maximum_accepted_source_count": 10000,
+        "maximum_separator_node_count": 2,
+        "maximum_separator_weight": 40.0,
+        "allowed_modes": [
+          "same_period_split",
+          "future_borrow_return"
+        ]
+      }
+    },
+    {
+      "rule_id": "inter_chain_width_gap_objective",
+      "rule_type": "InterChainWidthGapRule",
+      "name": "相邻链首尾宽度差",
+      "scope": "plan",
+      "enabled": true,
+      "version": "1",
+      "parameters": {}
+    }
+  ],
+  "quality_spec": [
+    {
+      "criterion_id": "prohibited_violation_count",
+      "metric_key": "prohibited_violation_count",
+      "direction": "minimize",
+      "aggregation": "named_value",
+      "numeric_projection": "exact_decimal"
+    },
+    {
+      "criterion_id": "prohibited_violation_severity",
+      "metric_key": "prohibited_violation_severity",
+      "direction": "minimize",
+      "aggregation": "sum",
+      "numeric_projection": "reference_float_round_6"
+    },
+    {
+      "criterion_id": "underweight_chain_count",
+      "metric_key": "underweight_chain_count",
+      "direction": "minimize",
+      "aggregation": "sum",
+      "numeric_projection": "exact_decimal"
+    },
+    {
+      "criterion_id": "underweight_total_gap",
+      "metric_key": "underweight_total_gap",
+      "direction": "minimize",
+      "aggregation": "sum",
+      "numeric_projection": "underweight_gap_round_2_then_sum"
+    },
+    {
+      "criterion_id": "inter_chain_width_gap",
+      "metric_key": "inter_chain_width_gap",
+      "direction": "minimize",
+      "aggregation": "sum",
+      "numeric_projection": "exact_decimal"
+    },
+    {
+      "criterion_id": "generated_virtual_weight",
+      "metric_key": "generated_virtual_weight",
+      "direction": "minimize",
+      "aggregation": "named_value",
+      "numeric_projection": "reference_float_round_6"
+    },
+    {
+      "criterion_id": "chain_count",
+      "metric_key": "chain_count",
+      "direction": "minimize",
+      "aggregation": "named_value",
+      "numeric_projection": "exact_decimal"
+    }
+  ],
+  "allowed_final_deviation_codes": [
+    "chain_weight_below_minimum"
+  ],
+  "fingerprint": "d963206b01c0d439303c1d6ae7d7374e20eaa0777801d12c0bebc89bfe6349c0"
+}"""
+
+GQGA4_RULE_SET_TEMPLATE = load_compiled_rule_set_json(_INITIAL_RULE_SET_JSON)
+GQGA4_INITIAL_RULES = tuple(
+    EditableRuleInput(item.rule_id, item.enabled, item.parameters)
+    for item in GQGA4_RULE_SET_TEMPLATE.rules
+)
+GQGA4_QUALITY_SPEC = GQGA4_RULE_SET_TEMPLATE.quality_spec
+GQGA4_ALLOWED_FINAL_DEVIATIONS = GQGA4_RULE_SET_TEMPLATE.allowed_final_deviation_codes
+GQGA4_INITIAL_VIRTUAL_PROTOTYPES = tuple(
+    VirtualPrototypeInput(
+        prototype_id=f"virtual_sphc:{width}x{thickness}",
+        unit_weight=Decimal("20"),
+        width=Decimal(width),
+        thickness=Decimal(thickness),
+        min_temperature=None,
+        max_temperature=None,
+        grade="SPHC",
+        rule_attributes={},
+    )
+    for width in ("1000", "1250", "1500")
+    for thickness in ("0.4", "0.5", "0.6", "0.8", "1", "1.2", "1.5", "2", "2.5")
+)
+
+
+def normalize_gqga4_rule_snapshot(rules, virtual_prototypes):
+    return normalize_rule_set_snapshot(GQGA4_RULE_SET_TEMPLATE, rules, virtual_prototypes)
+
+
+def compile_gqga4_rule_set(rules, version_no: int) -> CompiledRuleSetSnapshot:
+    return compile_rule_set(GQGA4_RULE_SET_TEMPLATE, rules, version_no)
+
+
+__all__ = [
+    "GQGA4_ALLOWED_FINAL_DEVIATIONS",
+    "GQGA4_INITIAL_RULES",
+    "GQGA4_INITIAL_VIRTUAL_PROTOTYPES",
+    "GQGA4_QUALITY_SPEC",
+    "GQGA4_RULE_SET_TEMPLATE",
+    "compile_gqga4_rule_set",
+    "normalize_gqga4_rule_snapshot",
+]
