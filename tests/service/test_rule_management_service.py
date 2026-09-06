@@ -210,6 +210,31 @@ def test_normalized_equal_retry_replays_before_stale_version_check(tmp_path):
     assert _db_state(database_path)["rules"] == 34
 
 
+def test_same_operation_with_a_different_audit_actor_conflicts(tmp_path):
+    database_path = tmp_path / "rules.sqlite3"
+    _seed_active_v1(database_path)
+    request = _request()
+    saved = set_active_gqga4_rules(
+        request,
+        database_path,
+        audit_actor=ACTOR,
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(RuleManagementServiceError) as caught:
+        set_active_gqga4_rules(
+            request,
+            database_path,
+            audit_actor="another-rule-service",
+            clock=lambda: NOW,
+        )
+
+    assert caught.value.code == "operation_payload_conflict"
+    assert caught.value.current_active_version_id == saved.saved_version_id
+    assert _db_state(database_path)["versions"] == 2
+    assert _db_state(database_path)["rules"] == 34
+
+
 @pytest.mark.parametrize(
     "changed_part",
     (

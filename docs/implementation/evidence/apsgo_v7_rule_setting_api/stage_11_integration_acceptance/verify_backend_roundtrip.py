@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import socket
 import sqlite3
 import subprocess
@@ -39,6 +40,7 @@ OPERATION_INVALID = "33333333-3333-4333-8333-333333333333"
 OPERATION_EMPTY_PROTOTYPES = "44444444-4444-4444-8444-444444444444"
 OPERATION_RESTORE_PROTOTYPES = "55555555-5555-4555-8555-555555555555"
 OPERATION_PRECISE_SEQUENCES = "66666666-6666-4666-8666-666666666666"
+OPERATION_HISTORICAL_RESTORE = "77777777-7777-4777-8777-777777777777"
 THICKNESS_RULE_ID = "thickness_jump_limit"
 
 
@@ -192,6 +194,8 @@ def _run_isolated() -> dict[str, object]:
 
     with TemporaryDirectory(prefix="apsgo-v7-stage-11-") as directory:
         temporary_database = Path(directory) / "rules.sqlite3"
+        backup_database = Path(directory) / "rules.initial.backup.sqlite3"
+        restored_backup_database = Path(directory) / "rules.restored.sqlite3"
         log_path = Path(directory) / "uvicorn.log"
         environment = os.environ.copy()
         environment.update(
@@ -220,6 +224,21 @@ def _run_isolated() -> dict[str, object]:
         )
         initialization = json.loads(initialized.stdout.strip(), parse_float=Decimal)
         _require(initialization["status"] == "initialized", "temporary database was not new")
+        with (
+            sqlite3.connect(temporary_database) as source,
+            sqlite3.connect(backup_database) as backup,
+        ):
+            source.backup(backup)
+        initial_backup_state = _database_state(backup_database)
+        _require(
+            initial_backup_state
+            == {
+                "version_count": 1,
+                "rule_definition_count": 17,
+                "active_version_id": initialization["active_version_id"],
+            },
+            "initial database backup is incomplete",
+        )
 
         port = _free_loopback_port()
         base_url = f"http://127.0.0.1:{port}"
@@ -461,6 +480,87 @@ def _run_isolated() -> dict[str, object]:
             finally:
                 _stop_process(process)
 
+        restore_command = [
+            sys.executable,
+            "-m",
+            "apsgo_v7_service.restore_gqga4_rule_version",
+            "--database-path",
+            str(temporary_database),
+            "--source-version-id",
+            str(initial["active_version_id"]),
+            "--save-operation-id",
+            OPERATION_HISTORICAL_RESTORE,
+            "--expected-active-version-id",
+            str(restored["active_version_id"]),
+        ]
+        restored_process = subprocess.run(
+            restore_command,
+            cwd=ROOT,
+            env=environment,
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        _require(
+            restored_process.returncode == 0,
+            f"historical restore failed: {restored_process.stderr[-2000:]}",
+        )
+        historical_restore = json.loads(restored_process.stdout, parse_float=Decimal)
+        _require(historical_restore["status"] == "restored", "restore was not newly applied")
+        restore_replay_process = subprocess.run(
+            restore_command,
+            cwd=ROOT,
+            env=environment,
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        _require(
+            restore_replay_process.returncode == 0,
+            f"historical restore replay failed: {restore_replay_process.stderr[-2000:]}",
+        )
+        historical_restore_replay = json.loads(restore_replay_process.stdout, parse_float=Decimal)
+        _require(
+            historical_restore_replay["status"] == "idempotent_replay"
+            and historical_restore_replay["saved_version_id"]
+            == historical_restore["saved_version_id"],
+            "historical restore replay created or selected another version",
+        )
+        state_after_restore = _database_state(temporary_database)
+        _require(
+            state_after_restore
+            == {
+                "version_count": 6,
+                "rule_definition_count": 102,
+                "active_version_id": historical_restore["saved_version_id"],
+            },
+            "historical restore database state is incorrect",
+        )
+
+        shutil.copyfile(backup_database, restored_backup_database)
+        backup_environment = environment | {"APSGO_V7_RULE_DB_PATH": str(restored_backup_database)}
+        backup_check_process = subprocess.run(
+            [sys.executable, "-m", "apsgo_v7_service.initialize_gqga4_rules"],
+            cwd=ROOT,
+            env=backup_environment,
+            text=True,
+            capture_output=True,
+            timeout=30,
+            check=False,
+        )
+        _require(
+            backup_check_process.returncode == 0,
+            f"restored backup validation failed: {backup_check_process.stderr[-2000:]}",
+        )
+        backup_check = json.loads(backup_check_process.stdout, parse_float=Decimal)
+        _require(
+            backup_check["status"] == "already_initialized"
+            and _database_state(restored_backup_database) == initial_backup_state,
+            "restored backup differs from the initial database",
+        )
+
         summary = {
             "passed": True,
             "transport": "real_uvicorn_subprocess_on_127.0.0.1",
@@ -510,6 +610,17 @@ def _run_isolated() -> dict[str, object]:
                 "database_unchanged": True,
             },
             "database": final_database_state,
+            "historical_restore": {
+                "status": historical_restore["status"],
+                "replay_status": historical_restore_replay["status"],
+                "source_version_id": historical_restore["source_version_id"],
+                "saved_version_id": historical_restore["saved_version_id"],
+                "database": state_after_restore,
+            },
+            "database_backup_restore": {
+                "status": backup_check["status"],
+                "database": initial_backup_state,
+            },
         }
 
     _require(
@@ -532,6 +643,12 @@ def _run() -> dict[str, object]:
             "default rule database was created or modified",
         )
     summary["default_database_unchanged"] = True
+    summary["default_database_file_count_before"] = sum(
+        value is not None for value in default_before.values()
+    )
+    summary["default_database_file_count_after"] = sum(
+        value is not None for value in default_after.values()
+    )
     return summary
 
 

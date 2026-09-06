@@ -195,12 +195,12 @@ def _create_rule_definitions(store: RuleStore, version_id: int, rules) -> None:
         )
 
 
-def _read_active_rules(store: RuleStore, rule_set: RuleSetRecord) -> ActiveRulesResponse:
-    if rule_set.active_version_id is None:
-        raise RuleManagementServiceError(
-            "rule_set_not_initialized", "GQGA4 月计划规则尚无启用版本。"
-        )
-    version = store.find_version(rule_set.active_version_id)
+def _read_rules_version(
+    store: RuleStore,
+    rule_set: RuleSetRecord,
+    version_id: int,
+) -> ActiveRulesResponse:
+    version = store.find_version(version_id)
     if version is None or version.rule_set_id != rule_set.id:
         raise _stored_inconsistent("活动规则版本与规则集不一致。")
     if version.remark != version.remark.strip():
@@ -292,6 +292,14 @@ def _read_active_rules(store: RuleStore, rule_set: RuleSetRecord) -> ActiveRules
         activated_at=version.activated_at,
         activated_by=version.activated_by,
     )
+
+
+def _read_active_rules(store: RuleStore, rule_set: RuleSetRecord) -> ActiveRulesResponse:
+    if rule_set.active_version_id is None:
+        raise RuleManagementServiceError(
+            "rule_set_not_initialized", "GQGA4 月计划规则尚无启用版本。"
+        )
+    return _read_rules_version(store, rule_set, rule_set.active_version_id)
 
 
 def get_active_gqga4_rules(
@@ -393,10 +401,14 @@ def set_active_gqga4_rules(
                 previous = rule_set.active_version_id
                 existing = store.find_version_by_operation(rule_set.id, request.save_operation_id)
                 if existing is not None:
-                    if existing.request_hash != request_hash:
+                    if (
+                        existing.request_hash != request_hash
+                        or existing.created_by != actor
+                        or existing.activated_by != actor
+                    ):
                         raise RuleManagementServiceError(
                             "operation_payload_conflict",
-                            "同一保存操作标识已用于不同的规则内容。",
+                            "同一保存操作标识已对应另一项请求或执行主体。",
                             expected_active_version_id=request.expected_active_version_id,
                             current_active_version_id=previous,
                         )
