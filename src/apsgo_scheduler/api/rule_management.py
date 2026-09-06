@@ -22,6 +22,8 @@ from .json_codec import dumps_exact_json
 from .request import RuleSetSpec, VirtualPrototypeInput
 
 _MAX_RULE_PARAMETER_DEPTH = 64
+MAX_RULE_MANAGEMENT_STRING_LENGTH = 4096
+MAX_RULE_MANAGEMENT_ARRAY_LENGTH = 128
 
 
 def _operation_id(value: str) -> str:
@@ -254,6 +256,52 @@ def _validate_parameter_depth(value, field_path: str) -> None:
             pending.extend((part, depth + 1) for part in item)
 
 
+def _validate_json_size_limits(value) -> None:
+    pending = [(value, "body")]
+    while pending:
+        item, field_path = pending.pop()
+        if isinstance(item, str):
+            if len(item) > MAX_RULE_MANAGEMENT_STRING_LENGTH:
+                _raise_contract(
+                    "maximum_string_length_exceeded",
+                    field_path,
+                    f"JSON 文本不能超过 {MAX_RULE_MANAGEMENT_STRING_LENGTH} 个字符。",
+                )
+            if any(0xD800 <= ord(character) <= 0xDFFF for character in item):
+                _raise_contract(
+                    "invalid_unicode_scalar",
+                    field_path,
+                    "JSON 文本不能包含孤立的 Unicode 代理字符。",
+                )
+        elif isinstance(item, list):
+            if len(item) > MAX_RULE_MANAGEMENT_ARRAY_LENGTH:
+                _raise_contract(
+                    "maximum_array_length_exceeded",
+                    field_path,
+                    f"JSON 数组不能超过 {MAX_RULE_MANAGEMENT_ARRAY_LENGTH} 项。",
+                )
+            pending.extend(
+                (part, f"{field_path}[{index}]")
+                for index, part in reversed(tuple(enumerate(item)))
+            )
+        elif isinstance(item, Mapping):
+            for key, part in reversed(tuple(item.items())):
+                if len(key) > MAX_RULE_MANAGEMENT_STRING_LENGTH:
+                    _raise_contract(
+                        "maximum_string_length_exceeded",
+                        field_path,
+                        f"JSON 文本不能超过 {MAX_RULE_MANAGEMENT_STRING_LENGTH} 个字符。",
+                    )
+                if any(0xD800 <= ord(character) <= 0xDFFF for character in key):
+                    _raise_contract(
+                        "invalid_unicode_scalar",
+                        field_path,
+                        "JSON 字段名不能包含孤立的 Unicode 代理字符。",
+                    )
+                child_path = key if field_path == "body" else f"{field_path}.{key}"
+                pending.append((part, child_path))
+
+
 def _decimal(value, field_path: str, *, allow_none: bool) -> Decimal | None:
     if value is None and allow_none:
         return None
@@ -332,6 +380,11 @@ def loads_set_active_rules_request(payload: str | bytes | bytearray) -> SetActiv
 
     if not isinstance(payload, (str, bytes, bytearray)):
         _raise_contract("invalid_json", "body", "请求体必须是 JSON 文本或字节。")
+    if isinstance(payload, (bytes, bytearray)):
+        try:
+            payload = bytes(payload).decode("utf-8")
+        except UnicodeDecodeError as error:
+            _raise_contract("invalid_json", "body", f"请求体不是合法 UTF-8 JSON：{error}。")
     try:
         value = json.loads(
             payload,
@@ -350,6 +403,7 @@ def loads_set_active_rules_request(payload: str | bytes | bytearray) -> SetActiv
     ) as error:
         _raise_contract("invalid_json", "body", f"请求体不是合法 JSON：{error}。")
 
+    _validate_json_size_limits(value)
     value = _exact_object(
         value,
         "",
@@ -535,6 +589,8 @@ def dumps_rule_management_error(value: RuleManagementError) -> str:
 __all__ = [
     "ActiveRulesResponse",
     "EditableRuleInput",
+    "MAX_RULE_MANAGEMENT_ARRAY_LENGTH",
+    "MAX_RULE_MANAGEMENT_STRING_LENGTH",
     "RuleManagementContractError",
     "RuleManagementError",
     "SetActiveRulesRequest",

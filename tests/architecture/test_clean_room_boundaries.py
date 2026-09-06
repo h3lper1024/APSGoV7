@@ -130,6 +130,8 @@ def check_service_source(source, path):
                 assert top in sys.stdlib_module_names or top in {
                     "apsgo_scheduler",
                     "apsgo_v7_service",
+                    "fastapi",
+                    "uvicorn",
                 }, f"External service dependency: {target} in {path}"
                 assert top != "tests", f"Test dependency in service package: {target}"
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):

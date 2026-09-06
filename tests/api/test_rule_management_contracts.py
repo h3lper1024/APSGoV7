@@ -13,6 +13,8 @@ from apsgo_scheduler.api.request import (
     VirtualPrototypeInput,
 )
 from apsgo_scheduler.api.rule_management import (
+    MAX_RULE_MANAGEMENT_ARRAY_LENGTH,
+    MAX_RULE_MANAGEMENT_STRING_LENGTH,
     ActiveRulesResponse,
     EditableRuleInput,
     RuleManagementContractError,
@@ -176,13 +178,18 @@ def test_decimal_with_many_trailing_zeroes_round_trips_without_expanding_output(
     assert loads_set_active_rules_request(encoded) == value
 
 
-def test_json_output_escapes_a_lone_surrogate_and_remains_utf8_encodable():
+def test_json_output_escapes_a_lone_surrogate_but_request_parser_rejects_it():
     first = loads_set_active_rules_request(request_json())
     first = replace(first, remark=f"中文{chr(0xD800)}")
     encoded = dumps_set_active_rules_request(first)
     assert encoded.encode("utf-8")
     assert "\\ud800" in encoded
-    assert loads_set_active_rules_request(encoded) == first
+    with pytest.raises(RuleManagementContractError) as caught:
+        loads_set_active_rules_request(encoded)
+    assert (caught.value.issues[0].code, caught.value.issues[0].field_path) == (
+        "invalid_unicode_scalar",
+        "remark",
+    )
 
 
 def test_request_copies_and_freezes_mutable_inputs():
@@ -234,6 +241,15 @@ def test_malformed_json_has_stable_locatable_diagnostics(body, code, path):
         loads_set_active_rules_request(body)
     assert [(item.code, item.field_path) for item in caught.value.issues] == [(code, path)]
     assert caught.value.issues[0].phase is DiagnosticPhase.REQUEST_VALIDATION
+
+
+def test_request_parser_rejects_valid_json_encoded_as_utf16():
+    with pytest.raises(RuleManagementContractError) as caught:
+        loads_set_active_rules_request(request_json().encode("utf-16"))
+    assert (caught.value.issues[0].code, caught.value.issues[0].field_path) == (
+        "invalid_json",
+        "body",
+    )
 
 
 @pytest.mark.parametrize(
@@ -318,6 +334,33 @@ def test_rule_parameter_nesting_accepts_64_layers_and_rejects_the_next_layer():
         loads_set_active_rules_request(json.dumps(body))
     assert caught.value.issues[0].code == "maximum_nesting_exceeded"
     assert caught.value.issues[0].field_path == "rules[0].parameters"
+
+
+def test_request_parser_enforces_the_frozen_json_string_limit():
+    body = json.loads(request_json())
+    body["remark"] = "a" * MAX_RULE_MANAGEMENT_STRING_LENGTH
+    assert len(loads_set_active_rules_request(json.dumps(body)).remark) == 4096
+
+    body["remark"] += "a"
+    with pytest.raises(RuleManagementContractError) as caught:
+        loads_set_active_rules_request(json.dumps(body))
+    assert caught.value.issues[0].code == "maximum_string_length_exceeded"
+    assert caught.value.issues[0].field_path == "remark"
+
+
+def test_request_parser_enforces_the_frozen_json_array_limit():
+    body = json.loads(request_json())
+    body["rules"][0]["parameters"]["labels"] = list(
+        range(MAX_RULE_MANAGEMENT_ARRAY_LENGTH)
+    )
+    parsed = loads_set_active_rules_request(json.dumps(body))
+    assert len(parsed.rules[0].parameters["labels"]) == 128
+
+    body["rules"][0]["parameters"]["labels"].append(128)
+    with pytest.raises(RuleManagementContractError) as caught:
+        loads_set_active_rules_request(json.dumps(body))
+    assert caught.value.issues[0].code == "maximum_array_length_exceeded"
+    assert caught.value.issues[0].field_path == "rules[0].parameters.labels"
 
 
 def test_virtual_prototype_rejects_unknown_fields():
