@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | 实施中；阶段 0～2 已完成，下一阶段为建立规则版本存储 |
-| 文档版本 | v0.4 |
+| 文档状态 | 实施中；阶段 0～3 已完成，下一阶段为实现保存并启用事务 |
+| 文档版本 | v0.5 |
 | 编写日期 | 2026-09-07 |
 | 适用范围 | GQGA4、默认工序、月计划场景 |
 | 规则集身份 | `GQGA4/default/month` |
@@ -13,7 +13,7 @@
 | 求解器工程 | `/Users/miles/dev/dev-py/APSGOV7` |
 | 实施入口 | [APSGo V7 月计划规则设置接口实施计划](../implementation/apsgo_v7_rule_setting_api_implementation_plan.md) |
 
-> 本文描述目标设计；规则管理契约与 GQGA4 完整规则编译已实现，不表示 HTTP 服务、数据库表或 C# 页面已经完成改造。
+> 本文描述目标设计；规则管理契约、GQGA4 完整规则编译与 SQLite 规则版本存储已实现，不表示保存并启用业务流程、HTTP 服务或 C# 页面已经完成改造。
 
 ## 2. 结论
 
@@ -368,7 +368,9 @@ sequenceDiagram
 
 ## 12. 数据库逻辑模型
 
-数据库固定使用 V7 独立 SQLite 文件，默认路径为 `data/apsgo_v7_rules.sqlite3`，可通过 V7 专用环境变量覆盖。直接使用 Python 标准库 `sqlite3`，不引入 ORM 或迁移框架；建表与向前兼容检查由 V7 服务启动/初始化代码执行。
+数据库固定使用 V7 独立 SQLite 文件，默认路径为 `data/apsgo_v7_rules.sqlite3`，可通过 V7 专用环境变量 `APSGO_V7_RULE_DB_PATH` 覆盖；覆盖值去除首尾空白，空白值拒绝启动。直接使用 Python 标准库 `sqlite3`，不引入 ORM 或迁移框架。建表只由 V7 服务启动/初始化入口执行；普通请求只读校验并打开既有 schema，不为一次查询申请初始化写锁。
+
+首期不提供生产反向迁移或自动删表入口。空的临时验收库可在关闭连接后删除数据库文件并重新初始化；有数据的生产库回退必须先保留数据库结构并按部署备份恢复，应用代码不得自行删除历史规则。
 
 ### 12.1 `v7_rule_set`
 
@@ -403,7 +405,7 @@ sequenceDiagram
 | `editor_snapshot_json` | 页面可编辑输入的规范化快照，供回显和审计；不是求解权威。 |
 | `remark` | 用户填写的变更说明。 |
 | `created_by` / `created_at` | 由服务端进程身份和服务器时间生成。 |
-| `activated_at` | 事务启用时间。 |
+| `activated_by` / `activated_at` | 由服务端进程身份和服务器时间生成的启用审计信息。当前保存与启用在同一事务，但字段语义分别保留。 |
 
 唯一约束：`(rule_set_id, version_no)`、`(rule_set_id, save_operation_id)`。
 

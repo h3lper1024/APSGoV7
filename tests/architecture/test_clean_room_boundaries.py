@@ -65,6 +65,7 @@ def check_source(source, path, package):
                 assert top not in {"importlib", "runpy", "ctypes"}, (
                     f"Dynamic code loading is outside the production boundary: {target}"
                 )
+                assert top != "sqlite3", f"Database access belongs in apsgo_v7_service, not {path}"
                 if top == "apsgo_scheduler":
                     pieces = target.split(".")
                     assert len(pieces) == 1 or pieces[1] in LAYERS, target
@@ -175,6 +176,7 @@ def test_tracked_source_contains_only_new_package():
     "source",
     [
         "import numpy",
+        "import sqlite3",
         "import apsgo.rules",
         "class ResourceLedger: pass",
         "class OptimizationProblem: pass",
@@ -230,7 +232,7 @@ def test_service_source_guard_rejects_test_local_and_external_dependencies(sourc
 
 def test_service_source_guard_accepts_line_template_and_scheduler_dependency():
     check_service_source(
-        "from apsgo_scheduler.api.request import RuleSetSpec\nline = 'GQGA4'",
+        "import sqlite3\nfrom apsgo_scheduler.api.request import RuleSetSpec\nline = 'GQGA4'",
         SERVICE_PACKAGE / "example.py",
     )
 
