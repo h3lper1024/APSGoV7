@@ -37,7 +37,7 @@ def test_tracked_default_configuration_points_to_the_v7_database():
 
     assert result.database_path == ROOT / "data" / "apsgo_v7_rules.sqlite3"
     assert result.database_timeout_seconds == 5.0
-    assert result.listen_host == "127.0.0.1"
+    assert result.listen_host == "0.0.0.0"
     assert result.listen_port == 8001
 
 
@@ -114,7 +114,7 @@ def test_configuration_rejects_invalid_yaml_shapes(tmp_path, source, message):
         ({"listen_port": True}, "listen_port must be an integer"),
         ({"listen_port": 0}, "listen_port must be an integer"),
         ({"listen_port": 65_536}, "listen_port must be an integer"),
-        ({"listen_host": "localhost"}, "listen_host must be exactly 127.0.0.1"),
+        ({"listen_host": "localhost"}, "listen_host must be 127.0.0.1 or 0.0.0.0"),
         ({"database_timeout_seconds": "5"}, "must be a number"),
         ({"database_timeout_seconds": True}, "must be a number"),
         ({"database_timeout_seconds": 0}, "must be finite and greater than zero"),

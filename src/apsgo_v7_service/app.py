@@ -1,4 +1,4 @@
-"""Loopback-only HTTP adapter for GQGA4 monthly rule management."""
+"""HTTP adapter for GQGA4 monthly rule management."""
 
 from __future__ import annotations
 
@@ -36,7 +36,7 @@ from .rule_store import RuleStoreSchemaError
 GET_ACTIVE_RULES_PATH = "/api/v1/rule-sets/GQGA4/default/month/getActiveRules"
 SET_ACTIVE_RULES_PATH = "/api/v1/rule-sets/GQGA4/default/month/setActiveRules"
 MAX_REQUEST_BODY_BYTES = 262_144
-DEFAULT_LISTEN_HOST = "127.0.0.1"
+DEFAULT_LISTEN_HOST = "0.0.0.0"
 DEFAULT_LISTEN_PORT = 8001
 
 _JSON_MEDIA_TYPE = "application/json"

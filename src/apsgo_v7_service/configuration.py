@@ -17,7 +17,7 @@ _EXPECTED_KEYS = frozenset(
         "listen_port",
     }
 )
-_LOOPBACK_HOST = "127.0.0.1"
+_ALLOWED_LISTEN_HOSTS = frozenset({"127.0.0.1", "0.0.0.0"})
 
 
 class ServiceConfigurationError(ValueError):
@@ -130,8 +130,8 @@ def _database_timeout_seconds(value) -> float:
 
 
 def _listen_host(value) -> str:
-    if value != _LOOPBACK_HOST or not isinstance(value, str):
-        raise ServiceConfigurationError(f"listen_host must be exactly {_LOOPBACK_HOST}")
+    if not isinstance(value, str) or value not in _ALLOWED_LISTEN_HOSTS:
+        raise ServiceConfigurationError("listen_host must be 127.0.0.1 or 0.0.0.0")
     return value
 
 

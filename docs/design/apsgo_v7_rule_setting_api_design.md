@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | 实施中；用户纠正后的阶段 12 YAML 配置补正已验证；Windows 构建和页面实测待完成 |
-| 文档版本 | v0.13 |
+| 文档状态 | 实施中；服务已允许配置为全部 IPv4 网卡监听；Windows 构建和页面实测待完成 |
+| 文档版本 | v0.14 |
 | 编写日期 | 2026-09-07 |
 | 适用范围 | GQGA4、默认工序、月计划场景 |
 | 规则集身份 | `GQGA4/default/month` |
@@ -13,7 +13,7 @@
 | 求解器工程 | `/Users/miles/dev/dev-py/APSGOV7` |
 | 实施入口 | [APSGo V7 月计划规则设置接口实施计划](../implementation/apsgo_v7_rule_setting_api_implementation_plan.md) |
 
-> 本文描述目标设计；规则管理契约、GQGA4 完整规则编译、SQLite 规则版本存储、保存并启用事务、两条 HTTP 路由、初始化、求解启动绑定、历史规则受控恢复以及 C# 页面查询和保存流程均已实现。用户纠正阶段 12 的运行配置格式后，当前入口已由补正前 JSON 改为 `config/apsgo_v7_service.yaml`，并由 PyYAML 安全解析；专项、累计回归、干净导出、构建、安装和真实回环验证均已通过。该补正不改变业务 HTTP JSON、数据库编译 JSON 或历史阶段事实。后端真实回环和非生产回退演练已经完成；本专项仍不包含月计划排程 HTTP 接口适配，Windows 构建和真实页面联调尚未完成。
+> 本文描述目标设计；规则管理契约、GQGA4 完整规则编译、SQLite 规则版本存储、保存并启用事务、两条 HTTP 路由、初始化、求解启动绑定、历史规则受控恢复以及 C# 页面查询和保存流程均已实现。运行配置使用 `config/apsgo_v7_service.yaml` 并由 PyYAML 安全解析；用户进一步确认服务需要允许其他电脑访问，因此 `listen_host` 现支持 `127.0.0.1` 和 `0.0.0.0`，默认使用后者。业务 HTTP JSON、数据库编译 JSON 和历史阶段事实不变。本专项仍不包含月计划排程 HTTP 接口适配，Windows 构建和真实页面联调尚未完成。
 
 ## 2. 结论
 
@@ -82,9 +82,9 @@
 
 ## 6. 总体结构
 
-物理部署采用独立 `apsgo_v7_service` 服务包：默认仅监听 `127.0.0.1:8001`，通过 C# 现有 `BACKEND_ALGORITHM_URL` 访问。V7 服务从受跟踪的 `config/apsgo_v7_service.yaml` 读取运行参数；C# 地址继续由其 `SchedApp/App.config` 管理，不合并进 Python 配置。服务包持有 FastAPI、SQLite 和 GQGA4 固定模板；现有 `apsgo_scheduler` 只提供框架无关契约、编译与求解能力，不依赖服务包。
+物理部署采用独立 `apsgo_v7_service` 服务包：默认监听 `0.0.0.0:8001`，即全部 IPv4 网卡；也可配置为仅本机使用的 `127.0.0.1:8001`。V7 服务从受跟踪的 `config/apsgo_v7_service.yaml` 读取运行参数；C# 地址继续由其 `SchedApp/App.config` 管理，不合并进 Python 配置。其他电脑访问时，`BACKEND_ALGORITHM_URL` 填写服务端实际局域网 IP，不能填写只用于服务端绑定的 `0.0.0.0`。服务包持有 FastAPI、SQLite 和 GQGA4 固定模板；现有 `apsgo_scheduler` 只提供框架无关契约、编译与求解能力，不依赖服务包。
 
-阶段 5 已使用 FastAPI `0.128.x` 和 Uvicorn `0.40.x` 建立最小宿主。HTTPX 只属于开发测试依赖，不进入生产运行依赖。服务关闭自动接口文档与尾斜杠重定向，公开运行面只保留本文确认的两个业务路径；项目支持的启动入口会在调用 Uvicorn 前拒绝所有非 `127.0.0.1` 地址。
+阶段 5 已使用 FastAPI `0.128.x` 和 Uvicorn `0.40.x` 建立最小宿主。HTTPX 只属于开发测试依赖，不进入生产运行依赖。服务关闭自动接口文档与尾斜杠重定向，公开运行面只保留本文确认的两个业务路径；项目支持的启动入口只接受 `127.0.0.1` 或 `0.0.0.0`，其他主机值在调用 Uvicorn 前被拒绝。
 
 ```text
 GQGA4 规则页面
@@ -127,7 +127,7 @@ V7 Python 服务使用受 Git 跟踪的 `config/apsgo_v7_service.yaml` 作为默
 |---|---|---|
 | `database_path` | `../data/apsgo_v7_rules.sqlite3` | SQLite 主文件。相对路径按配置文件所在目录解析，不按进程当前工作目录解析；绝对路径保持绝对含义。 |
 | `database_timeout_seconds` | `5.0` | SQLite 等待锁的秒数，必须是有限且大于零的数值。 |
-| `listen_host` | `127.0.0.1` | 首期安全边界，必须精确为回环地址，不允许通过配置开放非回环监听。 |
+| `listen_host` | `0.0.0.0` | `0.0.0.0` 监听全部 IPv4 网卡，允许其他电脑访问；`127.0.0.1` 仅供本机访问。只允许这两个值。 |
 | `listen_port` | `8001` | 服务监听端口，必须是 `1`～`65535` 的整数。 |
 
 配置文件缺失、不可读、不是 UTF-8、YAML 非法、根节点不是映射、键缺失/重复/未知或任一值不满足上述契约时，初始化器和服务均在数据库操作或 Uvicorn 启动前失败关闭。YAML 只承担服务运行参数，不替代业务 HTTP 和数据库编译快照使用的 JSON。每个命令在启动时完整读取并冻结一次配置；运行中不热重载。当前入口不再读取 `APSGO_V7_RULE_DB_PATH`，也不对配置值执行环境变量替换。
@@ -574,7 +574,7 @@ apsgo-v7-restore-gqga4-rule-version \
 - `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.cs`
 - `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.designer.cs`
 
-新增独立 V7 客户端，例如 `SchedApp/ApsgoV7RuleApiClient.cs`，并复用现有 `BACKEND_ALGORITHM_URL`（默认 `http://127.0.0.1:8001`）。不得直接删除或整体改名 `PipelineV3ApiClient.cs`，因为其他页面仍可能依赖 V3 客户端。
+新增独立 V7 客户端，例如 `SchedApp/ApsgoV7RuleApiClient.cs`，并复用现有 `BACKEND_ALGORITHM_URL`。同机部署可使用 `http://127.0.0.1:8001`；其他电脑访问时改为服务端实际局域网地址，例如 `http://192.168.1.20:8001`。不得直接删除或整体改名 `PipelineV3ApiClient.cs`，因为其他页面仍可能依赖 V3 客户端。
 
 ### 16.2 页面加载
 
@@ -630,12 +630,12 @@ apsgo-v7-restore-gqga4-rule-version \
 
 ## 17. 安全与审计
 
-- 首期服务只允许绑定 `127.0.0.1`，不开放非回环监听，不新增登录鉴权或权限体系。
+- 服务允许绑定 `127.0.0.1` 或 `0.0.0.0`；默认 `0.0.0.0`，满足其他电脑通过服务端局域网 IP 访问的部署要求。
 - 项目提供 `apsgo-v7-rule-service` 控制台命令和 `python -m apsgo_v7_service.app` 两种受控启动方式；两者调用同一 `main()`，支持显式 `--config`，完整校验配置中的监听地址并关闭 Uvicorn 访问日志，避免把带查询串的请求目标写入默认访问日志。直接绕过项目入口自行运行其他 ASGI 命令不属于受支持部署方式。
 - `created_by` / `activated_by` 由服务端使用进程身份生成；请求体不接受可信用户名字段。
 - C# 的 `Environment.UserName` 不作为可信身份。若未来仅用于显示，可另增明确标注为客户端自报的字段，但不影响权限或审计主体。
 - 日志记录规则集身份、操作标识、旧/新版本、指纹、结果码和服务端进程身份，不记录完整请求或本机敏感配置。
-- 未来若要监听非回环地址，必须先增加服务端鉴权并重新评审，而不是只修改 host 配置。
+- 用户已明确确认本阶段开放全部 IPv4 网卡监听，不把登录鉴权作为本次实施前置条件。
 - 规则参数只作为数据进入已注册规则构造器，禁止动态导入类名、执行表达式或反射调用任意代码。
 
 ## 18. 并发与重试语义
@@ -688,7 +688,7 @@ apsgo-v7-restore-gqga4-rule-version \
 - 任一校验或持久化失败不留下半版本，活动版本不变。
 - 并发覆盖与操作标识冲突均稳定返回 `409`；网络重试不会重复建版本。
 - 历史规则恢复只创建向前的新版本，来源版本完整校验且不修改，恢复操作保留来源审计信息并受并发和幂等保护。
-- 初始化器和服务从同一份完整运行配置读取数据库路径、SQLite 超时和回环监听端点；非法配置在数据库操作或 Uvicorn 启动前失败。
+- 初始化器和服务从同一份完整运行配置读取数据库路径、SQLite 超时和监听端点；非法配置在数据库操作或 Uvicorn 启动前失败。
 
 ### 21.2 V7 契约
 
@@ -716,13 +716,13 @@ apsgo-v7-restore-gqga4-rule-version \
 ## 22. 已确认的宿主环境
 
 1. V7 新建独立 FastAPI 服务包 `apsgo_v7_service`，不修改 V3 `8008` 服务。
-2. 服务默认且首期只监听 `127.0.0.1:8001`，C# 复用 `BACKEND_ALGORITHM_URL`。
+2. 服务默认监听 `0.0.0.0:8001`，也允许配置为 `127.0.0.1:8001`；C# 复用 `BACKEND_ALGORITHM_URL`，跨机器时填写服务端实际局域网 IP。
 3. V7 使用受跟踪的 `config/apsgo_v7_service.yaml` 统一配置数据库路径、SQLite 超时和监听端点；由 PyYAML 安全解析，相对数据库路径按配置文件目录解析，不再读取 `APSGO_V7_RULE_DB_PATH`。
 4. V7 使用独立 SQLite 文件和标准库 `sqlite3`，不复用 V3 数据库，不同时实现 MySQL；运行期数据库文件不进入 Git。
 5. 首期没有登录鉴权；服务端进程身份作为审计主体，客户端用户名不可信。
 6. `apsgo_scheduler` 继续只包含 `api/core/app`，无 FastAPI 或数据库依赖；外层服务包单向依赖它。
 
-现状证据见 [接口宿主与数据库现状证据](../implementation/evidence/apsgo_v7_rule_setting_api/stage_00_environment_baseline/README.md)。
+初始宿主证据见 [阶段 0 接口宿主与数据库现状](../implementation/evidence/apsgo_v7_rule_setting_api/stage_00_environment_baseline/README.md)，当前监听调整及验证见 [阶段 13 局域网监听](../implementation/evidence/apsgo_v7_rule_setting_api/stage_13_lan_listener/README.md)。
 
 ## 23. 已确认决策汇总
 
@@ -735,9 +735,9 @@ apsgo-v7-restore-gqga4-rule-version \
 7. 评分定义和允许最终偏差由服务端固定，不开放页面编辑。
 8. 虚拟材料原型与规则版本同时生效，但不伪装成规则。
 9. 首期只适配 GQGA4 月计划规则设置，不建设通用规则平台。
-10. V7 新建独立 FastAPI 服务，默认且首期只监听 `127.0.0.1:8001`。
+10. V7 新建独立 FastAPI 服务，`listen_host` 允许 `127.0.0.1` 或 `0.0.0.0`，默认后者以支持其他电脑访问。
 11. C# 复用现有 `BACKEND_ALGORITHM_URL`，不增加第二个 V7 地址键。
 12. V7 使用独立 SQLite 文件，不复用 V3 规则数据库，也不同时实现 MySQL。
-13. 首期不新增登录鉴权，审计记录服务端进程身份；开放非回环地址前必须另行增加鉴权。
+13. 首期不新增登录鉴权，审计记录服务端进程身份；用户已确认开放非回环地址不以鉴权为前置条件。
 14. V7 服务运行参数统一保存在受跟踪的 `config/apsgo_v7_service.yaml`；PyYAML 安全解析的四项配置严格校验，相对数据库路径按配置文件目录解析，初始化器和服务支持 `--config`，不再使用 `APSGO_V7_RULE_DB_PATH`。
 15. 历史规则恢复仍要求显式既有数据库绝对路径；C# 继续使用自身 `App.config` 中的 `BACKEND_ALGORITHM_URL`，两者不被 Python 服务配置替代。

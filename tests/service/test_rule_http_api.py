@@ -691,6 +691,7 @@ def test_run_server_loads_one_configuration_and_uses_the_confirmed_endpoint(tmp_
     configuration_path = _write_service_configuration(
         tmp_path / "config" / "service.yaml",
         "../data/rules.sqlite3",
+        host="0.0.0.0",
         port=8123,
         timeout_seconds=2.5,
     )
@@ -711,7 +712,7 @@ def test_run_server_loads_one_configuration_and_uses_the_confirmed_endpoint(tmp_
     assert applications == [(database_path.resolve(), 2.5)]
     assert len(calls) == 1
     args, kwargs = calls[0]
-    assert kwargs.get("host", args[1] if len(args) > 1 else None) == "127.0.0.1"
+    assert kwargs.get("host", args[1] if len(args) > 1 else None) == "0.0.0.0"
     assert kwargs.get("port", args[2] if len(args) > 2 else None) == 8123
     assert kwargs["access_log"] is False
 
@@ -729,9 +730,9 @@ def test_run_server_rejects_missing_configuration_before_start(tmp_path, monkeyp
 
 @pytest.mark.parametrize(
     "host",
-    ("0.0.0.0", "192.168.1.10", "::", "::1", "localhost", "127.0.0.2"),
+    ("192.168.1.10", "::", "::1", "localhost", "127.0.0.2"),
 )
-def test_run_server_rejects_every_unconfirmed_host_before_start(tmp_path, monkeypatch, host):
+def test_run_server_rejects_every_unsupported_host_before_start(tmp_path, monkeypatch, host):
     configuration_path = _write_service_configuration(
         tmp_path / "config.yaml",
         tmp_path / "rules.sqlite3",
@@ -740,7 +741,7 @@ def test_run_server_rejects_every_unconfirmed_host_before_start(tmp_path, monkey
     calls = []
     monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
 
-    with pytest.raises(ValueError, match="127.0.0.1"):
+    with pytest.raises(ValueError, match="127.0.0.1 or 0.0.0.0"):
         http_module.run_server(configuration_path)
 
     assert calls == []
