@@ -134,7 +134,7 @@ def test_binding_constructs_request_from_database_snapshot_and_records_version(t
         replace(task, rule_set_fingerprint="wrong")
 
 
-def test_wrong_identity_fails_before_reading_the_rule_store(monkeypatch):
+def test_wrong_identity_fails_before_reading_the_rule_store(tmp_path, monkeypatch):
     task_input = replace(_base_task_input(), product_line_code="OTHER")
     calls = []
 
@@ -144,11 +144,11 @@ def test_wrong_identity_fails_before_reading_the_rule_store(monkeypatch):
 
     monkeypatch.setattr(scheduling, "get_active_gqga4_rules", unexpected_read)
     with pytest.raises(ValueError, match="GQGA4/default/month"):
-        scheduling.bind_gqga4_scheduling_task(task_input)
+        scheduling.bind_gqga4_scheduling_task(task_input, tmp_path / "must-not-be-read.sqlite3")
     assert calls == []
 
 
-def test_binding_failure_does_not_fall_back_or_start_the_solver(monkeypatch):
+def test_binding_failure_does_not_fall_back_or_start_the_solver(tmp_path, monkeypatch):
     task_input = _base_task_input()
     solve_calls = []
 
@@ -162,7 +162,7 @@ def test_binding_failure_does_not_fall_back_or_start_the_solver(monkeypatch):
     monkeypatch.setattr(scheduling, "solve_request", lambda *args: solve_calls.append(args))
 
     with pytest.raises(RuleManagementServiceError) as caught:
-        scheduling.solve_gqga4_scheduling_task(task_input)
+        scheduling.solve_gqga4_scheduling_task(task_input, tmp_path / "must-not-be-read.sqlite3")
 
     assert caught.value.code == "stored_snapshot_inconsistent"
     assert solve_calls == []

@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | 实施中；阶段 11 后端联调与非生产回退演练已完成，Windows 构建和页面实测待完成 |
-| 文档版本 | v0.11 |
+| 文档状态 | 实施中；阶段 12“统一服务运行配置”已完成；Windows 构建和页面实测待完成 |
+| 文档版本 | v0.12 |
 | 编写日期 | 2026-09-07 |
 | 适用范围 | GQGA4、默认工序、月计划场景 |
 | 规则集身份 | `GQGA4/default/month` |
@@ -13,7 +13,7 @@
 | 求解器工程 | `/Users/miles/dev/dev-py/APSGOV7` |
 | 实施入口 | [APSGo V7 月计划规则设置接口实施计划](../implementation/apsgo_v7_rule_setting_api_implementation_plan.md) |
 
-> 本文描述目标设计；规则管理契约、GQGA4 完整规则编译、SQLite 规则版本存储、保存并启用事务、两条 HTTP 路由、初始化、求解启动绑定、历史规则受控恢复以及 C# 页面查询和保存流程均已实现。后端真实回环和非生产回退演练已经完成；本专项仍不包含月计划排程 HTTP 接口适配，Windows 构建和真实页面联调尚未完成。
+> 本文描述目标设计；规则管理契约、GQGA4 完整规则编译、SQLite 规则版本存储、保存并启用事务、两条 HTTP 路由、初始化、求解启动绑定、历史规则受控恢复以及 C# 页面查询和保存流程均已实现。阶段 12 已将 V7 服务运行参数统一迁入受跟踪配置文件，并完成共享工作树、干净导出、构建和安装入口验证。后端真实回环和非生产回退演练已经完成；本专项仍不包含月计划排程 HTTP 接口适配，Windows 构建和真实页面联调尚未完成。
 
 ## 2. 结论
 
@@ -82,7 +82,7 @@
 
 ## 6. 总体结构
 
-物理部署采用独立 `apsgo_v7_service` 服务包：默认仅监听 `127.0.0.1:8001`，通过 C# 现有 `BACKEND_ALGORITHM_URL` 访问。服务包持有 FastAPI、SQLite 和 GQGA4 固定模板；现有 `apsgo_scheduler` 只提供框架无关契约、编译与求解能力，不依赖服务包。
+物理部署采用独立 `apsgo_v7_service` 服务包：默认仅监听 `127.0.0.1:8001`，通过 C# 现有 `BACKEND_ALGORITHM_URL` 访问。V7 服务从受跟踪的 `config/apsgo_v7_service.json` 读取运行参数；C# 地址继续由其 `SchedApp/App.config` 管理，不合并进 Python 配置。服务包持有 FastAPI、SQLite 和 GQGA4 固定模板；现有 `apsgo_scheduler` 只提供框架无关契约、编译与求解能力，不依赖服务包。
 
 阶段 5 已使用 FastAPI `0.128.x` 和 Uvicorn `0.40.x` 建立最小宿主。HTTPX 只属于开发测试依赖，不进入生产运行依赖。服务关闭自动接口文档与尾斜杠重定向，公开运行面只保留本文确认的两个业务路径；项目支持的启动入口会在调用 Uvicorn 前拒绝所有非 `127.0.0.1` 地址。
 
@@ -118,6 +118,21 @@ GQGA4 规则页面
 | 规则指纹 | 服务端计算 | 服务端复算并核对 |
 
 数据库逐条规则记录服务于管理；编译 JSON 服务于运行。两者必须在同一事务中生成，不能由求解器临时从规则行拼装。
+
+### 6.2 统一服务运行配置
+
+V7 Python 服务使用受 Git 跟踪的 `config/apsgo_v7_service.json` 作为默认运行配置。配置必须恰好包含以下四项：
+
+| 配置项 | 默认值 | 约束与含义 |
+|---|---|---|
+| `database_path` | `../data/apsgo_v7_rules.sqlite3` | SQLite 主文件。相对路径按配置文件所在目录解析，不按进程当前工作目录解析；绝对路径保持绝对含义。 |
+| `database_timeout_seconds` | `5.0` | SQLite 等待锁的秒数，必须是有限且大于零的数值。 |
+| `listen_host` | `127.0.0.1` | 首期安全边界，必须精确为回环地址，不允许通过配置开放非回环监听。 |
+| `listen_port` | `8001` | 服务监听端口，必须是 `1`～`65535` 的整数。 |
+
+配置文件缺失、不可读、不是 UTF-8、JSON 非法、键缺失/重复/未知或任一值不满足上述契约时，初始化器和服务均在数据库操作或 Uvicorn 启动前失败关闭。每个命令在启动时完整读取并冻结一次配置；运行中不热重载。当前入口不再读取 `APSGO_V7_RULE_DB_PATH`，也不对配置值执行环境变量替换。
+
+`apsgo-v7-initialize-gqga4-rules`、`python -m apsgo_v7_service.initialize_gqga4_rules`、`apsgo-v7-rule-service` 和 `python -m apsgo_v7_service.app` 均支持 `--config <配置文件路径>`；省略时使用上述默认配置路径。运行期 SQLite 主文件及其 journal/WAL/SHM 辅助文件继续由 Git 忽略，默认配置文件本身必须跟踪。历史规则恢复是高风险运维动作，不读取服务配置，仍要求通过 `--database-path` 显式给出既有数据库绝对路径。
 
 ## 7. 接口总览
 
@@ -401,7 +416,7 @@ apsgo-v7-restore-gqga4-rule-version \
 
 ## 12. 数据库逻辑模型
 
-数据库固定使用 V7 独立 SQLite 文件，默认路径为 `data/apsgo_v7_rules.sqlite3`，可通过 V7 专用环境变量 `APSGO_V7_RULE_DB_PATH` 覆盖；覆盖值去除首尾空白，空白值拒绝启动。直接使用 Python 标准库 `sqlite3`，不引入 ORM 或迁移框架。建表只由 V7 服务启动/初始化入口执行；普通请求只读校验并打开既有 schema，不为一次查询申请初始化写锁。
+数据库固定使用 V7 独立 SQLite 文件，文件路径由统一服务配置的 `database_path` 给出；默认配置解析后指向仓库根 `data/apsgo_v7_rules.sqlite3`。路径和连接等待时间分别在启动时从 `database_path` 与 `database_timeout_seconds` 冻结，不再读取 `APSGO_V7_RULE_DB_PATH`。直接使用 Python 标准库 `sqlite3`，不引入 ORM 或迁移框架。建表只由初始化入口执行；服务启动和普通请求只读校验并打开既有 schema，不为一次查询申请初始化写锁。
 
 首期不提供生产反向迁移或自动删表入口。空的临时验收库可在关闭连接后删除数据库文件并重新初始化；有数据的生产库回退必须先保留数据库结构并按部署备份恢复，应用代码不得自行删除历史规则。
 
@@ -616,7 +631,7 @@ apsgo-v7-restore-gqga4-rule-version \
 ## 17. 安全与审计
 
 - 首期服务只允许绑定 `127.0.0.1`，不开放非回环监听，不新增登录鉴权或权限体系。
-- 项目提供 `apsgo-v7-rule-service` 控制台命令和 `python -m apsgo_v7_service.app` 两种受控启动方式；两者调用同一 `main()`，精确校验监听地址并关闭 Uvicorn 访问日志，避免把带查询串的请求目标写入默认访问日志。直接绕过项目入口自行运行其他 ASGI 命令不属于受支持部署方式。
+- 项目提供 `apsgo-v7-rule-service` 控制台命令和 `python -m apsgo_v7_service.app` 两种受控启动方式；两者调用同一 `main()`，支持显式 `--config`，完整校验配置中的监听地址并关闭 Uvicorn 访问日志，避免把带查询串的请求目标写入默认访问日志。直接绕过项目入口自行运行其他 ASGI 命令不属于受支持部署方式。
 - `created_by` / `activated_by` 由服务端使用进程身份生成；请求体不接受可信用户名字段。
 - C# 的 `Environment.UserName` 不作为可信身份。若未来仅用于显示，可另增明确标注为客户端自报的字段，但不影响权限或审计主体。
 - 日志记录规则集身份、操作标识、旧/新版本、指纹、结果码和服务端进程身份，不记录完整请求或本机敏感配置。
@@ -647,9 +662,9 @@ apsgo-v7-restore-gqga4-rule-version \
 6. 初始化重复执行必须检测已有身份并安全退出，不覆盖生产活动版本。
 
 当前提供 `apsgo-v7-initialize-gqga4-rules` 和
-`python -m apsgo_v7_service.initialize_gqga4_rules` 两种等价入口。命令先从
-`APSGO_V7_RULE_DB_PATH` 解析并冻结数据库路径；未配置时使用
-`data/apsgo_v7_rules.sqlite3`。目标身份不存在时，初始版本的数据写入、17 条规则写入、
+`python -m apsgo_v7_service.initialize_gqga4_rules` 两种等价入口。命令支持
+`--config <配置文件路径>`，省略时读取 `config/apsgo_v7_service.json`，并在写库前严格校验、
+解析和冻结四项完整运行配置。目标身份不存在时，初始版本的数据写入、17 条规则写入、
 活动指针切换和完整回读位于同一个立即写事务。目标身份已存在时，只完整核验当前活动版本并
 返回 `already_initialized`，不读取初始种子覆盖、不创建新版本，也不回退已经保存的后续版本。
 
@@ -673,6 +688,7 @@ apsgo-v7-restore-gqga4-rule-version \
 - 任一校验或持久化失败不留下半版本，活动版本不变。
 - 并发覆盖与操作标识冲突均稳定返回 `409`；网络重试不会重复建版本。
 - 历史规则恢复只创建向前的新版本，来源版本完整校验且不修改，恢复操作保留来源审计信息并受并发和幂等保护。
+- 初始化器和服务从同一份完整运行配置读取数据库路径、SQLite 超时和回环监听端点；非法配置在数据库操作或 Uvicorn 启动前失败。
 
 ### 21.2 V7 契约
 
@@ -701,9 +717,10 @@ apsgo-v7-restore-gqga4-rule-version \
 
 1. V7 新建独立 FastAPI 服务包 `apsgo_v7_service`，不修改 V3 `8008` 服务。
 2. 服务默认且首期只监听 `127.0.0.1:8001`，C# 复用 `BACKEND_ALGORITHM_URL`。
-3. V7 使用独立 SQLite 文件和标准库 `sqlite3`，不复用 V3 数据库，不同时实现 MySQL。
-4. 首期没有登录鉴权；服务端进程身份作为审计主体，客户端用户名不可信。
-5. `apsgo_scheduler` 继续只包含 `api/core/app`，无 FastAPI 或数据库依赖；外层服务包单向依赖它。
+3. V7 使用受跟踪的 `config/apsgo_v7_service.json` 统一配置数据库路径、SQLite 超时和监听端点；相对数据库路径按配置文件目录解析，不再读取 `APSGO_V7_RULE_DB_PATH`。
+4. V7 使用独立 SQLite 文件和标准库 `sqlite3`，不复用 V3 数据库，不同时实现 MySQL；运行期数据库文件不进入 Git。
+5. 首期没有登录鉴权；服务端进程身份作为审计主体，客户端用户名不可信。
+6. `apsgo_scheduler` 继续只包含 `api/core/app`，无 FastAPI 或数据库依赖；外层服务包单向依赖它。
 
 现状证据见 [接口宿主与数据库现状证据](../implementation/evidence/apsgo_v7_rule_setting_api/stage_00_environment_baseline/README.md)。
 
@@ -722,3 +739,5 @@ apsgo-v7-restore-gqga4-rule-version \
 11. C# 复用现有 `BACKEND_ALGORITHM_URL`，不增加第二个 V7 地址键。
 12. V7 使用独立 SQLite 文件，不复用 V3 规则数据库，也不同时实现 MySQL。
 13. 首期不新增登录鉴权，审计记录服务端进程身份；开放非回环地址前必须另行增加鉴权。
+14. V7 服务运行参数统一保存在受跟踪的 `config/apsgo_v7_service.json`；四项配置严格校验，相对数据库路径按配置文件目录解析，初始化器和服务支持 `--config`，不再使用 `APSGO_V7_RULE_DB_PATH`。
+15. 历史规则恢复仍要求显式既有数据库绝对路径；C# 继续使用自身 `App.config` 中的 `BACKEND_ALGORITHM_URL`，两者不被 Python 服务配置替代。

@@ -133,7 +133,7 @@ class BoundSchedulingResult:
 
 def bind_gqga4_scheduling_task(
     task_input: SchedulingTaskInput,
-    database_path: str | Path | None = None,
+    database_path: str | Path,
     *,
     timeout_seconds: float = 5.0,
 ) -> BoundSchedulingTask:
@@ -173,7 +173,7 @@ def bind_gqga4_scheduling_task(
 
 def solve_gqga4_scheduling_task(
     task_input: SchedulingTaskInput,
-    database_path: str | Path | None = None,
+    database_path: str | Path,
     *,
     timeout_seconds: float = 5.0,
     cancellation=None,

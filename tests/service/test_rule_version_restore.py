@@ -21,7 +21,7 @@ from apsgo_v7_service.rule_management import (
     initialize_gqga4_rules,
     set_active_gqga4_rules,
 )
-from apsgo_v7_service.rule_store import DATABASE_PATH_ENVIRONMENT_VARIABLE, RuleStore
+from apsgo_v7_service.rule_store import RuleStore
 
 ROOT = Path(__file__).resolve().parents[2]
 RESTORE_OPERATION = "00000000-0000-4000-8000-000000001101"
@@ -242,7 +242,7 @@ def test_restore_rejects_an_inconsistent_historical_snapshot(
     assert _counts(database_path) == before
 
 
-def test_restore_rejects_an_unknown_source_and_command_reports_json(tmp_path):
+def test_restore_rejects_an_unknown_source_and_command_ignores_service_configuration(tmp_path):
     database_path = tmp_path / "rules.sqlite3"
     initial = initialize_gqga4_rules(database_path).active_rules
     _save(database_path, SAVE_OPERATION_1, "720", "当前规则")
@@ -258,8 +258,10 @@ def test_restore_rejects_an_unknown_source_and_command_reports_json(tmp_path):
     assert _counts(database_path) == before
 
     environment = os.environ.copy()
-    environment[DATABASE_PATH_ENVIRONMENT_VARIABLE] = str(tmp_path / "wrong.sqlite3")
     environment["PYTHONPATH"] = str(ROOT / "src")
+    configuration_path = tmp_path / "config" / "apsgo_v7_service.json"
+    configuration_path.parent.mkdir()
+    configuration_path.write_text("{invalid", encoding="utf-8")
     command = [
         sys.executable,
         "-m",
@@ -275,7 +277,7 @@ def test_restore_rejects_an_unknown_source_and_command_reports_json(tmp_path):
     ]
     first = subprocess.run(
         command,
-        cwd=ROOT,
+        cwd=tmp_path,
         env=environment,
         check=True,
         capture_output=True,
@@ -283,7 +285,7 @@ def test_restore_rejects_an_unknown_source_and_command_reports_json(tmp_path):
     )
     replay = subprocess.run(
         command,
-        cwd=ROOT,
+        cwd=tmp_path,
         env=environment,
         check=True,
         capture_output=True,
@@ -302,7 +304,7 @@ def test_restore_rejects_an_unknown_source_and_command_reports_json(tmp_path):
     later = _save(database_path, SAVE_OPERATION_2, "730", "后续规则")
     superseded = subprocess.run(
         command,
-        cwd=ROOT,
+        cwd=tmp_path,
         env=environment,
         check=False,
         capture_output=True,
@@ -315,6 +317,45 @@ def test_restore_rejects_an_unknown_source_and_command_reports_json(tmp_path):
     assert superseded_payload["saved_version_is_active"] is False
     assert superseded_payload["active_version_id"] == later.saved_version_id
     assert _counts(database_path) == (4, 68)
+
+
+def test_restore_command_requires_an_explicit_absolute_existing_database(tmp_path):
+    command = [
+        sys.executable,
+        "-m",
+        "apsgo_v7_service.restore_gqga4_rule_version",
+        "--source-version-id",
+        "1",
+        "--save-operation-id",
+        RESTORE_OPERATION,
+        "--expected-active-version-id",
+        "1",
+        "--database-path",
+    ]
+    environment = os.environ | {"PYTHONPATH": str(ROOT / "src")}
+
+    relative = subprocess.run(
+        command + ["rules.sqlite3"],
+        cwd=tmp_path,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    missing = subprocess.run(
+        command + [str(tmp_path / "missing.sqlite3")],
+        cwd=tmp_path,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert relative.returncode == missing.returncode == 2
+    assert relative.stdout == missing.stdout == ""
+    assert "--database-path: must be an absolute path" in relative.stderr
+    assert "--database-path: must identify an existing database file" in missing.stderr
+    assert not (tmp_path / "missing.sqlite3").exists()
 
 
 def test_restore_command_rejects_an_invalid_operation_before_opening_the_database(tmp_path):

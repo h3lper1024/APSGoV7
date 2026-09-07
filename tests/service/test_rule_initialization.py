@@ -28,12 +28,28 @@ from apsgo_v7_service.rule_management import (
     initialize_gqga4_rules,
     set_active_gqga4_rules,
 )
-from apsgo_v7_service.rule_store import DATABASE_PATH_ENVIRONMENT_VARIABLE, RuleStore
+from apsgo_v7_service.rule_store import RuleStore
 
 ROOT = Path(__file__).resolve().parents[2]
 NOW = datetime(2026, 9, 7, 10, 0, 0, 123456, tzinfo=timezone(timedelta(hours=8)))
 UTC_STAMP = "2026-09-07T02:00:00.123456+00:00"
 EXPECTED_FINGERPRINT = "d963206b01c0d439303c1d6ae7d7374e20eaa0777801d12c0bebc89bfe6349c0"
+
+
+def _write_service_configuration(configuration_path, database_path):
+    configuration_path.parent.mkdir(parents=True, exist_ok=True)
+    configuration_path.write_text(
+        json.dumps(
+            {
+                "database_path": str(database_path),
+                "database_timeout_seconds": 5.0,
+                "listen_host": "127.0.0.1",
+                "listen_port": 8001,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return configuration_path
 
 
 def _counts(database_path):
@@ -180,9 +196,7 @@ def test_existing_incomplete_active_version_is_rejected_without_repair(tmp_path)
     compiled = compile_gqga4_rule_set(rules, 1)
     with RuleStore.initialize(database_path) as store:
         with store.transaction(write=True):
-            rule_set_id = store.create_rule_set(
-                "GQGA4", "default", "month", created_at=UTC_STAMP
-            )
+            rule_set_id = store.create_rule_set("GQGA4", "default", "month", created_at=UTC_STAMP)
             version_id = store.create_version(
                 rule_set_id,
                 1,
@@ -288,18 +302,34 @@ def test_two_overlapping_initializers_create_only_one_version(tmp_path):
     assert _counts(database_path) == (1, 1, 17)
 
 
-def test_module_command_uses_environment_path_and_reports_repeat_status(tmp_path):
+def test_module_command_uses_configuration_path_and_reports_repeat_status(tmp_path):
     database_path = tmp_path / "command" / "rules.sqlite3"
+    ignored_legacy_database = tmp_path / "ignored-legacy-environment.sqlite3"
+    configuration_path = _write_service_configuration(
+        tmp_path / "config" / "service.json",
+        "../command/rules.sqlite3",
+    )
     environment = os.environ.copy()
-    environment[DATABASE_PATH_ENVIRONMENT_VARIABLE] = str(database_path)
+    environment["APSGO_V7_RULE_DB_PATH"] = str(ignored_legacy_database)
     environment["PYTHONPATH"] = str(ROOT / "src")
-    command = [sys.executable, "-m", "apsgo_v7_service.initialize_gqga4_rules"]
+    command = [
+        sys.executable,
+        "-m",
+        "apsgo_v7_service.initialize_gqga4_rules",
+        "--config",
+        str(configuration_path),
+    ]
 
     first = subprocess.run(
-        command, cwd=ROOT, env=environment, check=True, capture_output=True, text=True
+        command, cwd=tmp_path, env=environment, check=True, capture_output=True, text=True
     )
     second = subprocess.run(
-        command, cwd=ROOT, env=environment, check=True, capture_output=True, text=True
+        command,
+        cwd=tmp_path / "command",
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
     )
 
     first_payload = json.loads(first.stdout)
@@ -307,6 +337,7 @@ def test_module_command_uses_environment_path_and_reports_repeat_status(tmp_path
     assert first.stderr == second.stderr == ""
     assert first_payload["status"] == "initialized"
     assert second_payload["status"] == "already_initialized"
+    assert not ignored_legacy_database.exists()
     for payload in (first_payload, second_payload):
         assert payload["active_version_id"] == 1
         assert payload["version"] == "1"
@@ -317,13 +348,22 @@ def test_module_command_uses_environment_path_and_reports_repeat_status(tmp_path
     assert get_active_gqga4_rules(database_path).activated_by == "v7-rule-service"
 
 
-def test_module_command_rejects_blank_database_path_before_creating_default_database(tmp_path):
+def test_module_command_rejects_invalid_configuration_before_creating_database(tmp_path):
+    configuration_path = _write_service_configuration(
+        tmp_path / "config" / "service.json",
+        "   ",
+    )
     environment = os.environ.copy()
-    environment[DATABASE_PATH_ENVIRONMENT_VARIABLE] = "   "
     environment["PYTHONPATH"] = str(ROOT / "src")
 
     result = subprocess.run(
-        [sys.executable, "-m", "apsgo_v7_service.initialize_gqga4_rules"],
+        [
+            sys.executable,
+            "-m",
+            "apsgo_v7_service.initialize_gqga4_rules",
+            "--config",
+            str(configuration_path),
+        ],
         cwd=tmp_path,
         env=environment,
         capture_output=True,
@@ -332,5 +372,5 @@ def test_module_command_rejects_blank_database_path_before_creating_default_data
 
     assert result.returncode != 0
     assert result.stdout == ""
-    assert f"{DATABASE_PATH_ENVIRONMENT_VARIABLE} must not be blank" in result.stderr
+    assert "database_path must be nonempty text" in result.stderr
     assert not (tmp_path / "data" / "apsgo_v7_rules.sqlite3").exists()

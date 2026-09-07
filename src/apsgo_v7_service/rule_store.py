@@ -2,17 +2,14 @@
 
 from __future__ import annotations
 
-import os
 import sqlite3
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
 SCHEMA_VERSION = 1
-DATABASE_PATH_ENVIRONMENT_VARIABLE = "APSGO_V7_RULE_DB_PATH"
-DEFAULT_DATABASE_PATH = Path("data/apsgo_v7_rules.sqlite3")
 
 
 class RuleStoreSchemaError(RuntimeError):
@@ -257,16 +254,6 @@ def _expected_schema_signature() -> tuple[tuple[str, str, str], ...]:
         return _schema_signature(reference)
 
 
-def configured_database_path(environment: Mapping[str, str] | None = None) -> Path:
-    values = os.environ if environment is None else environment
-    configured = values.get(DATABASE_PATH_ENVIRONMENT_VARIABLE)
-    if configured is None:
-        return DEFAULT_DATABASE_PATH
-    if not configured.strip():
-        raise ValueError(f"{DATABASE_PATH_ENVIRONMENT_VARIABLE} must not be blank")
-    return Path(configured.strip())
-
-
 class RuleStore:
     """One SQLite connection with explicit read or immediate-write transactions."""
 
@@ -290,9 +277,9 @@ class RuleStore:
         timeout_seconds: float,
         create_parent: bool,
     ) -> RuleStore:
-        path = configured_database_path() if database_path is None else database_path
-        if not str(path).strip():
+        if database_path is None or not str(database_path).strip():
             raise ValueError("database_path must not be blank")
+        path = database_path
         if str(path) != ":memory:":
             path = Path(path)
             if create_parent:
@@ -307,9 +294,7 @@ class RuleStore:
             raise
 
     @classmethod
-    def initialize(
-        cls, database_path: str | Path | None = None, *, timeout_seconds: float = 5.0
-    ) -> RuleStore:
+    def initialize(cls, database_path: str | Path, *, timeout_seconds: float = 5.0) -> RuleStore:
         store = cls._open_unchecked(
             database_path, timeout_seconds=timeout_seconds, create_parent=True
         )
@@ -321,9 +306,7 @@ class RuleStore:
             raise
 
     @classmethod
-    def open(
-        cls, database_path: str | Path | None = None, *, timeout_seconds: float = 5.0
-    ) -> RuleStore:
+    def open(cls, database_path: str | Path, *, timeout_seconds: float = 5.0) -> RuleStore:
         store = cls._open_unchecked(
             database_path, timeout_seconds=timeout_seconds, create_parent=False
         )
@@ -579,8 +562,6 @@ class RuleStore:
 
 
 __all__ = [
-    "DATABASE_PATH_ENVIRONMENT_VARIABLE",
-    "DEFAULT_DATABASE_PATH",
     "RuleDefinitionRecord",
     "RuleSetRecord",
     "RuleSetVersionRecord",
@@ -588,5 +569,4 @@ __all__ = [
     "RuleStoreConflict",
     "RuleStoreSchemaError",
     "SCHEMA_VERSION",
-    "configured_database_path",
 ]

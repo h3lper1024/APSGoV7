@@ -303,7 +303,7 @@ def _read_active_rules(store: RuleStore, rule_set: RuleSetRecord) -> ActiveRules
 
 
 def get_active_gqga4_rules(
-    database_path: str | Path | None = None, *, timeout_seconds: float = 5.0
+    database_path: str | Path, *, timeout_seconds: float = 5.0
 ) -> ActiveRulesResponse:
     """Read one fully verified active GQGA4 monthly rule snapshot."""
 
@@ -315,7 +315,7 @@ def get_active_gqga4_rules(
 
 
 def initialize_gqga4_rules(
-    database_path: str | Path | None = None,
+    database_path: str | Path,
     *,
     audit_actor: str = DEFAULT_AUDIT_ACTOR,
     clock: Callable[[], datetime] = _utc_now,
@@ -373,7 +373,7 @@ def initialize_gqga4_rules(
 
 def set_active_gqga4_rules(
     request: SetActiveRulesRequest,
-    database_path: str | Path | None = None,
+    database_path: str | Path,
     *,
     audit_actor: str = DEFAULT_AUDIT_ACTOR,
     clock: Callable[[], datetime] = _utc_now,

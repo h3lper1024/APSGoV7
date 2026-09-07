@@ -31,7 +31,10 @@ from apsgo_v7_service.app import (  # noqa: E402
     GET_ACTIVE_RULES_PATH,
     SET_ACTIVE_RULES_PATH,
 )
-from apsgo_v7_service.rule_store import DEFAULT_DATABASE_PATH  # noqa: E402
+from apsgo_v7_service.configuration import (  # noqa: E402
+    DEFAULT_CONFIGURATION_PATH,
+    load_service_configuration,
+)
 
 CHAIN_WEIGHT_RULE_ID = "chain_weight_range"
 OPERATION_CHAIN_WEIGHT = "11111111-1111-4111-8111-111111111111"
@@ -78,6 +81,20 @@ def _database_state(path: Path) -> dict[str, int | str]:
             ).fetchone()[0],
             "active_version_id": active_version_id,
         }
+
+
+def _write_service_configuration(path: Path, database_path: str | Path, port: int) -> None:
+    path.write_text(
+        json.dumps(
+            {
+                "database_path": str(database_path),
+                "database_timeout_seconds": 5.0,
+                "listen_host": "127.0.0.1",
+                "listen_port": port,
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def _free_loopback_port() -> int:
@@ -194,13 +211,16 @@ def _run_isolated() -> dict[str, object]:
 
     with TemporaryDirectory(prefix="apsgo-v7-stage-11-") as directory:
         temporary_database = Path(directory) / "rules.sqlite3"
+        temporary_configuration = Path(directory) / "service.json"
         backup_database = Path(directory) / "rules.initial.backup.sqlite3"
         restored_backup_database = Path(directory) / "rules.restored.sqlite3"
+        restored_backup_configuration = Path(directory) / "restored-service.json"
         log_path = Path(directory) / "uvicorn.log"
+        port = _free_loopback_port()
+        _write_service_configuration(temporary_configuration, "rules.sqlite3", port)
         environment = os.environ.copy()
         environment.update(
             {
-                "APSGO_V7_RULE_DB_PATH": str(temporary_database),
                 "PYTHONDONTWRITEBYTECODE": "1",
                 "PYTHONPATH": os.pathsep.join(
                     part
@@ -210,7 +230,13 @@ def _run_isolated() -> dict[str, object]:
             }
         )
         initialized = subprocess.run(
-            [sys.executable, "-m", "apsgo_v7_service.initialize_gqga4_rules"],
+            [
+                sys.executable,
+                "-m",
+                "apsgo_v7_service.initialize_gqga4_rules",
+                "--config",
+                str(temporary_configuration),
+            ],
             cwd=ROOT,
             env=environment,
             text=True,
@@ -240,14 +266,15 @@ def _run_isolated() -> dict[str, object]:
             "initial database backup is incomplete",
         )
 
-        port = _free_loopback_port()
         base_url = f"http://127.0.0.1:{port}"
         with log_path.open("w+", encoding="utf-8") as log:
             process = subprocess.Popen(
                 [
                     sys.executable,
-                    "-c",
-                    f"from apsgo_v7_service.app import run_server; run_server(port={port})",
+                    "-m",
+                    "apsgo_v7_service.app",
+                    "--config",
+                    str(temporary_configuration),
                 ],
                 cwd=ROOT,
                 env=environment,
@@ -540,11 +567,21 @@ def _run_isolated() -> dict[str, object]:
         )
 
         shutil.copyfile(backup_database, restored_backup_database)
-        backup_environment = environment | {"APSGO_V7_RULE_DB_PATH": str(restored_backup_database)}
+        _write_service_configuration(
+            restored_backup_configuration,
+            "rules.restored.sqlite3",
+            port,
+        )
         backup_check_process = subprocess.run(
-            [sys.executable, "-m", "apsgo_v7_service.initialize_gqga4_rules"],
+            [
+                sys.executable,
+                "-m",
+                "apsgo_v7_service.initialize_gqga4_rules",
+                "--config",
+                str(restored_backup_configuration),
+            ],
             cwd=ROOT,
-            env=backup_environment,
+            env=environment,
             text=True,
             capture_output=True,
             timeout=30,
@@ -632,7 +669,7 @@ def _run_isolated() -> dict[str, object]:
 
 
 def _run() -> dict[str, object]:
-    default_database = ROOT / DEFAULT_DATABASE_PATH
+    default_database = load_service_configuration(ROOT / DEFAULT_CONFIGURATION_PATH).database_path
     default_before = _path_family_state(default_database)
     try:
         summary = _run_isolated()

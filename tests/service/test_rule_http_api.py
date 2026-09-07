@@ -39,6 +39,29 @@ ERROR_FIELDS = {
 }
 
 
+def _write_service_configuration(
+    configuration_path,
+    database_path,
+    *,
+    host="127.0.0.1",
+    port=8001,
+    timeout_seconds=5.0,
+):
+    configuration_path.parent.mkdir(parents=True, exist_ok=True)
+    configuration_path.write_text(
+        json.dumps(
+            {
+                "database_path": str(database_path),
+                "database_timeout_seconds": timeout_seconds,
+                "listen_host": host,
+                "listen_port": port,
+            }
+        ),
+        encoding="utf-8",
+    )
+    return configuration_path
+
+
 def _record_data(value):
     return {part.name: getattr(value, part.name) for part in fields(value)}
 
@@ -50,9 +73,7 @@ def _seed_active_v1(database_path):
     compiled = compile_gqga4_rule_set(rules, 1)
     with RuleStore.initialize(database_path) as store:
         with store.transaction(write=True):
-            rule_set_id = store.create_rule_set(
-                "GQGA4", "default", "month", created_at=STAMP
-            )
+            rule_set_id = store.create_rule_set("GQGA4", "default", "month", created_at=STAMP)
             version_id = store.create_version(
                 rule_set_id,
                 1,
@@ -182,12 +203,10 @@ def _database_state(database_path):
             "SELECT active_version_id FROM v7_rule_set WHERE product_line_code = 'GQGA4'"
         ).fetchone()
         return {
-            "versions": connection.execute(
-                "SELECT COUNT(*) FROM v7_rule_set_version"
-            ).fetchone()[0],
-            "rules": connection.execute("SELECT COUNT(*) FROM v7_rule_definition").fetchone()[
+            "versions": connection.execute("SELECT COUNT(*) FROM v7_rule_set_version").fetchone()[
                 0
             ],
+            "rules": connection.execute("SELECT COUNT(*) FROM v7_rule_definition").fetchone()[0],
             "active": None if active is None else active[0],
         }
 
@@ -310,9 +329,7 @@ def test_http_maps_parser_size_limits_to_400(client, database_path, kind, issue_
 )
 def test_malformed_json_returns_locatable_400(client, database_path, payload, issue_code):
     before = _database_state(database_path)
-    response = client.post(
-        POST_PATH, content=payload, headers={"content-type": "application/json"}
-    )
+    response = client.post(POST_PATH, content=payload, headers={"content-type": "application/json"})
 
     _assert_error(response, 400, issue_code=issue_code, field_path="body")
     assert _database_state(database_path) == before
@@ -322,9 +339,7 @@ def test_valid_non_utf8_json_is_rejected(client, database_path):
     before = _database_state(database_path)
     payload = dumps_exact_json(_initial_request()).encode("utf-16")
 
-    response = client.post(
-        POST_PATH, content=payload, headers={"content-type": "application/json"}
-    )
+    response = client.post(POST_PATH, content=payload, headers={"content-type": "application/json"})
 
     _assert_error(response, 400, code="invalid_request", issue_code="invalid_json")
     assert _database_state(database_path) == before
@@ -368,9 +383,7 @@ def test_basic_request_shape_errors_are_400(client, database_path, case):
 
 
 @pytest.mark.parametrize("case", ("missing", "duplicate", "unknown", "parameter"))
-def test_rule_set_validation_errors_are_422_with_field_diagnostics(
-    client, database_path, case
-):
+def test_rule_set_validation_errors_are_422_with_field_diagnostics(client, database_path, case):
     active = _json(client.get(GET_PATH))
     value = _request_from_active(active)
     if case == "missing":
@@ -418,9 +431,7 @@ def test_uninitialized_rule_set_maps_get_and_post_to_404(tmp_path):
     with TestClient(
         http_module.create_app(database_path=inactive_rule_set), raise_server_exceptions=False
     ) as value:
-        _assert_error(
-            _post(value, _initial_request()), 404, code="rule_set_not_initialized"
-        )
+        _assert_error(_post(value, _initial_request()), 404, code="rule_set_not_initialized")
     assert _database_state(inactive_rule_set) == {
         "versions": 0,
         "rules": 0,
@@ -460,9 +471,7 @@ def test_http_conflicts_preserve_the_first_saved_version(client, database_path):
     assert _database_state(database_path) == expected_state
 
 
-def test_http_idempotent_replay_never_reactivates_a_historical_version(
-    client, database_path
-):
+def test_http_idempotent_replay_never_reactivates_a_historical_version(client, database_path):
     active = _json(client.get(GET_PATH))
     first_request = _request_from_active(active, OPERATION_A)
     first = _json(_post(client, first_request))
@@ -490,9 +499,7 @@ def test_http_idempotent_replay_never_reactivates_a_historical_version(
 
 
 def test_real_write_lock_maps_to_retryable_503(database_path):
-    active = _json(
-        TestClient(http_module.create_app(database_path=database_path)).get(GET_PATH)
-    )
+    active = _json(TestClient(http_module.create_app(database_path=database_path)).get(GET_PATH))
     lock = sqlite3.connect(database_path, isolation_level=None)
     lock.execute("BEGIN IMMEDIATE")
     try:
@@ -509,9 +516,7 @@ def test_real_write_lock_maps_to_retryable_503(database_path):
     assert _database_state(database_path) == {"versions": 1, "rules": 17, "active": 1}
 
 
-def test_permanent_sqlite_operational_error_maps_to_sanitized_500(
-    client, monkeypatch
-):
+def test_permanent_sqlite_operational_error_maps_to_sanitized_500(client, monkeypatch):
     def fail(*args, **kwargs):
         raise sqlite3.OperationalError("no such table: private_internal_table")
 
@@ -524,9 +529,7 @@ def test_permanent_sqlite_operational_error_maps_to_sanitized_500(
     assert "no such table" not in response.text
 
 
-def test_database_write_failure_is_500_without_internal_details(
-    client, database_path, caplog
-):
+def test_database_write_failure_is_500_without_internal_details(client, database_path, caplog):
     active = _json(client.get(GET_PATH))
     before = _database_state(database_path)
     secret = "forced SELECT secret FROM v7_rule_set at /Users/private/rules.sqlite3"
@@ -598,9 +601,7 @@ def test_get_post_get_closure_preserves_decimal_and_database_identity(client, da
     request["rules"][0]["parameters"]["min_weight"] = precise_minimum
     request["virtual_prototypes"][0]["unit_weight"] = large_weight
 
-    saved_response = _post(
-        client, request, content_type="application/json; charset=utf-8"
-    )
+    saved_response = _post(client, request, content_type="application/json; charset=utf-8")
     assert saved_response.status_code == 200
     saved = _json(saved_response)
     current_response = client.get(GET_PATH)
@@ -683,41 +684,71 @@ def test_success_log_keeps_audit_fields_but_not_body_or_database_path(
     assert str(database_path) not in log
 
 
-def test_run_server_uses_the_confirmed_loopback_endpoint(monkeypatch):
+def test_run_server_loads_one_configuration_and_uses_the_confirmed_endpoint(tmp_path, monkeypatch):
+    database_path = tmp_path / "data" / "rules.sqlite3"
+    configuration_path = _write_service_configuration(
+        tmp_path / "config" / "service.json",
+        "../data/rules.sqlite3",
+        port=8123,
+        timeout_seconds=2.5,
+    )
     calls = []
+    applications = []
+
+    def create_app(database_path, *, timeout_seconds):
+        applications.append((database_path, timeout_seconds))
+        return object()
+
+    monkeypatch.setattr(http_module, "create_app", create_app)
     monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
 
-    http_module.run_server()
+    http_module.run_server(configuration_path)
 
     assert not hasattr(http_module, "app")
     assert http_module._LOGGER.name.startswith("uvicorn.error.")
+    assert applications == [(database_path.resolve(), 2.5)]
     assert len(calls) == 1
     args, kwargs = calls[0]
     assert kwargs.get("host", args[1] if len(args) > 1 else None) == "127.0.0.1"
-    assert kwargs.get("port", args[2] if len(args) > 2 else None) == 8001
+    assert kwargs.get("port", args[2] if len(args) > 2 else None) == 8123
     assert kwargs["access_log"] is False
 
 
-def test_run_server_rejects_blank_database_environment_before_start(monkeypatch):
+def test_run_server_rejects_missing_configuration_before_start(tmp_path, monkeypatch):
     calls = []
-    monkeypatch.setenv("APSGO_V7_RULE_DB_PATH", "  ")
     monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
 
-    with pytest.raises(ValueError, match="APSGO_V7_RULE_DB_PATH"):
-        http_module.run_server()
+    with pytest.raises(ValueError, match="configuration file does not exist"):
+        http_module.run_server(tmp_path / "missing.json")
 
     assert calls == []
+    assert not (tmp_path / "data").exists()
 
 
 @pytest.mark.parametrize(
     "host",
     ("0.0.0.0", "192.168.1.10", "::", "::1", "localhost", "127.0.0.2"),
 )
-def test_run_server_rejects_every_unconfirmed_host_before_start(monkeypatch, host):
+def test_run_server_rejects_every_unconfirmed_host_before_start(tmp_path, monkeypatch, host):
+    configuration_path = _write_service_configuration(
+        tmp_path / "config.json",
+        tmp_path / "rules.sqlite3",
+        host=host,
+    )
     calls = []
     monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
 
     with pytest.raises(ValueError, match="127.0.0.1"):
-        http_module.run_server(host=host)
+        http_module.run_server(configuration_path)
 
     assert calls == []
+
+
+def test_service_command_accepts_an_explicit_configuration_path(tmp_path, monkeypatch):
+    configuration_path = tmp_path / "service.json"
+    calls = []
+    monkeypatch.setattr(http_module, "run_server", lambda path: calls.append(path))
+
+    http_module.main(["--config", str(configuration_path)])
+
+    assert calls == [configuration_path]

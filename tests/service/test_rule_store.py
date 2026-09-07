@@ -3,12 +3,9 @@ import sqlite3
 import pytest
 
 from apsgo_v7_service.rule_store import (
-    DATABASE_PATH_ENVIRONMENT_VARIABLE,
-    DEFAULT_DATABASE_PATH,
     RuleStore,
     RuleStoreConflict,
     RuleStoreSchemaError,
-    configured_database_path,
 )
 
 STAMP = "2026-09-07T10:00:00+08:00"
@@ -81,14 +78,15 @@ def _count(database_path, table):
         return connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
 
 
-def test_database_path_uses_a_clear_default_and_one_dedicated_environment_variable(tmp_path):
-    custom = tmp_path / "custom.sqlite3"
-    assert configured_database_path({}) == DEFAULT_DATABASE_PATH
-    assert configured_database_path({DATABASE_PATH_ENVIRONMENT_VARIABLE: f"  {custom}  "}) == custom
-    with pytest.raises(ValueError, match=DATABASE_PATH_ENVIRONMENT_VARIABLE):
-        configured_database_path({DATABASE_PATH_ENVIRONMENT_VARIABLE: "  "})
+def test_database_path_must_be_explicit_and_nonblank(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(TypeError, match="database_path"):
+        RuleStore.initialize()
+    with pytest.raises(ValueError, match="database_path"):
+        RuleStore.initialize(None)
     with pytest.raises(ValueError, match="database_path"):
         RuleStore.open("")
+    assert not (tmp_path / "data").exists()
 
 
 def test_empty_database_initializes_and_reopens_without_changing_data(database_path):

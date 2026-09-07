@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import logging
 import sqlite3
 from collections.abc import Sequence
@@ -22,6 +23,7 @@ from apsgo_scheduler.api.rule_management import (
 from apsgo_scheduler.app.rule_set_compiler import RuleSetCompilationError
 from apsgo_scheduler.app.rule_set_loader import RuleSetLoadError
 
+from .configuration import DEFAULT_CONFIGURATION_PATH, load_service_configuration
 from .gqga4 import GQGA4_RULE_SET_TEMPLATE
 from .rule_management import (
     DEFAULT_AUDIT_ACTOR,
@@ -29,7 +31,7 @@ from .rule_management import (
     get_active_gqga4_rules,
     set_active_gqga4_rules,
 )
-from .rule_store import RuleStoreSchemaError, configured_database_path
+from .rule_store import RuleStoreSchemaError
 
 GET_ACTIVE_RULES_PATH = "/api/v1/rule-sets/GQGA4/default/month/getActiveRules"
 SET_ACTIVE_RULES_PATH = "/api/v1/rule-sets/GQGA4/default/month/setActiveRules"
@@ -221,9 +223,7 @@ async def _read_request_body(request: Request, *, allow_body: bool) -> bytes:
                 "invalid_content_length", "Content-Length 必须是非负整数。"
             ) from error
         if content_length < 0:
-            raise _HttpRequestError(
-                "invalid_content_length", "Content-Length 必须是非负整数。"
-            )
+            raise _HttpRequestError("invalid_content_length", "Content-Length 必须是非负整数。")
         if content_length > MAX_REQUEST_BODY_BYTES:
             raise _HttpRequestError(
                 "request_too_large",
@@ -256,9 +256,7 @@ def _require_json_content_type(request: Request) -> None:
         )
 
 
-def create_app(
-    database_path: str | Path | None = None, *, timeout_seconds: float = 5.0
-) -> FastAPI:
+def create_app(database_path: str | Path, *, timeout_seconds: float = 5.0) -> FastAPI:
     """Create the two-route adapter without opening or initializing a database."""
 
     application = FastAPI(
@@ -362,19 +360,29 @@ def create_app(
     return application
 
 
-def run_server(host: str = DEFAULT_LISTEN_HOST, port: int = DEFAULT_LISTEN_PORT) -> None:
-    """Run the local service while refusing every non-default listen address."""
+def run_server(
+    configuration_path: str | Path = DEFAULT_CONFIGURATION_PATH,
+) -> None:
+    """Run the local service from one fully validated configuration."""
 
-    if host != DEFAULT_LISTEN_HOST:
-        raise ValueError(f"host must be exactly {DEFAULT_LISTEN_HOST}")
-    if type(port) is not int or not 1 <= port <= 65_535:
-        raise ValueError("port must be an integer from 1 through 65535")
-    database_path = configured_database_path()
-    uvicorn.run(create_app(database_path), host=host, port=port, access_log=False)
+    configuration = load_service_configuration(configuration_path)
+    application = create_app(
+        configuration.database_path,
+        timeout_seconds=configuration.database_timeout_seconds,
+    )
+    uvicorn.run(
+        application,
+        host=configuration.listen_host,
+        port=configuration.listen_port,
+        access_log=False,
+    )
 
 
-def main() -> None:
-    run_server()
+def main(argv: Sequence[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="Run the local APSGo V7 rule service.")
+    parser.add_argument("--config", default=DEFAULT_CONFIGURATION_PATH, type=Path)
+    arguments = parser.parse_args(argv)
+    run_server(arguments.config)
 
 
 if __name__ == "__main__":
