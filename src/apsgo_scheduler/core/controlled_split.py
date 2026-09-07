@@ -17,7 +17,11 @@ from .neighborhoods import (
 )
 from .resource_facts import derive_evaluation_resource_view
 from .rules.base import ControlledSplitRuleSubject, PlanRuleSubject, RuleDisposition
-from .rules.concrete import WEIGHT_EPSILON, VirtualOutputRatioRule
+from .rules.concrete import (
+    WEIGHT_EPSILON,
+    ConsecutiveVirtualMaterialRule,
+    VirtualOutputRatioRule,
+)
 
 
 def _prepare_split(state, context, donor, parent, subject, decision, piece_prefix):
@@ -42,6 +46,31 @@ def _prepare_split(state, context, donor, parent, subject, decision, piece_prefi
     weights = _split_piece_weights(parent.weight, decision)
     if not weights:
         return None
+    consecutive_limit = min(
+        (
+            rule.parameters["max_count"]
+            for rule in cache.rule_set.rules
+            if isinstance(rule, ConsecutiveVirtualMaterialRule)
+        ),
+        default=None,
+    )
+    if consecutive_limit is not None:
+        parent_position = next(
+            index for index, node in enumerate(donor.nodes) if node.node_id == parent.node_id
+        )
+        adjacent_runs = []
+        for nodes in (
+            reversed(donor.nodes[:parent_position]),
+            donor.nodes[parent_position + 1 :],
+        ):
+            count = 0
+            for node in nodes:
+                if node.material_role is not MaterialRole.GENERATED_VIRTUAL:
+                    break
+                count += 1
+            adjacent_runs.append(count)
+        if all(adjacent_runs) and sum(adjacent_runs) > consecutive_limit:
+            return None
     partition_id = _split_partition_id(subject, decision, weights)
     lineage = _split_lineage(subject, decision, weights, partition_id)
     pieces = []

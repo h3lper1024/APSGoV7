@@ -25,6 +25,7 @@ from apsgo_scheduler.core.model import (
 from apsgo_scheduler.core.neighborhoods import SearchContext
 from apsgo_scheduler.core.rules.base import RuleEvaluationContext
 from apsgo_scheduler.core.rules.concrete import (
+    ConsecutiveVirtualMaterialRule,
     ContinuousNarrowSteelWeightRule,
     VirtualOutputRatioRule,
 )
@@ -389,6 +390,53 @@ def test_parent_removal_cannot_silently_drop_an_existing_virtual_only_remainder(
     assert fingerprint(state) == before and replay == []
     assert context.factory.budget.candidate_check_count == 0
     assert context.complete_candidate_evaluation_count == 0
+
+
+@pytest.mark.parametrize(("maximum", "accepted"), ((2, 0), (4, 1)))
+def test_parent_removal_respects_enabled_virtual_run_limit(maximum, accepted, monkeypatch):
+    cap = ConsecutiveVirtualMaterialRule(
+        "virtual-run", "virtual-run", RuleScope.CHAIN, True, "1", {"max_count": maximum}
+    )
+    state, context = split_case(anchor=True, extra_rules=(cap,))
+    anchor, original = state.current_plan.chains[0].nodes
+    virtuals = tuple(
+        context.factory.materialize(
+            context.factory.cache.problem.virtual_prototypes[0],
+            original,
+            original,
+            purpose=VirtualPurpose.EDGE_BRIDGE,
+            sequence=sequence,
+        )
+        for sequence in range(1, 5)
+    )
+    plan = SchedulePlan(
+        (
+            replace(
+                state.current_plan.chains[0],
+                nodes=(anchor,) + virtuals[:2] + (original,) + virtuals[2:],
+            ),
+        )
+    )
+    state = replace(
+        state,
+        current_plan=plan,
+        virtual_sequence=4,
+        current_evaluation=evaluate_plan(
+            plan, context.factory.cache.rule_set, context.factory.cache.context
+        ),
+    )
+    before = fingerprint(state)
+    replay = suppress_replay(monkeypatch)
+
+    controlled_split.run_controlled_order_split(state, context)
+
+    assert state.split_sequence == accepted
+    assert context.factory.budget.candidate_check_count == accepted
+    assert context.complete_candidate_evaluation_count == accepted
+    if accepted:
+        assert replay == [(state, context)]
+    else:
+        assert fingerprint(state) == before and replay == []
 
 
 def test_existing_pieces_and_generated_separators_are_not_recursive_split_parents(monkeypatch):
