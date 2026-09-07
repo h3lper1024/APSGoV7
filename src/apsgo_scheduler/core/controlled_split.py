@@ -7,7 +7,9 @@ from .contracts import ControlledSplitMode, SearchStopReason, sum_weights
 from .model import Chain, MaterialRole, SchedulePlan, SearchState
 from .neighborhoods import (
     SearchContext,
+    _boundary_join,
     _normalize_chain,
+    _split_donor_sides,
     _split_lineage,
     _split_partition_id,
     _split_piece_weights,
@@ -19,7 +21,6 @@ from .resource_facts import derive_evaluation_resource_view
 from .rules.base import ControlledSplitRuleSubject, PlanRuleSubject, RuleDisposition
 from .rules.concrete import (
     WEIGHT_EPSILON,
-    ConsecutiveVirtualMaterialRule,
     VirtualOutputRatioRule,
 )
 
@@ -46,31 +47,14 @@ def _prepare_split(state, context, donor, parent, subject, decision, piece_prefi
     weights = _split_piece_weights(parent.weight, decision)
     if not weights:
         return None
-    consecutive_limit = min(
-        (
-            rule.parameters["max_count"]
-            for rule in cache.rule_set.rules
-            if isinstance(rule, ConsecutiveVirtualMaterialRule)
-        ),
-        default=None,
-    )
-    if consecutive_limit is not None:
-        parent_position = next(
-            index for index, node in enumerate(donor.nodes) if node.node_id == parent.node_id
-        )
-        adjacent_runs = []
-        for nodes in (
-            reversed(donor.nodes[:parent_position]),
-            donor.nodes[parent_position + 1 :],
-        ):
-            count = 0
-            for node in nodes:
-                if node.material_role is not MaterialRole.GENERATED_VIRTUAL:
-                    break
-                count += 1
-            adjacent_runs.append(count)
-        if all(adjacent_runs) and sum(adjacent_runs) > consecutive_limit:
-            return None
+    donor_sides = _split_donor_sides(donor, parent)
+    if donor_sides is None:
+        return None
+    prefix, suffix, _ = donor_sides
+    repaired = _boundary_join(prefix, suffix, context, state.virtual_sequence)
+    if repaired is None:
+        return None
+    remaining, sequence = repaired
     partition_id = _split_partition_id(subject, decision, weights)
     lineage = _split_lineage(subject, decision, weights, partition_id)
     pieces = []
@@ -92,7 +76,7 @@ def _prepare_split(state, context, donor, parent, subject, decision, piece_prefi
         separator = context.factory.separator(
             left,
             right,
-            first_sequence=state.virtual_sequence + len(separators) + 1,
+            first_sequence=sequence + len(separators) + 1,
             related_partition_id=partition_id,
         )
         if separator is None or not budget.allows_search():
@@ -101,11 +85,6 @@ def _prepare_split(state, context, donor, parent, subject, decision, piece_prefi
         returned.extend((separator, right))
     if sum_weights(node.weight for node in separators) > sum_weights(
         (decision.maximum_separator_weight, WEIGHT_EPSILON)
-    ):
-        return None
-    remaining = tuple(node for node in donor.nodes if node.node_id != parent.node_id)
-    if remaining and all(
-        node.material_role is MaterialRole.GENERATED_VIRTUAL for node in remaining
     ):
         return None
     candidate = []
@@ -121,7 +100,7 @@ def _prepare_split(state, context, donor, parent, subject, decision, piece_prefi
     while chain_id in current_ids:
         chain_id = "_" + chain_id
     candidate.append(Chain(chain_id, tuple(returned), decision.target_assigned_period))
-    return tuple(candidate), state.virtual_sequence + len(separators)
+    return tuple(candidate), sequence + len(separators)
 
 
 def run_controlled_order_split(state: SearchState, context: SearchContext) -> SearchState:

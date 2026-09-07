@@ -172,6 +172,36 @@ def _split_lineage(subject, decision, weights, partition_id):
     )
 
 
+def _split_donor_sides(donor, parent):
+    """Remove only interface bridges made obsolete with the split parent."""
+    position = next(
+        (index for index, node in enumerate(donor.nodes) if node.node_id == parent.node_id),
+        None,
+    )
+    if position is None:
+        return None
+
+    def is_edge_bridge(node):
+        return (
+            node.material_role is MaterialRole.GENERATED_VIRTUAL
+            and node.virtual_lineage.purpose is VirtualPurpose.EDGE_BRIDGE
+            and node.virtual_lineage.related_partition_id is None
+        )
+
+    left, right = position, position + 1
+    while left and is_edge_bridge(donor.nodes[left - 1]):
+        left -= 1
+    while right < len(donor.nodes) and is_edge_bridge(donor.nodes[right]):
+        right += 1
+    prefix, suffix = donor.nodes[:left], donor.nodes[right:]
+    if (
+        (prefix and prefix[-1].material_role is MaterialRole.GENERATED_VIRTUAL)
+        or (suffix and suffix[0].material_role is MaterialRole.GENERATED_VIRTUAL)
+    ):
+        return None
+    return prefix, suffix, donor.nodes[left:position] + donor.nodes[position + 1 : right]
+
+
 def _authorized_split_replacement(state, context, plan, affected, subject, decision, before, after):
     parent = subject.parent_node
     budget, cache = context.factory.budget, context.factory.cache
@@ -183,6 +213,7 @@ def _authorized_split_replacement(state, context, plan, affected, subject, decis
         ),
         None,
     )
+    donor_sides = None if donor is None else _split_donor_sides(donor, parent)
     if (
         not decision.eligible
         or parent.material_role is not MaterialRole.NORMAL_REAL
@@ -197,7 +228,14 @@ def _authorized_split_replacement(state, context, plan, affected, subject, decis
         or subject.accepted_split_source_count != state.split_sequence
         or state.split_sequence >= decision.maximum_accepted_source_count
         or parent.node_id in after
-        or any(after.get(key) != value for key, value in before.items() if key != parent.node_id)
+        or donor_sides is None
+    ):
+        return False
+    prefix, suffix, obsolete_bridges = donor_sides
+    removed_ids = {parent.node_id, *(node.node_id for node in obsolete_bridges)}
+    if any(
+        key in after if key in removed_ids else after.get(key) != value
+        for key, value in before.items()
     ):
         return False
     index = cache.context.period_index
@@ -223,29 +261,36 @@ def _authorized_split_replacement(state, context, plan, affected, subject, decis
     weights = _split_piece_weights(parent.weight, decision)
     if not weights:
         return False
-    remaining = tuple(node for node in donor.nodes if node.node_id != parent.node_id)
-    if remaining and all(
-        node.material_role is MaterialRole.GENERATED_VIRTUAL for node in remaining
-    ):
-        return False
+    bridge = ()
+    if prefix and suffix:
+        bridge = context.factory.bridge(
+            prefix[-1],
+            suffix[0],
+            max_nodes=context.policy.maximum_virtual_bridge_nodes,
+            first_sequence=state.virtual_sequence + 1,
+        )
+        if bridge is None or not budget.allows_search():
+            return False
+    remaining = prefix + bridge + suffix
     retained_ids = tuple(
         chain.chain_id
         for chain in state.current_plan.chains
         if chain.chain_id != donor.chain_id or remaining
     )
+    retained_donor = next((chain for chain in plan.chains if chain.chain_id == donor.chain_id), None)
+    if (retained_donor is None) != (not remaining) or (
+        retained_donor is not None and retained_donor.nodes != remaining
+    ):
+        return False
     returned = plan.chains[-1]
+    bridge_ids = {node.node_id for node in bridge}
     if (
         tuple(chain.chain_id for chain in plan.chains[:-1]) != retained_ids
         or returned.chain_id in {chain.chain_id for chain in state.current_plan.chains}
         or returned.assigned_period != decision.target_assigned_period
-        or {node.node_id for node in returned.nodes} != after.keys() - before.keys()
+        or {node.node_id for node in returned.nodes}
+        != after.keys() - before.keys() - bridge_ids
         or len(returned.nodes) != len(weights) + len(weights) - 1
-    ):
-        return False
-    if (
-        remaining
-        and next(chain for chain in plan.chains if chain.chain_id == donor.chain_id).nodes
-        != remaining
     ):
         return False
     pieces, separators = returned.nodes[::2], returned.nodes[1::2]
@@ -267,7 +312,9 @@ def _authorized_split_replacement(state, context, plan, affected, subject, decis
     ) > sum_weights((decision.maximum_separator_weight, WEIGHT_EPSILON)):
         return False
     prototypes = {item.prototype_id: item for item in cache.problem.virtual_prototypes}
-    for left, separator, right in zip(pieces, separators, pieces[1:]):
+    for offset, (left, separator, right) in enumerate(
+        zip(pieces, separators, pieces[1:]), start=1
+    ):
         if not budget.allows_search():
             return False
         if separator.material_role is not MaterialRole.GENERATED_VIRTUAL:
@@ -277,6 +324,7 @@ def _authorized_split_replacement(state, context, plan, affected, subject, decis
         if (
             virtual.purpose is not VirtualPurpose.SPLIT_SEPARATOR
             or virtual.related_partition_id != partition_id
+            or virtual.accepted_sequence != state.virtual_sequence + len(bridge) + offset
             or prototype is None
             or separator.weight != prototype.unit_weight
             or any(

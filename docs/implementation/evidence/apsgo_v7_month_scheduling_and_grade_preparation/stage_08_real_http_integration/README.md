@@ -1,4 +1,4 @@
-# 阶段 8：真实 HTTP 首轮与拆单结构修复
+# 阶段 8：真实 HTTP 复测与拆单边界重建
 
 ## 范围
 
@@ -39,42 +39,68 @@ virtual-000008 → virtual-000009 → 0002002073-000010
 
 这四个虚拟材都是此前已经接受的边连接材料。本次拆单移除中间真实订单后，旧实现直接重建剩余链，将左右两段各 2 个虚拟材拼成 4 连。完整评价正确检出该违规，但质量从 `(1,100,3,464.57,11186,500,23)` 变为 `(1,2,4,544.57,11251,520,24)`；禁止违规数量同为 1，第二级禁止严重度从 100 降到 2，因此按七级字典序被接受。拆单后重放没有删除虚拟材的动作，无法再消除此结构。
 
-## 修复边界
+## 拒绝式保护复测
 
-`_prepare_split()` 在生成分片和隔离材之前，读取启用的连续虚拟材规则上限并统计父订单左右紧邻的虚拟段。两侧均存在且删除父订单后的合计长度超过上限时，放弃该拆单候选；合计恰好等于上限仍允许。
+第一版保护在父订单移除会直接拼成超限虚拟段时拒绝拆单。相同请求生成的 `run_02` 请求 SHA-256 仍为 `fe652234a1299b480f1d7862b88afb82f646f11fe6d69260119020c9ae6386f6`，响应 SHA-256 为 `5d22e3cc975d23607c5e7a5e12320118379b20289bbfe1759650608fc2adba26`。
 
-这是拆单动作新形成拼接的结构资格检查，不是对所有完整候选增加隐藏硬门；没有修改虚拟填充、边桥工厂、七级评分、规则阈值、预算或发布门槛。
+`run_02` 同样以 `local_search_complete` 自然结束，连续 4 个虚拟材已经消失，但结果仍不可发布：
+
+| 指标 | 实际值 |
+|---|---:|
+| 候选检查 | 98984 |
+| 完整候选评价 | 2973 |
+| 接受动作 | 43 |
+| 同计划期拆单 / 未来借入归还拆单 | 1 / 0 |
+| 初始链 / 最终链 | 31 / 22 |
+| 核心求解 | 135.118873 秒 |
+| 最终问题 | 600 吨 `0002002073-000010` 未拆，IF 窄钢连续真实重量超过 500 吨上限 |
+
+核心审计的结构不变量和动作授权失败码均为空，且无缓存评价与搜索评价一致；它准确说明拒绝式保护解决了 4 连症状，却阻止了消除原 600 吨禁止违规所需的未来借入归还拆单，因此不能作为最终修复。
+
+## 最终修复边界
+
+受控拆单现在先定位被拆父订单，只删除其左右紧邻、用途为 `EDGE_BRIDGE` 且没有拆单分区关联的旧连接虚拟材，再复用既有 `VirtualFactory.bridge()` 重建剩余原链边界：
+
+- 两端可直接连接时不新增虚拟材；需要时生成 1～2 个新连接虚拟材。
+- 链首或链尾移除父订单时只保留另一侧真实节点，不生成悬空桥。
+- 遇到 `WEIGHT_FILL`、`SPLIT_SEPARATOR` 或其他非桥接虚拟材时不删除，整个拆单候选失败。
+- 新连接虚拟材先续接全局序号，拆单隔离材紧随其后；删除的历史序号不复用。
+- 共享完整候选授权独立重算新边界，精确核验旧父订单和失效旧桥已删除、其他节点不变、原链及返回分片链均不可伪造。
+
+该修复仍使用现有虚拟材原型、连接缓存、规则、评分、预算和接受条件，没有新建第二套桥接算法。
 
 ## 当前验证
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
   -m pytest -p no:cacheprovider \
-  tests/core/search/test_controlled_order_split.py::test_parent_removal_respects_enabled_virtual_run_limit -q
+  tests/core/search/test_controlled_order_split.py \
+  tests/core/search/test_split_partition_invariants.py
 ```
 
-结果：`2 passed`。上限 2 时拒绝 2+2 拼接，上限 4 时允许，避免误伤合法边界。
+结果：`83 passed in 0.29s`。覆盖失效桥清理、中间边界重建、不可重建拒绝、非桥接虚拟材保护、分片与候选授权不变量。
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
   -m pytest -p no:cacheprovider tests/core/search -q
 ```
 
-结果：`588 passed in 134.98s`。
+结果：`589 passed in 131.74s`。
 
 ```bash
 PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
   -m pytest -p no:cacheprovider tests/architecture tests/api tests/app tests/core tests/service -q
 ```
 
-结果：`3297 passed in 181.09s`。
+结果：`3298 passed in 181.71s`。
 
-精确暂存树的全新干净导出先通过残留门禁，再执行同一累计范围，结果为 `3297 passed in 184.87s`。之后在该导出中完成 `compileall`；Conda 环境没有安装 `build` 模块，因此没有切换 Python 或安装依赖，改用同一环境已有的 `pip wheel --no-deps --no-build-isolation` 构建成功。
+首轮精确暂存树的全新干净导出先通过残留门禁，再执行同一累计范围，结果为 `3298 passed in 177.90s`。随后在该导出中完成 `compileall`，并使用同一 Conda 环境已有的 `pip wheel --no-deps --no-build-isolation` 成功构建 wheel；最终暂存树按相同范围复验后提交。此处不沿用第一版拒绝式保护的 3297 项结果。
 
 共享工作树的旧 V6 残留清单仍因已不存在的 `.claude`、旧 `dist` 和 `apsgo.egg-info` 报告失败；未重建或提交这些残留。正式提交以精确暂存树的干净导出检查和同范围回归为准。
 
 ## 待完成
 
-1. 使用同一 `run_01` 数据来源、订单顺序、规则、种子和预算生成独立 `run_02`，不得覆盖失败样本。
-2. 验证零禁止违规、零欠重、来源覆盖与重量守恒、拆单谱系、双审计、响应行和源数据库不变。
-3. Python/HTTP 子项通过后，阶段 8 仍需 Windows Debug/Release、Designer、真实页面和失败回滚验证；未执行前不得把整个阶段标记完成。
+1. 完成最终暂存树复验并独立提交边界重建修复。
+2. 使用同一数据来源、订单顺序、规则、种子和预算生成独立 `run_03`，不得覆盖 `run_01` 或 `run_02`。
+3. 验证零禁止违规、零欠重、来源覆盖与重量守恒、拆单谱系、双审计、响应行和源数据库不变。
+4. Python/HTTP 子项通过后，阶段 8 仍需 Windows Debug/Release、Designer、真实页面和失败回滚验证；未执行前不得把整个阶段标记完成。
