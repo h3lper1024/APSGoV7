@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.6 / 2026-09-07 |
-| 状态 | 阶段 0～6 已实施；C# 求解服务/回写、真实数据完整联调和正式数据库迁移待实施 |
+| 版本 / 日期 | v0.7 / 2026-09-07 |
+| 状态 | 阶段 0～7 已实施；真实数据完整联调和正式数据库迁移待实施 |
 | 用户本轮授权 | 按实施计划持续实施；每阶段独立验证和提交，业务语义需要确认时暂停 |
 | 适用范围 | `GQGA4/default/month`，C# 月计划前端与 V7 独立服务 |
 | 专项初始基线 | `codex/rule-setting-api-integration@072a6d0`，写文档前工作树干净 |
@@ -15,7 +15,9 @@
 
 用户已确认：C# 使用 V7 专属配置、API 客户端和求解服务；保留用户将 V7 地址改为读取 `PipelineV7ApiBaseUrl` 的修改；V3 客户端、服务和其他产线路径继续保留。本文不替代原规则设置接口设计的业务语义，仅扩展其数据库快照和 V7 配置使用方式。旧文档中“V7 使用 `BACKEND_ALGORITHM_URL`”及“服务只有两个规则接口”是本次变更前的事实，目标态以本文为准。
 
-阶段 0～6 已按配套计划实现并逐项验证；月计划传输已接入现有 FastAPI 宿主及 YAML 策略，C# 已建立 V7 专属配置和求解客户端。后续继续逐项创建中文 `#feat` 或 `#fix` 提交，正式数据库迁移仍留到阶段 9 的明确操作窗口。
+阶段 0～7 已按配套计划实现并逐项验证；月计划传输已接入现有 FastAPI 宿主及 YAML 策略，C# 已建立 V7 专属配置、求解客户端、GQGA4 求解服务与原子回写。下一项是阶段 8 的真实数据和前后端联调，正式数据库迁移仍留到阶段 9 的明确操作窗口。
+
+当前生产包事实：`src/apsgo_v7_service` 中不存在牌号字典 JSON 或字典数据目录，`pyproject.toml` 也未注册这类包数据。230 条 GQGA4 字典只能通过显式 SQLite 到 SQLite 的初始化/迁移流程进入 V7 数据库；服务运行时只读所绑定规则版本的数据库快照，不从包内文件或 V3 路径加载字典。
 
 ## 2. 已核验的现状
 
@@ -30,7 +32,7 @@
 | V7 绑定 | `bind_gqga4_scheduling_task()` 在同一事务读取并核验活动规则、字典和原型，再补齐订单分类 | [scheduling.py](../../src/apsgo_v7_service/scheduling.py) |
 | V7 输入 | 通用标准化器消费已补齐的 `rule_attributes.soft_hard_class`；数据库派生限定在 V7 服务绑定层 | [input_normalizer.py](../../src/apsgo_scheduler/app/input_normalizer.py)、[grade_dictionary.py](../../src/apsgo_v7_service/grade_dictionary.py) |
 | V7 规则 / 缓存 | 已消费软硬分类；边语义声明包含分类、热轧牌号及材料角色 | [concrete.py](../../src/apsgo_scheduler/core/rules/concrete.py)、[compatibility.py](../../src/apsgo_scheduler/core/compatibility.py) |
-| V7 HTTP | 同一宿主现提供两个规则设置接口和一个月计划求解接口；C# 传输客户端已建立，求解服务、页面回写与正式部署尚未完成 | [app.py](../../src/apsgo_v7_service/app.py) |
+| V7 HTTP / C# | 同一宿主提供两个规则设置接口和一个月计划求解接口；C# 已接入 GQGA4 专属求解服务、完整结果校验与原子回写，真实 Windows 页面联调和正式部署尚未完成 | [app.py](../../src/apsgo_v7_service/app.py)、[阶段 7 证据](../implementation/evidence/apsgo_v7_month_scheduling_and_grade_preparation/stage_07_csharp_writeback/README.md) |
 | 旧完整测试 | 从冻结 `optimization_problem.json` 预填软硬分类，不是原始订单在线拼接 | [输入夹具](../../tests/app/test_input_normalizer.py) |
 
 外部 V3 证据根目录为 `/Users/miles/dev/dev-py/apsgo-v3`，核验提交 `e5bdcdfd3dd1ed880037d28159bfe8b6bef5d15f`。默认源库为该目录下 `data/aps_rule_dsl.sqlite3`，本轮只读核验 SHA-256 为 `2c4e44c4b4c2060cb54890217ea7097164b4c88e25a452796a931883df4cce7e`。这说明当前本地证据，不代表其他部署环境使用同一数据库。
@@ -302,7 +304,7 @@ GQGA4 命令显式设置 `RunInBackground => true`，`ChangesSchedRecords` 在�
 
 结果身份使用现有 `SchedRecord.Warnings` JSON 容器：根级保留 `Warnings` 告警对象，新增同级 `V7Metadata`。后者仅保存 `contract_version/request_id/status/active_rule_set_version_id/rule_set_version/grade_dictionary_fingerprint/binding_fingerprint/bound_result_fingerprint`，每行一致，不重复存整份响应。行级四类告警分别映射为 `WidthWarning/ThicknessWarning/TemperatureWarning/ChainWarning`；无告警时 `Warnings={}`，元数据不算告警。仅对 GQGA4 汇总复用现有 `HasWarningMessages()`，替换字符串非空即报警的计数；不改变其他产线分支，也不增加第二个 JSON 解析器。现有图表继续读取三个物理告警键，链级提示供汇总显示。
 
-该方案不计划修改 C# 业务库表结构；阶段 0 必须核验实际 `Warnings` 列容量，阶段 7 用完整序列化文本验证可无损保存。若实际字段不足，停止该写回步骤并提出明确扩容方案，不静默截断元数据，也不宣称已可在现有表无损保存。
+该方案未修改 C# 业务库表结构。阶段 7 在 `SchedDatas.db` 临时副本上核验：`SchedRecord.Warnings` 虽声明为 `varchar(255)`，SQLite 仍可将 1054 个字符、2522 个 UTF-8 字节的完整结构化文本逐字写入并在重开连接后回读，临时副本 `integrity_check=ok`，源库前后 SHA-256 一致。C# 事务还会对每行 `Warnings` 做字符串精确回读。该结果只证明当前 SQLite 数据链，不外推到其他数据库产品或不同 schema；部署结构变化时仍须重新验证，禁止静默截断。
 
 ## 10. 验收口径
 
@@ -322,8 +324,8 @@ GQGA4 命令显式设置 `RunInBackground => true`，`ChangesSchedRecords` 在�
 
 ## 11. 决策与后续
 
-本设计采用：独立字典表关联规则版本、显式 SQLite 到 SQLite 的一次性导入、一次性任务绑定、精确匹配、保留单牌号缺失兜底、V7 专属求解路由和 C# 服务、复用现有核心规则与求解器。生产包不保存字典 JSON；运行时只读 V7 数据库。新路由、YAML 配置键和 8 MiB 请求上限已在阶段 5 实现；240 秒客户端超时及 C# 传输客户端已在阶段 6 实现，C# 求解服务、页面回写和正式部署仍待后续阶段完成。
+本设计采用：独立字典表关联规则版本、显式 SQLite 到 SQLite 的一次性导入、一次性任务绑定、精确匹配、保留单牌号缺失兜底、V7 专属求解路由和 C# 服务、复用现有核心规则与求解器。生产包没有也不保存字典 JSON；运行时只读 V7 数据库。新路由、YAML 配置键和 8 MiB 请求上限已在阶段 5 实现；240 秒客户端超时及 C# 传输客户端已在阶段 6 实现；GQGA4 C# 求解服务、页面命令切换、结果校验和原子回写已在阶段 7 实现。真实 531 单前后端联调和 Windows 门禁留在阶段 8，正式部署数据库迁移留在阶段 9。
 
 `HC220YD+Z-GL` 暂沿用当前缺失语义，不阻塞实施；其分类补录需要业务依据。首期对正重量已生成虚拟材和重复合同来源明确拒绝；若实际月计划前置步骤必须包含它们，则先记录真实案例并设计来源还原规则，不能静默删除或扩展核心输入材料类型。
 
-后续按配套计划实施；阶段 5 的临时库 HTTP 回环已经通过，但不表示正式数据库迁移、C#/Windows 联调或正式 GQGA4 完整验收已完成。
+后续按配套计划实施；阶段 5 的临时库 HTTP 回环和阶段 7 的 C# 静态/SQLite 临时副本验证已经通过，但不表示正式数据库迁移、C#/Windows 联调或正式 GQGA4 完整验收已完成。
