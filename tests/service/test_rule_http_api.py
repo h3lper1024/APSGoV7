@@ -8,6 +8,7 @@ from decimal import Decimal
 
 import pytest
 import uvicorn
+import yaml
 from fastapi.testclient import TestClient
 
 from apsgo_scheduler.api.json_codec import dumps_exact_json
@@ -49,13 +50,14 @@ def _write_service_configuration(
 ):
     configuration_path.parent.mkdir(parents=True, exist_ok=True)
     configuration_path.write_text(
-        json.dumps(
+        yaml.safe_dump(
             {
                 "database_path": str(database_path),
                 "database_timeout_seconds": timeout_seconds,
                 "listen_host": host,
                 "listen_port": port,
-            }
+            },
+            sort_keys=False,
         ),
         encoding="utf-8",
     )
@@ -687,7 +689,7 @@ def test_success_log_keeps_audit_fields_but_not_body_or_database_path(
 def test_run_server_loads_one_configuration_and_uses_the_confirmed_endpoint(tmp_path, monkeypatch):
     database_path = tmp_path / "data" / "rules.sqlite3"
     configuration_path = _write_service_configuration(
-        tmp_path / "config" / "service.json",
+        tmp_path / "config" / "service.yaml",
         "../data/rules.sqlite3",
         port=8123,
         timeout_seconds=2.5,
@@ -719,7 +721,7 @@ def test_run_server_rejects_missing_configuration_before_start(tmp_path, monkeyp
     monkeypatch.setattr(uvicorn, "run", lambda *args, **kwargs: calls.append((args, kwargs)))
 
     with pytest.raises(ValueError, match="configuration file does not exist"):
-        http_module.run_server(tmp_path / "missing.json")
+        http_module.run_server(tmp_path / "missing.yaml")
 
     assert calls == []
     assert not (tmp_path / "data").exists()
@@ -731,7 +733,7 @@ def test_run_server_rejects_missing_configuration_before_start(tmp_path, monkeyp
 )
 def test_run_server_rejects_every_unconfirmed_host_before_start(tmp_path, monkeypatch, host):
     configuration_path = _write_service_configuration(
-        tmp_path / "config.json",
+        tmp_path / "config.yaml",
         tmp_path / "rules.sqlite3",
         host=host,
     )
@@ -745,7 +747,7 @@ def test_run_server_rejects_every_unconfirmed_host_before_start(tmp_path, monkey
 
 
 def test_service_command_accepts_an_explicit_configuration_path(tmp_path, monkeypatch):
-    configuration_path = tmp_path / "service.json"
+    configuration_path = tmp_path / "service.yaml"
     calls = []
     monkeypatch.setattr(http_module, "run_server", lambda path: calls.append(path))
 

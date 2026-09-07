@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from math import isfinite
 from pathlib import Path
 
-DEFAULT_CONFIGURATION_PATH = Path("config/apsgo_v7_service.json")
+import yaml
+
+DEFAULT_CONFIGURATION_PATH = Path("config/apsgo_v7_service.yaml")
 _EXPECTED_KEYS = frozenset(
     {
         "database_path",
@@ -31,17 +32,27 @@ class ServiceConfiguration:
     listen_port: int
 
 
-def _reject_json_constant(value: str):
-    raise ServiceConfigurationError(f"unsupported JSON constant: {value}")
+class _UniqueKeySafeLoader(yaml.SafeLoader):
+    pass
 
 
-def _unique_json_object(pairs):
+def _construct_unique_mapping(loader, node, deep=False):
+    loader.flatten_mapping(node)
     result = {}
-    for key, value in pairs:
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if not isinstance(key, str):
+            raise ServiceConfigurationError("configuration keys must be text")
         if key in result:
-            raise ServiceConfigurationError(f"duplicate JSON key: {key}")
-        result[key] = value
+            raise ServiceConfigurationError(f"duplicate YAML key: {key}")
+        result[key] = loader.construct_object(value_node, deep=deep)
     return result
+
+
+_UniqueKeySafeLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _construct_unique_mapping,
+)
 
 
 def _configuration_file(value: str | Path) -> Path:
@@ -56,7 +67,7 @@ def _configuration_file(value: str | Path) -> Path:
     return path
 
 
-def _load_json(path: Path) -> dict:
+def _load_yaml(path: Path) -> dict:
     try:
         source = path.read_text(encoding="utf-8")
     except UnicodeDecodeError as error:
@@ -64,17 +75,11 @@ def _load_json(path: Path) -> dict:
     except OSError as error:
         raise ServiceConfigurationError("configuration file cannot be read") from error
     try:
-        value = json.loads(
-            source,
-            object_pairs_hook=_unique_json_object,
-            parse_constant=_reject_json_constant,
-        )
-    except json.JSONDecodeError as error:
-        raise ServiceConfigurationError(
-            f"configuration file contains invalid JSON at line {error.lineno} column {error.colno}"
-        ) from error
+        value = yaml.load(source, Loader=_UniqueKeySafeLoader)
+    except yaml.YAMLError as error:
+        raise ServiceConfigurationError("configuration file contains invalid YAML") from error
     if not isinstance(value, dict):
-        raise ServiceConfigurationError("configuration root must be a JSON object")
+        raise ServiceConfigurationError("configuration root must be a YAML mapping")
     keys = frozenset(value)
     if keys != _EXPECTED_KEYS:
         missing = sorted(_EXPECTED_KEYS - keys)
@@ -142,7 +147,7 @@ def load_service_configuration(
     """Read and freeze one complete configuration before service work begins."""
 
     path = _configuration_file(configuration_path)
-    values = _load_json(path)
+    values = _load_yaml(path)
     return ServiceConfiguration(
         database_path=_database_path(values["database_path"], path.parent),
         database_timeout_seconds=_database_timeout_seconds(values["database_timeout_seconds"]),

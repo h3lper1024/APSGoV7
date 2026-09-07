@@ -1,8 +1,8 @@
-import json
 from dataclasses import FrozenInstanceError
 from pathlib import Path
 
 import pytest
+import yaml
 
 from apsgo_v7_service.configuration import (
     ServiceConfigurationError,
@@ -26,14 +26,14 @@ def _values(**changes):
 def _write(configuration_path, values=None):
     configuration_path.parent.mkdir(parents=True, exist_ok=True)
     configuration_path.write_text(
-        json.dumps(_values() if values is None else values),
+        yaml.safe_dump(_values() if values is None else values, sort_keys=False),
         encoding="utf-8",
     )
     return configuration_path
 
 
 def test_tracked_default_configuration_points_to_the_v7_database():
-    result = load_service_configuration(ROOT / "config" / "apsgo_v7_service.json")
+    result = load_service_configuration(ROOT / "config" / "apsgo_v7_service.yaml")
 
     assert result.database_path == ROOT / "data" / "apsgo_v7_rules.sqlite3"
     assert result.database_timeout_seconds == 5.0
@@ -42,7 +42,7 @@ def test_tracked_default_configuration_points_to_the_v7_database():
 
 
 def test_configuration_resolves_database_relative_to_its_own_file(tmp_path, monkeypatch):
-    configuration_path = _write(tmp_path / "deployment" / "config" / "service.json")
+    configuration_path = _write(tmp_path / "deployment" / "config" / "service.yaml")
     expected_database = (configuration_path.parent / "../data/rules.sqlite3").resolve()
 
     monkeypatch.chdir(tmp_path)
@@ -62,7 +62,7 @@ def test_configuration_resolves_database_relative_to_its_own_file(tmp_path, monk
 def test_configuration_preserves_an_absolute_database_target(tmp_path):
     database_path = tmp_path / "database" / "rules.sqlite3"
     configuration_path = _write(
-        tmp_path / "config.json",
+        tmp_path / "config.yaml",
         _values(database_path=str(database_path)),
     )
 
@@ -74,22 +74,32 @@ def test_configuration_preserves_an_absolute_database_target(tmp_path):
 @pytest.mark.parametrize(
     ("source", "message"),
     [
-        ("[]", "root must be a JSON object"),
-        ("{", "invalid JSON"),
+        ("[]", "root must be a YAML mapping"),
+        ("database_path: [", "invalid YAML"),
         (
-            '{"database_path":"one","database_path":"two",'
-            '"database_timeout_seconds":5,"listen_host":"127.0.0.1","listen_port":8001}',
-            "duplicate JSON key: database_path",
+            "database_path: one\ndatabase_path: two\n"
+            "database_timeout_seconds: 5\nlisten_host: 127.0.0.1\nlisten_port: 8001\n",
+            "duplicate YAML key: database_path",
         ),
         (
-            '{"database_path":"rules.sqlite3","database_timeout_seconds":NaN,'
-            '"listen_host":"127.0.0.1","listen_port":8001}',
-            "unsupported JSON constant: NaN",
+            "database_path: !!python/name:builtins.str ''\n"
+            "database_timeout_seconds: 5\nlisten_host: 127.0.0.1\nlisten_port: 8001\n",
+            "invalid YAML",
+        ),
+        (
+            "database_path: rules.sqlite3\ndatabase_timeout_seconds: .nan\n"
+            "listen_host: 127.0.0.1\nlisten_port: 8001\n",
+            "must be finite and greater than zero",
+        ),
+        (
+            "database_path: rules.sqlite3\ndatabase_timeout_seconds: .inf\n"
+            "listen_host: 127.0.0.1\nlisten_port: 8001\n",
+            "must be finite and greater than zero",
         ),
     ],
 )
-def test_configuration_rejects_invalid_json_shapes(tmp_path, source, message):
-    configuration_path = tmp_path / "config.json"
+def test_configuration_rejects_invalid_yaml_shapes(tmp_path, source, message):
+    configuration_path = tmp_path / "config.yaml"
     configuration_path.write_text(source, encoding="utf-8")
 
     with pytest.raises(ServiceConfigurationError, match=message):
@@ -113,7 +123,7 @@ def test_configuration_rejects_invalid_json_shapes(tmp_path, source, message):
     ],
 )
 def test_configuration_rejects_invalid_values(tmp_path, changes, message):
-    configuration_path = _write(tmp_path / "config.json", _values(**changes))
+    configuration_path = _write(tmp_path / "config.yaml", _values(**changes))
 
     with pytest.raises(ServiceConfigurationError, match=message):
         load_service_configuration(configuration_path)
@@ -121,19 +131,19 @@ def test_configuration_rejects_invalid_values(tmp_path, changes, message):
 
 def test_configuration_rejects_missing_unknown_and_non_utf8_files(tmp_path):
     with pytest.raises(ServiceConfigurationError, match="does not exist"):
-        load_service_configuration(tmp_path / "missing.json")
+        load_service_configuration(tmp_path / "missing.yaml")
 
     missing_key = _values()
     missing_key.pop("listen_port")
     with pytest.raises(ServiceConfigurationError, match="missing keys: listen_port"):
-        load_service_configuration(_write(tmp_path / "missing-key.json", missing_key))
+        load_service_configuration(_write(tmp_path / "missing-key.yaml", missing_key))
 
     directory = tmp_path / "directory"
     directory.mkdir()
     with pytest.raises(ServiceConfigurationError, match="must identify a file"):
         load_service_configuration(directory)
 
-    non_utf8 = tmp_path / "non-utf8.json"
+    non_utf8 = tmp_path / "non-utf8.yaml"
     non_utf8.write_bytes(b"\xff")
     with pytest.raises(ServiceConfigurationError, match="must be UTF-8"):
         load_service_configuration(non_utf8)
@@ -142,7 +152,7 @@ def test_configuration_rejects_missing_unknown_and_non_utf8_files(tmp_path):
 def test_configuration_does_not_expand_environment_or_home_markers(tmp_path, monkeypatch):
     monkeypatch.setenv("APSGO_CONFIG_TEST_HOME", str(tmp_path / "secret"))
     configuration_path = _write(
-        tmp_path / "config" / "service.json",
+        tmp_path / "config" / "service.yaml",
         _values(database_path="$APSGO_CONFIG_TEST_HOME/~/rules.sqlite3"),
     )
 

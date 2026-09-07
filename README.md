@@ -12,20 +12,18 @@ APSGo V7 包含规则驱动的路径覆盖与确定性局部搜索求解器，�
 
 ## 服务运行配置
 
-默认配置文件为受 Git 跟踪的 `config/apsgo_v7_service.json`：
+默认配置文件为受 Git 跟踪的 `config/apsgo_v7_service.yaml`，由生产依赖 PyYAML 安全解析：
 
-```json
-{
-  "database_path": "../data/apsgo_v7_rules.sqlite3",
-  "database_timeout_seconds": 5.0,
-  "listen_host": "127.0.0.1",
-  "listen_port": 8001
-}
+```yaml
+database_path: ../data/apsgo_v7_rules.sqlite3
+database_timeout_seconds: 5.0
+listen_host: 127.0.0.1
+listen_port: 8001
 ```
 
 四项配置必须完整且无未知项。相对 `database_path` 以配置文件所在目录为基准，因此上述值
 解析到仓库根 `data/apsgo_v7_rules.sqlite3`，不受启动命令当前目录变化影响。配置文件缺失、
-不可读、不是 UTF-8、JSON 非法、键重复或任一值非法时，命令在数据库操作或服务器启动前失败。
+不可读、不是 UTF-8、YAML 非法、键重复或任一值非法时，命令在数据库操作或服务器启动前失败。
 V7 不再读取 `APSGO_V7_RULE_DB_PATH`。
 
 `listen_host` 当前必须精确为 `127.0.0.1`；开放非回环地址前需要另行设计鉴权。
@@ -43,22 +41,22 @@ python -m pip install -e '.[dev]'
 首次部署先初始化活动规则版本；重复执行只核验并返回已有活动版本，不覆盖后续版本：
 
 ```sh
-apsgo-v7-initialize-gqga4-rules --config config/apsgo_v7_service.json
+apsgo-v7-initialize-gqga4-rules --config config/apsgo_v7_service.yaml
 ```
 
 随后启动规则服务：
 
 ```sh
-apsgo-v7-rule-service --config config/apsgo_v7_service.json
+apsgo-v7-rule-service --config config/apsgo_v7_service.yaml
 ```
 
 源码模块入口分别为：
 
 ```sh
 PYTHONPATH=src python -m apsgo_v7_service.initialize_gqga4_rules \
-  --config config/apsgo_v7_service.json
+  --config config/apsgo_v7_service.yaml
 PYTHONPATH=src python -m apsgo_v7_service.app \
-  --config config/apsgo_v7_service.json
+  --config config/apsgo_v7_service.yaml
 ```
 
 服务启动不会自动建库或补种子；目标数据库缺失时应先执行初始化命令。

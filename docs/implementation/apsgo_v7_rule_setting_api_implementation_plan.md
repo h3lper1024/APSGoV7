@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | 实施中；阶段 12“统一服务运行配置”已完成；Windows 构建和页面实测待关闭 |
-| 文档版本 | v0.14 |
+| 文档状态 | 实施中；用户纠正后的阶段 12 YAML 配置补正已验证；Windows 构建和页面实测待关闭 |
+| 文档版本 | v0.15 |
 | 编写日期 | 2026-09-07 |
 | 实施基线 | `main@6d12365` |
 | 开发分支 | `codex/rule-setting-api-integration` |
@@ -13,7 +13,7 @@
 | 求解器工程 | `/Users/miles/dev/dev-py/APSGOV7` |
 | 前端工程 | `/Users/miles/dev/dev-cs/aps-code-0806` |
 
-> 阶段 0～10 已完成；阶段 11 的后端真实回环、自动验证矩阵和非生产回退演练已完成。阶段 12 已按用户确认将 V7 服务运行参数统一迁入受跟踪配置文件，并完成共享工作树与最终暂存树验证。求解启动绑定已经通过临时数据库和完整 GQGA4 功能验收；C# V7 客户端、页面单次 GET 加载及单次 POST 保存并启用已经完成代码与静态契约验证，Windows/.NET Framework 构建及真实页面联调仍是最终强制门禁。阶段 12 以前的后端验收均未创建或修改正式默认数据库；用户随后已明确要求创建默认数据库并写入默认规则，阶段 12 验证只读核验该文件且哈希不变。
+> 阶段 0～10 已完成；阶段 11 的后端真实回环、自动验证矩阵和非生产回退演练已完成。用户纠正阶段 12 的服务运行配置格式后，当前入口已由补正前 JSON 改为 `config/apsgo_v7_service.yaml`，并由 PyYAML 安全解析；专项、共享累计、精确暂存树干净导出、构建、安装和真实回环验证均已通过。该补正不改变业务 HTTP JSON、数据库编译 JSON 或历史阶段事实。求解启动绑定已经通过临时数据库和完整 GQGA4 功能验收；C# V7 客户端、页面单次 GET 加载及单次 POST 保存并启用已经完成代码与静态契约验证，Windows/.NET Framework 构建及真实页面联调仍是最终强制门禁。阶段 12 以前的后端验收均未创建或修改正式默认数据库；用户随后已明确要求创建默认数据库并写入默认规则，本次 YAML 补正只读核验该文件且哈希不变。
 
 ## 2. 实施目标
 
@@ -114,8 +114,8 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 | V7 服务 | `src/apsgo_v7_service/rule_store.py` | SQLite schema、事务、查询、并发与幂等。 |
 | V7 服务 | `src/apsgo_v7_service/gqga4.py` | GQGA4 固定模板、初始配置和原型导入。 |
 | V7 服务 | `src/apsgo_v7_service/rule_management.py` | 活动规则回读以及保存、编译、幂等、并发控制和原子启用。 |
-| V7 配置 | `config/apsgo_v7_service.json` | 受跟踪的默认数据库路径、SQLite 超时、回环地址和端口。 |
-| V7 服务 | `src/apsgo_v7_service/configuration.py` | 严格读取、校验并冻结完整运行配置。 |
+| V7 配置 | `config/apsgo_v7_service.yaml` | 受跟踪的默认数据库路径、SQLite 超时、回环地址和端口。 |
+| V7 服务 | `src/apsgo_v7_service/configuration.py` | 通过 PyYAML 安全解析、严格校验并冻结完整运行配置。 |
 | C# | `SchedApp/ApsgoV7RuleApiClient.cs` | V7 专用 GET/POST 客户端和请求/响应数据结构。 |
 | C# | `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.cs` | 页面加载、映射、保存和错误处理。 |
 | C# | `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.designer.cs` | 按钮和旧预览区域调整。 |
@@ -140,7 +140,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 | 9 | 改造 GQGA4 页面加载 | 已提交 `8b5a883`：单 GET、稳定标识映射、完整快照和取消边界；Windows 页面实测待最终联调 | `#feat 接入GQGA4活动规则查询` |
 | 10 | 改造保存并启用流程 | 已提交 `4b7668c`：完整快照合并、单 POST、冲突/重试、虚拟原型和旧步骤移除；Windows 页面实测待最终联调 | `#feat 接入GQGA4规则保存并启用` |
 | 11 | 完成联调与验收 | 后端真实回环、受控恢复及非生产回退已完成；Windows 构建和页面手测待完成 | `#fix 收口规则设置接口联调与验收` |
-| 12 | 统一服务运行配置 | 已完成：受跟踪 JSON 配置、严格加载、初始化器/服务 `--config`、旧环境变量移除及最终暂存树验证 | `#feat 统一V7服务运行配置` |
+| 12 | 统一服务运行配置 | YAML 补正已验证：PyYAML 安全加载、初始化器/服务 `--config`、旧环境变量移除、真实回环、构建和安装均通过 | `#fix 将V7服务运行配置补正为YAML` |
 
 阶段号必须与完整中文名称一起使用；后续沟通不使用只有数字或缩写的不清晰代指。
 
@@ -560,54 +560,54 @@ GET 服务从活动版本读取规则行与编译快照，核对数据库版本�
 
 ### 20.1 目标与范围
 
-- 新增并跟踪 `config/apsgo_v7_service.json`，统一保存 `database_path`、`database_timeout_seconds`、`listen_host` 和 `listen_port`。
-- 新增服务层严格配置加载器；配置缺失、不可读、非 UTF-8、JSON 非法、键集合不精确或值非法时，在数据库操作和 Uvicorn 启动前失败。
+- 用户在补正前 JSON 方案完成验证后纠正配置格式；本项不新增阶段号，直接将当前入口补正为受跟踪的 `config/apsgo_v7_service.yaml`，继续统一保存 `database_path`、`database_timeout_seconds`、`listen_host` 和 `listen_port`。
+- 增加生产依赖 `PyYAML>=6.0,<7`，服务层使用安全 YAML 加载器；配置缺失、不可读、非 UTF-8、YAML 非法、根节点不是映射、键集合不精确或值非法时，在数据库操作和 Uvicorn 启动前失败。
 - `database_path` 为相对路径时，以配置文件所在目录为基准解析为绝对路径，不受进程当前工作目录变化影响。
 - 初始化器和服务均支持 `--config <配置文件路径>`；当前运行路径不再读取 `APSGO_V7_RULE_DB_PATH`。
 - 运行期 SQLite 主文件及 journal/WAL/SHM 文件继续忽略且不得提交；默认配置文件不含凭据和本机绝对路径，必须提交。
 - 历史规则恢复命令保持独立安全边界，仍必须显式传入既有数据库的绝对 `--database-path`，不读取服务配置。
 - C# 继续读取 `SchedApp/App.config` 中既有 `BACKEND_ALGORITHM_URL`，本阶段不新增或迁移前端地址键。
+- 本补正只改变服务运行配置的文件格式和解析依赖，不改变业务 HTTP JSON、数据库编译 JSON、SQLite schema、活动规则内容、求解算法或历史阶段事实。
 
 ### 20.2 配置契约与命令
 
 默认配置为：
 
-```json
-{
-  "database_path": "../data/apsgo_v7_rules.sqlite3",
-  "database_timeout_seconds": 5.0,
-  "listen_host": "127.0.0.1",
-  "listen_port": 8001
-}
+```yaml
+database_path: ../data/apsgo_v7_rules.sqlite3
+database_timeout_seconds: 5.0
+listen_host: 127.0.0.1
+listen_port: 8001
 ```
 
-四项键必须恰好出现一次，不允许缺失、重复或未知项。`database_path` 必须是非空持久文件路径，不能是 `:memory:` 或既有目录；`database_timeout_seconds` 必须有限且大于零；`listen_host` 必须精确为 `127.0.0.1`；`listen_port` 必须是 `1`～`65535` 的整数。命令启动时只加载并冻结一次配置，运行中不热重载，也不对配置文本执行环境变量替换。
+配置根必须是 YAML 映射，四项键必须恰好出现一次，不允许缺失、重复或未知项。`database_path` 必须是非空持久文件路径，不能是 `:memory:` 或既有目录；`database_timeout_seconds` 必须有限且大于零；`listen_host` 必须精确为 `127.0.0.1`；`listen_port` 必须是 `1`～`65535` 的整数。命令启动时只加载并冻结一次配置，运行中不热重载，也不对配置文本执行环境变量替换。
 
 ```bash
-apsgo-v7-initialize-gqga4-rules --config config/apsgo_v7_service.json
-apsgo-v7-rule-service --config config/apsgo_v7_service.json
+apsgo-v7-initialize-gqga4-rules --config config/apsgo_v7_service.yaml
+apsgo-v7-rule-service --config config/apsgo_v7_service.yaml
 ```
 
 源码模块入口接受同一 `--config` 参数。恢复命令继续使用设计第 11.5 节和本计划回退方案中的显式绝对 `--database-path`。
 
-### 20.3 待验证项
+### 20.3 验证结果
 
 | 检查项 | 预期结果 | 实际结果 |
 |---|---|---|
-| 配置解析专项 | 四项正常值、相对/绝对数据库路径及严格失败矩阵通过 | 20 项配置专项通过。 |
-| 初始化命令 | 显式 `--config` 首次初始化与重复执行保持原语义，非法配置不建库 | 聚焦矩阵通过；默认数据库重复初始化返回 `already_initialized` 且哈希不变。 |
-| 服务启动 | 显式 `--config` 将四项值一次传入应用和 Uvicorn，非回环及非法值在启动前拒绝 | 聚焦矩阵和真实回环通过。 |
-| 恢复命令 | 无服务配置或存在损坏服务配置时仍只使用显式绝对 `--database-path` | 聚焦矩阵和真实恢复通过。 |
-| 真实回环脚本 | 临时配置替代环境变量，初始化、HTTP 回环、历史恢复和备份回读保持通过 | 通过；默认数据库文件族前后不变。 |
-| 累计与干净导出 | `tests/architecture tests/api tests/app tests/core tests/service`、残留检查、构建、wheel 和 `compileall` | 共享工作树 3189 项通过；干净导出同为 3189 项通过，残留、编译、构建和包入口均通过。 |
-| 文件保护 | 默认配置已跟踪；默认数据库及辅助文件仍被忽略且未进入提交 | 通过；配置进入精确暂存树，数据库文件族由 `.gitignore` 命中且不在导出中。 |
+| YAML 配置解析专项 | 四项正常值、相对/绝对数据库路径、安全解析、重复键及严格失败矩阵通过 | 配置、存储、初始化、HTTP、恢复共 103 项通过；完整服务 144 项通过。危险标签、重复键及非文本键均被拒绝。 |
+| 初始化命令 | 显式 `--config` 首次初始化与重复执行保持原语义，非法 YAML 不建库 | 临时安装中依次返回 `initialized`、`already_initialized`；默认数据库重复初始化返回 `already_initialized`，文件哈希不变。 |
+| 服务启动 | 显式 `--config` 将四项值一次传入应用和 Uvicorn，非回环及非法值在启动前拒绝 | wheel 安装后按 YAML 启动于 `127.0.0.1:8001`，GET 返回 200、版本 1、17 条规则和 27 个原型。 |
+| 恢复命令 | 无服务配置或存在损坏服务配置时仍只使用显式绝对 `--database-path` | 恢复专项与真实回环均通过，恢复入口仍不读取服务配置。 |
+| 真实回环脚本 | 临时 YAML 配置驱动初始化、HTTP 回环、历史恢复和备份回读，默认数据库文件族不变 | 通过；临时主库 5 版本/85 条规则、恢复库 6 版本/102 条规则、备份 1 版本/17 条规则。 |
+| 累计与干净导出 | `tests/architecture tests/api tests/app tests/core tests/service`、残留检查、构建、wheel、依赖安装和 `compileall` | 共享累计 3191 项通过；首轮精确暂存树干净导出门禁和 3191 项累计通过，`compileall`、sdist、wheel、临时安装均通过。 |
+| 文件保护 | YAML 默认配置已跟踪；补正前 JSON 配置已移除；默认数据库及辅助文件仍被忽略且未进入提交 | 精确暂存边界符合预期；默认数据库前后 SHA-256 均为 `af15c62d5920dee93da0bc1dda9ab519d04829c142532025d43f7837737342d0`。 |
 
 ### 20.4 当前记录
 
-- 实施前提交为 `85b15832768424af46638cad17bbd6b7a72bcfa8`，分支为 `codex/rule-setting-api-integration`。
-- 本阶段不修改 SQLite schema、活动规则内容、求解算法、HTTP 契约或 C# 工程。
+- 阶段 12 补正前实施提交为 `63011498a5367b2e082aa7ba92639dd7e592c3e6`，分支为 `codex/rule-setting-api-integration`；该提交的 JSON 方案验证结果只保留为历史事实，不作为本次 YAML 补正的验收结果。
+- 本补正由用户纠正配置格式触发，现已完成专项、共享累计、精确暂存树干净导出、构建、安装、命令入口和真实回环验证；详细命令及结果见阶段 12 证据。
+- 本阶段不修改 SQLite schema、活动规则内容、求解算法、业务 HTTP JSON 契约、数据库编译 JSON 或 C# 工程。
 - 旧阶段证据中关于 `APSGO_V7_RULE_DB_PATH` 的文字保留其当时事实；当前运行入口以阶段 12 为准，不将历史记录改写成当时已经使用配置文件。
-- 阶段证据入口为 [阶段 12 统一服务运行配置](evidence/apsgo_v7_rule_setting_api/stage_12_service_configuration/README.md)；已执行的测试数量、耗时、数据库身份和未关闭门禁均以该记录为准。
+- 阶段证据入口为 [阶段 12 统一服务运行配置](evidence/apsgo_v7_rule_setting_api/stage_12_service_configuration/README.md)；补正前 JSON 结果与 YAML 补正结果分开记录，不混用测试数字。
 
 ## 21. 每阶段验证与提交规则
 

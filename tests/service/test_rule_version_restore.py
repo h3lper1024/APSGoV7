@@ -259,7 +259,7 @@ def test_restore_rejects_an_unknown_source_and_command_ignores_service_configura
 
     environment = os.environ.copy()
     environment["PYTHONPATH"] = str(ROOT / "src")
-    configuration_path = tmp_path / "config" / "apsgo_v7_service.json"
+    configuration_path = tmp_path / "config" / "apsgo_v7_service.yaml"
     configuration_path.parent.mkdir()
     configuration_path.write_text("{invalid", encoding="utf-8")
     command = [

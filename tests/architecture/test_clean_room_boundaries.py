@@ -132,6 +132,7 @@ def check_service_source(source, path):
                     "apsgo_v7_service",
                     "fastapi",
                     "uvicorn",
+                    "yaml",
                 }, f"External service dependency: {target} in {path}"
                 assert top != "tests", f"Test dependency in service package: {target}"
         elif isinstance(node, ast.Constant) and isinstance(node.value, str):
@@ -232,9 +233,10 @@ def test_service_source_guard_rejects_test_local_and_external_dependencies(sourc
         check_service_source(source, SERVICE_PACKAGE / "example.py")
 
 
-def test_service_source_guard_accepts_line_template_and_scheduler_dependency():
+def test_service_source_guard_accepts_declared_runtime_dependencies():
     check_service_source(
-        "import sqlite3\nfrom apsgo_scheduler.api.request import RuleSetSpec\nline = 'GQGA4'",
+        "import sqlite3\nimport yaml\n"
+        "from apsgo_scheduler.api.request import RuleSetSpec\nline = 'GQGA4'",
         SERVICE_PACKAGE / "example.py",
     )
 

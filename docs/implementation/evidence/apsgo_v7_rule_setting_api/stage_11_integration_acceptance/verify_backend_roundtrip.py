@@ -19,6 +19,8 @@ from tempfile import TemporaryDirectory
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
+import yaml
+
 ROOT = Path(__file__).resolve().parents[5]
 SRC = ROOT / "src"
 sys.dont_write_bytecode = True
@@ -85,13 +87,14 @@ def _database_state(path: Path) -> dict[str, int | str]:
 
 def _write_service_configuration(path: Path, database_path: str | Path, port: int) -> None:
     path.write_text(
-        json.dumps(
+        yaml.safe_dump(
             {
                 "database_path": str(database_path),
                 "database_timeout_seconds": 5.0,
                 "listen_host": "127.0.0.1",
                 "listen_port": port,
-            }
+            },
+            sort_keys=False,
         ),
         encoding="utf-8",
     )
@@ -211,10 +214,10 @@ def _run_isolated() -> dict[str, object]:
 
     with TemporaryDirectory(prefix="apsgo-v7-stage-11-") as directory:
         temporary_database = Path(directory) / "rules.sqlite3"
-        temporary_configuration = Path(directory) / "service.json"
+        temporary_configuration = Path(directory) / "service.yaml"
         backup_database = Path(directory) / "rules.initial.backup.sqlite3"
         restored_backup_database = Path(directory) / "rules.restored.sqlite3"
-        restored_backup_configuration = Path(directory) / "restored-service.json"
+        restored_backup_configuration = Path(directory) / "restored-service.yaml"
         log_path = Path(directory) / "uvicorn.log"
         port = _free_loopback_port()
         _write_service_configuration(temporary_configuration, "rules.sqlite3", port)

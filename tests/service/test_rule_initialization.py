@@ -12,6 +12,7 @@ from pathlib import Path
 from threading import Event
 
 import pytest
+import yaml
 
 from apsgo_scheduler.api.rule_management import SetActiveRulesRequest
 from apsgo_v7_service import rule_management as service_module
@@ -39,13 +40,14 @@ EXPECTED_FINGERPRINT = "d963206b01c0d439303c1d6ae7d7374e20eaa0777801d12c0bebc89b
 def _write_service_configuration(configuration_path, database_path):
     configuration_path.parent.mkdir(parents=True, exist_ok=True)
     configuration_path.write_text(
-        json.dumps(
+        yaml.safe_dump(
             {
                 "database_path": str(database_path),
                 "database_timeout_seconds": 5.0,
                 "listen_host": "127.0.0.1",
                 "listen_port": 8001,
-            }
+            },
+            sort_keys=False,
         ),
         encoding="utf-8",
     )
@@ -306,7 +308,7 @@ def test_module_command_uses_configuration_path_and_reports_repeat_status(tmp_pa
     database_path = tmp_path / "command" / "rules.sqlite3"
     ignored_legacy_database = tmp_path / "ignored-legacy-environment.sqlite3"
     configuration_path = _write_service_configuration(
-        tmp_path / "config" / "service.json",
+        tmp_path / "config" / "service.yaml",
         "../command/rules.sqlite3",
     )
     environment = os.environ.copy()
@@ -350,7 +352,7 @@ def test_module_command_uses_configuration_path_and_reports_repeat_status(tmp_pa
 
 def test_module_command_rejects_invalid_configuration_before_creating_database(tmp_path):
     configuration_path = _write_service_configuration(
-        tmp_path / "config" / "service.json",
+        tmp_path / "config" / "service.yaml",
         "   ",
     )
     environment = os.environ.copy()
