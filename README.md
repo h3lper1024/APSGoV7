@@ -40,7 +40,16 @@ Python 3.10 及以上，先安装项目：
 python -m pip install -e '.[dev]'
 ```
 
-首次部署先初始化活动规则版本；重复执行只核验并返回已有活动版本，不覆盖后续版本：
+首次部署先用显式绝对路径提供既有 V3 SQLite 源库，初始化活动规则、虚拟原型和软硬钢字典：
+
+```sh
+apsgo-v7-initialize-gqga4-rules \
+  --config config/apsgo_v7_service.yaml \
+  --source-database-path /absolute/path/to/aps_rule_dsl.sqlite3
+```
+
+源库会在创建目标库前以只读方式完整验证。目标库已初始化后，重复执行无需再提供源库，只核验并
+返回已有活动版本，不覆盖后续版本：
 
 ```sh
 apsgo-v7-initialize-gqga4-rules --config config/apsgo_v7_service.yaml
@@ -56,12 +65,32 @@ apsgo-v7-rule-service --config config/apsgo_v7_service.yaml
 
 ```sh
 PYTHONPATH=src python -m apsgo_v7_service.initialize_gqga4_rules \
-  --config config/apsgo_v7_service.yaml
+  --config config/apsgo_v7_service.yaml \
+  --source-database-path /absolute/path/to/aps_rule_dsl.sqlite3
 PYTHONPATH=src python -m apsgo_v7_service.app \
   --config config/apsgo_v7_service.yaml
 ```
 
 服务启动不会自动建库或补种子；目标数据库缺失时应先执行初始化命令。
+
+## 旧规则库字典迁移
+
+已有 schema v1 规则库使用显式迁移命令建立向前新版本，并先创建 SQLite 一致性备份：
+
+```sh
+apsgo-v7-migrate-gqga4-grade-dictionary \
+  --database-path /absolute/path/to/apsgo_v7_rules.sqlite3 \
+  --v3-database-path /absolute/path/to/aps_rule_dsl.sqlite3 \
+  --backup-path /absolute/path/to/apsgo_v7_rules.pre-grade-migration.sqlite3 \
+  --save-operation-id 11111111-1111-4111-8111-111111111111 \
+  --expected-active-version-id 15
+```
+
+该命令不回填历史版本；迁移后的新版本保留目标库操作前的活动规则与虚拟原型，并附上经核验的
+当前字典。输出中的 `source_database_sha256` 是 SQLite Backup API 生成、且实际用于读取字典的
+一致性快照 SHA-256；即使 V3 源库处于 WAL 模式，也不会把主 `.sqlite3` 文件的裸哈希误当成
+实际导入内容的身份。失败后以相同参数重试时，只复用 schema v1 且全部规则表内容与当前目标
+完全一致的既有备份；其他同名文件不会被覆盖。
 
 ## 历史规则恢复
 

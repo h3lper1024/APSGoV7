@@ -22,6 +22,7 @@ from apsgo_v7_service.rule_management import (
 )
 from apsgo_v7_service.rule_store import RuleStore
 from tests.app.test_input_normalizer import make_order, make_request, make_spec
+from tests.service.grade_dictionary_support import sample_grade_dictionary
 
 
 def _base_task_input():
@@ -112,7 +113,9 @@ def _consume_unrelated_version_id(database_path):
 def test_binding_constructs_request_from_database_snapshot_and_records_version(tmp_path):
     database_path = tmp_path / "rules.sqlite3"
     _consume_unrelated_version_id(database_path)
-    active = initialize_gqga4_rules(database_path).active_rules
+    active = initialize_gqga4_rules(
+        database_path, initial_grade_dictionary=sample_grade_dictionary()
+    ).active_rules
     task_input = _base_task_input()
 
     task = scheduling.bind_gqga4_scheduling_task(task_input, database_path)
@@ -170,7 +173,9 @@ def test_binding_failure_does_not_fall_back_or_start_the_solver(tmp_path, monkey
 
 def test_bound_request_solves_after_all_rule_store_access_is_disabled(tmp_path, monkeypatch):
     database_path = tmp_path / "rules.sqlite3"
-    initialize_gqga4_rules(database_path)
+    initialize_gqga4_rules(
+        database_path, initial_grade_dictionary=sample_grade_dictionary()
+    )
     task = scheduling.bind_gqga4_scheduling_task(_base_task_input(), database_path)
 
     def forbidden_open(*args, **kwargs):
@@ -189,7 +194,9 @@ def test_bound_request_solves_after_all_rule_store_access_is_disabled(tmp_path, 
 
 def test_running_task_keeps_version_a_while_a_new_task_gets_version_b(tmp_path, monkeypatch):
     database_path = tmp_path / "rules.sqlite3"
-    first = initialize_gqga4_rules(database_path).active_rules
+    first = initialize_gqga4_rules(
+        database_path, initial_grade_dictionary=sample_grade_dictionary()
+    ).active_rules
     task_input = _base_task_input()
     entered_solver = Event()
     release_solver = Event()

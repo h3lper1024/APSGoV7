@@ -22,6 +22,7 @@ from apsgo_scheduler.api.rule_management import (
 from apsgo_scheduler.app.rule_set_compiler import load_compiled_rule_set_json
 from apsgo_scheduler.core.contracts import fingerprint
 
+from .grade_dictionary import GradeDictionaryEntry, GradeDictionarySnapshot
 from .gqga4 import (
     GQGA4_INITIAL_RULES,
     GQGA4_INITIAL_VIRTUAL_PROTOTYPES,
@@ -33,6 +34,7 @@ from .rule_store import RuleSetRecord, RuleStore, RuleStoreConflict
 
 DEFAULT_AUDIT_ACTOR = "v7-rule-service"
 INITIALIZATION_OPERATION_ID = "bootstrap:gqga4:v1"
+MIGRATION_AUDIT_ACTOR = "v7-grade-dictionary-migration"
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,6 +43,8 @@ class RuleInitializationResult:
 
     created: bool
     active_rules: ActiveRulesResponse
+    grade_dictionary_fingerprint: str
+    grade_dictionary_entry_count: int
 
 
 class RuleManagementServiceError(RuntimeError):
@@ -74,7 +78,10 @@ def _timestamp(clock: Callable[[], datetime]) -> str:
 def _audit_actor(value: str) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError("audit_actor must be nonempty text")
-    return value.strip()
+    actor = value.strip()
+    if actor == MIGRATION_AUDIT_ACTOR:
+        raise ValueError("audit_actor is reserved for the grade dictionary migration")
+    return actor
 
 
 def _record_data(value) -> dict:
@@ -195,6 +202,66 @@ def _create_rule_definitions(store: RuleStore, version_id: int, rules) -> None:
         )
 
 
+def _create_grade_dictionary_entries(
+    store: RuleStore,
+    version_id: int,
+    snapshot: GradeDictionarySnapshot,
+) -> None:
+    for entry in snapshot.entries:
+        store.create_grade_dictionary_entry(
+            version_id,
+            entry.source_grade,
+            entry.normalized_grade,
+            entry.soft_hard_class,
+            entry.roll_type,
+            entry.steel_classes,
+            entry.is_if_steel,
+            entry.enabled,
+            entry.source_file,
+            entry.source_row_count,
+            entry.source_rows,
+            entry.remark,
+        )
+
+
+def _read_grade_dictionary_snapshot(
+    store: RuleStore,
+    rule_set: RuleSetRecord,
+    version_id: int,
+) -> GradeDictionarySnapshot:
+    version = store.find_version(version_id)
+    if version is None or version.rule_set_id != rule_set.id:
+        raise _stored_inconsistent("规则版本与软硬钢字典所属规则集不一致。")
+    if version.grade_dictionary_fingerprint is None:
+        raise _stored_inconsistent("规则版本缺少软硬钢字典指纹。")
+
+    try:
+        snapshot = GradeDictionarySnapshot(
+            rule_set.product_line_code,
+            tuple(
+                GradeDictionaryEntry(
+                    source_grade=record.source_grade,
+                    normalized_grade=record.normalized_grade,
+                    soft_hard_class=record.soft_hard_class,
+                    roll_type=record.roll_type,
+                    steel_classes=record.steel_classes,
+                    is_if_steel=record.is_if_steel,
+                    enabled=record.enabled,
+                    source_file=record.source_file,
+                    source_row_count=record.source_row_count,
+                    source_rows=record.source_rows,
+                    remark=record.remark,
+                )
+                for record in store.list_grade_dictionary_entries(version.id)
+            ),
+        )
+    except (RecursionError, TypeError, ValueError) as error:
+        raise _stored_inconsistent("规则版本中的软硬钢字典快照不一致。") from error
+    if snapshot.dictionary_fingerprint != version.grade_dictionary_fingerprint:
+        raise _stored_inconsistent("规则版本中的软硬钢字典指纹不一致。")
+    return snapshot
+
+
 def _read_rules_version(
     store: RuleStore,
     rule_set: RuleSetRecord,
@@ -299,7 +366,9 @@ def _read_active_rules(store: RuleStore, rule_set: RuleSetRecord) -> ActiveRules
         raise RuleManagementServiceError(
             "rule_set_not_initialized", "GQGA4 月计划规则尚无启用版本。"
         )
-    return _read_rules_version(store, rule_set, rule_set.active_version_id)
+    response = _read_rules_version(store, rule_set, rule_set.active_version_id)
+    _read_grade_dictionary_snapshot(store, rule_set, rule_set.active_version_id)
+    return response
 
 
 def get_active_gqga4_rules(
@@ -317,14 +386,27 @@ def get_active_gqga4_rules(
 def initialize_gqga4_rules(
     database_path: str | Path,
     *,
+    initial_grade_dictionary: GradeDictionarySnapshot | None = None,
     audit_actor: str = DEFAULT_AUDIT_ACTOR,
     clock: Callable[[], datetime] = _utc_now,
     timeout_seconds: float = 5.0,
 ) -> RuleInitializationResult:
     """Create and verify the initial GQGA4 rule version, or verify the existing one."""
 
-    with RuleStore.initialize(database_path, timeout_seconds=timeout_seconds) as store:
-        with store.transaction(write=True):
+    if database_path is None or not str(database_path).strip():
+        raise ValueError("database_path must not be blank")
+    if initial_grade_dictionary is not None and not isinstance(
+        initial_grade_dictionary, GradeDictionarySnapshot
+    ):
+        raise ValueError("initial_grade_dictionary must be GradeDictionarySnapshot")
+    if initial_grade_dictionary is None and (
+        str(database_path) == ":memory:" or not Path(database_path).is_file()
+    ):
+        raise ValueError("initial_grade_dictionary is required for a new rule database")
+
+    open_store = RuleStore.open if initial_grade_dictionary is None else RuleStore.initialize
+    with open_store(database_path, timeout_seconds=timeout_seconds) as store:
+        with store.transaction(write=initial_grade_dictionary is not None):
             template = GQGA4_RULE_SET_TEMPLATE
             rule_set = store.find_rule_set(
                 template.product_line_code,
@@ -333,10 +415,34 @@ def initialize_gqga4_rules(
             )
             if rule_set is not None:
                 active = _read_active_rules(store, rule_set)
+                stored_dictionary = _read_grade_dictionary_snapshot(
+                    store, rule_set, active.active_version_id
+                )
+                if initial_grade_dictionary is not None:
+                    if (
+                        initial_grade_dictionary.product_line_code
+                        != stored_dictionary.product_line_code
+                        or initial_grade_dictionary.dictionary_fingerprint
+                        != stored_dictionary.dictionary_fingerprint
+                    ):
+                        raise RuleManagementServiceError(
+                            "initial_grade_dictionary_conflict",
+                            "初始化软硬钢字典与现有活动版本不一致。",
+                            current_active_version_id=active.active_version_id,
+                        )
                 dumps_active_rules_response(active)
-                return RuleInitializationResult(created=False, active_rules=active)
+                return RuleInitializationResult(
+                    created=False,
+                    active_rules=active,
+                    grade_dictionary_fingerprint=stored_dictionary.dictionary_fingerprint,
+                    grade_dictionary_entry_count=len(stored_dictionary.entries),
+                )
 
             actor = _audit_actor(audit_actor)
+            if not isinstance(initial_grade_dictionary, GradeDictionarySnapshot):
+                raise ValueError("initial_grade_dictionary is required for a new rule database")
+            if initial_grade_dictionary.product_line_code != template.product_line_code:
+                raise ValueError("initial_grade_dictionary must belong to GQGA4")
             rules, prototypes = normalize_gqga4_rule_snapshot(
                 GQGA4_INITIAL_RULES, GQGA4_INITIAL_VIRTUAL_PROTOTYPES
             )
@@ -363,12 +469,25 @@ def initialize_gqga4_rules(
                 timestamp,
                 actor,
                 timestamp,
+                grade_dictionary_fingerprint=(
+                    initial_grade_dictionary.dictionary_fingerprint
+                ),
             )
             _create_rule_definitions(store, version_id, compiled.rule_set_spec.rules)
+            _create_grade_dictionary_entries(store, version_id, initial_grade_dictionary)
             store.activate_version(rule_set_id, version_id, None, updated_at=timestamp)
-            active = _read_active_rules(store, _find_rule_set(store))
+            active_rule_set = _find_rule_set(store)
+            active = _read_active_rules(store, active_rule_set)
+            stored_dictionary = _read_grade_dictionary_snapshot(
+                store, active_rule_set, active.active_version_id
+            )
             dumps_active_rules_response(active)
-            return RuleInitializationResult(created=True, active_rules=active)
+            return RuleInitializationResult(
+                created=True,
+                active_rules=active,
+                grade_dictionary_fingerprint=stored_dictionary.dictionary_fingerprint,
+                grade_dictionary_entry_count=len(stored_dictionary.entries),
+            )
 
 
 def set_active_gqga4_rules(
@@ -414,6 +533,8 @@ def set_active_gqga4_rules(
                         )
                     if existing.based_on_version_id is None:
                         raise _stored_inconsistent("保存操作记录缺少原活动版本。")
+                    if existing.id != rule_set.active_version_id:
+                        _read_grade_dictionary_snapshot(store, rule_set, existing.id)
                     active = _read_active_rules(store, rule_set)
                     response = SetActiveRulesResponse(
                         active_rules=active,
@@ -438,6 +559,9 @@ def set_active_gqga4_rules(
                         current_active_version_id=previous,
                     )
 
+                source_dictionary = _read_grade_dictionary_snapshot(
+                    store, rule_set, previous
+                )
                 version_no = store.next_version_no(rule_set.id)
                 compiled = compile_gqga4_rule_set(normalized_rules, version_no)
                 timestamp = _timestamp(clock)
@@ -456,8 +580,16 @@ def set_active_gqga4_rules(
                     timestamp,
                     actor,
                     timestamp,
+                    grade_dictionary_fingerprint=(
+                        source_dictionary.dictionary_fingerprint
+                    ),
                 )
                 _create_rule_definitions(store, version_id, compiled.rule_set_spec.rules)
+                copied_count = store.copy_grade_dictionary_entries(previous, version_id)
+                if copied_count != len(source_dictionary.entries):
+                    raise _stored_inconsistent(
+                        "保存的新版本未完整继承活动软硬钢字典。"
+                    )
                 store.activate_version(rule_set.id, version_id, previous, updated_at=timestamp)
                 active = _read_active_rules(store, _find_rule_set(store))
                 response = SetActiveRulesResponse(
@@ -484,6 +616,7 @@ def set_active_gqga4_rules(
 __all__ = [
     "DEFAULT_AUDIT_ACTOR",
     "INITIALIZATION_OPERATION_ID",
+    "MIGRATION_AUDIT_ACTOR",
     "RuleInitializationResult",
     "RuleManagementServiceError",
     "get_active_gqga4_rules",

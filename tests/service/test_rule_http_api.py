@@ -25,6 +25,7 @@ from apsgo_v7_service.gqga4 import (
     normalize_gqga4_rule_snapshot,
 )
 from apsgo_v7_service.rule_store import RuleStore
+from tests.service.grade_dictionary_support import sample_grade_dictionary
 
 GET_PATH = "/api/v1/rule-sets/GQGA4/default/month/getActiveRules"
 POST_PATH = "/api/v1/rule-sets/GQGA4/default/month/setActiveRules"
@@ -73,6 +74,7 @@ def _seed_active_v1(database_path):
         GQGA4_INITIAL_RULES, GQGA4_INITIAL_VIRTUAL_PROTOTYPES
     )
     compiled = compile_gqga4_rule_set(rules, 1)
+    dictionary = sample_grade_dictionary()
     with RuleStore.initialize(database_path) as store:
         with store.transaction(write=True):
             rule_set_id = store.create_rule_set("GQGA4", "default", "month", created_at=STAMP)
@@ -91,6 +93,7 @@ def _seed_active_v1(database_path):
                 STAMP,
                 "bootstrap",
                 STAMP,
+                grade_dictionary_fingerprint=dictionary.dictionary_fingerprint,
             )
             for sequence_no, rule in enumerate(compiled.rule_set_spec.rules, start=1):
                 store.create_rule_definition(
@@ -104,6 +107,9 @@ def _seed_active_v1(database_path):
                     rule.version,
                     dumps_exact_json(rule.parameters),
                 )
+            service_module._create_grade_dictionary_entries(
+                store, version_id, dictionary
+            )
             store.activate_version(rule_set_id, version_id, None, updated_at=STAMP)
     return rule_set_id, version_id
 
@@ -564,7 +570,7 @@ def test_incompatible_database_schema_is_a_sanitized_500(tmp_path):
     with RuleStore.initialize(database_path):
         pass
     with sqlite3.connect(database_path) as connection:
-        connection.execute("PRAGMA user_version = 2")
+        connection.execute("PRAGMA user_version = 3")
 
     with TestClient(
         http_module.create_app(database_path=database_path), raise_server_exceptions=False
@@ -573,7 +579,7 @@ def test_incompatible_database_schema_is_a_sanitized_500(tmp_path):
 
     error = _assert_error(response, 500, code="internal_server_error")
     assert error["issues"] == []
-    for fragment in (str(database_path), "schema", "version 2", "RuleStoreSchemaError"):
+    for fragment in (str(database_path), "schema", "version 3", "RuleStoreSchemaError"):
         assert fragment not in response.text
 
 

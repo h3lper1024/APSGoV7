@@ -19,6 +19,7 @@ dev = ["httpx>=0.28,<0.29", "pytest>=8.4,<9", "ruff>=0.11"]
 
 [project.scripts]
 apsgo-v7-initialize-gqga4-rules = "apsgo_v7_service.initialize_gqga4_rules:main"
+apsgo-v7-migrate-gqga4-grade-dictionary = "apsgo_v7_service.migrate_gqga4_grade_dictionary:main"
 apsgo-v7-restore-gqga4-rule-version = "apsgo_v7_service.restore_gqga4_rule_version:main"
 apsgo-v7-rule-service = "apsgo_v7_service.app:main"
 

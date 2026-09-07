@@ -136,6 +136,17 @@ def main(argv: Sequence[str] | None = None) -> int:
         arguments.expected_active_version_id,
         arguments.database_path,
     )
+    with RuleStore.open(arguments.database_path) as store:
+        with store.transaction():
+            saved_version = store.find_version(result.saved_version_id)
+            if (
+                saved_version is None
+                or saved_version.grade_dictionary_fingerprint is None
+            ):
+                raise RuleManagementServiceError(
+                    "stored_snapshot_inconsistent",
+                    "恢复生成的规则版本缺少软硬钢字典指纹。",
+                )
     active = result.active_rules
     status = (
         "superseded_replay"
@@ -157,6 +168,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "active_version_id": active.active_version_id,
                 "active_version": active.rule_set_spec.version,
                 "fingerprint": active.rule_set_spec.fingerprint,
+                "grade_dictionary_fingerprint": (
+                    saved_version.grade_dictionary_fingerprint
+                ),
             }
         )
     )

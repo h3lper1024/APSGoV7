@@ -25,6 +25,7 @@ from apsgo_v7_service.rule_management import (
     set_active_gqga4_rules,
 )
 from apsgo_v7_service.rule_store import RuleStore
+from tests.service.grade_dictionary_support import sample_grade_dictionary
 
 STAMP = "2026-09-07T00:00:00.000000+00:00"
 ACTOR = "rule-service-test"
@@ -39,6 +40,7 @@ def _seed_active_v1(database_path):
         GQGA4_INITIAL_RULES, GQGA4_INITIAL_VIRTUAL_PROTOTYPES
     )
     compiled = compile_gqga4_rule_set(rules, 1)
+    dictionary = sample_grade_dictionary()
     with RuleStore.initialize(database_path) as store:
         with store.transaction(write=True):
             rule_set_id = store.create_rule_set("GQGA4", "default", "month", created_at=STAMP)
@@ -57,6 +59,7 @@ def _seed_active_v1(database_path):
                 STAMP,
                 "bootstrap",
                 STAMP,
+                grade_dictionary_fingerprint=dictionary.dictionary_fingerprint,
             )
             for sequence_no, rule in enumerate(compiled.rule_set_spec.rules, start=1):
                 store.create_rule_definition(
@@ -70,6 +73,9 @@ def _seed_active_v1(database_path):
                     rule.version,
                     dumps_exact_json(rule.parameters),
                 )
+            service_module._create_grade_dictionary_entries(
+                store, version_id, dictionary
+            )
             store.activate_version(rule_set_id, version_id, None, updated_at=STAMP)
     return rule_set_id, version_id
 
@@ -118,6 +124,9 @@ def _db_state(database_path):
                 0
             ],
             "rules": connection.execute("SELECT COUNT(*) FROM v7_rule_definition").fetchone()[0],
+            "dictionary_entries": connection.execute(
+                "SELECT COUNT(*) FROM v7_grade_dictionary_entry"
+            ).fetchone()[0],
             "active": connection.execute(
                 "SELECT active_version_id FROM v7_rule_set WHERE product_line_code = 'GQGA4'"
             ).fetchone()[0],
@@ -161,6 +170,7 @@ def test_save_creates_one_complete_next_version_and_activates_it(tmp_path):
         "rule_sets": 1,
         "versions": 2,
         "rules": 34,
+        "dictionary_entries": 6,
         "active": response.saved_version_id,
         "version_numbers": (1, 2),
         "base_versions": (None, initial_version_id),
@@ -169,10 +179,17 @@ def test_save_creates_one_complete_next_version_and_activates_it(tmp_path):
     with RuleStore.open(database_path) as store:
         version = store.find_version(response.saved_version_id)
         definitions = store.list_rule_definitions(response.saved_version_id)
+        initial_dictionary = store.list_grade_dictionary_entries(initial_version_id)
+        saved_dictionary = store.list_grade_dictionary_entries(response.saved_version_id)
     assert version.created_by == version.activated_by == ACTOR
     assert version.created_at == version.activated_at == EXPECTED_NOW
     assert version.remark == "调整链重参数"
+    assert version.grade_dictionary_fingerprint == sample_grade_dictionary().dictionary_fingerprint
     assert [item.sequence_no for item in definitions] == list(range(1, 18))
+    assert saved_dictionary == tuple(
+        replace(item, rule_set_version_id=response.saved_version_id)
+        for item in initial_dictionary
+    )
     assert get_active_gqga4_rules(database_path) == response.active_rules
 
 
@@ -208,6 +225,7 @@ def test_normalized_equal_retry_replays_before_stale_version_check(tmp_path):
     assert replay.idempotent_replay is True
     assert _db_state(database_path)["versions"] == 2
     assert _db_state(database_path)["rules"] == 34
+    assert _db_state(database_path)["dictionary_entries"] == 6
 
 
 def test_same_operation_with_a_different_audit_actor_conflicts(tmp_path):
@@ -233,6 +251,7 @@ def test_same_operation_with_a_different_audit_actor_conflicts(tmp_path):
     assert caught.value.current_active_version_id == saved.saved_version_id
     assert _db_state(database_path)["versions"] == 2
     assert _db_state(database_path)["rules"] == 34
+    assert _db_state(database_path)["dictionary_entries"] == 6
 
 
 @pytest.mark.parametrize(
@@ -288,6 +307,7 @@ def test_same_operation_with_changed_normalized_payload_conflicts(tmp_path, chan
     assert caught.value.current_active_version_id == saved.saved_version_id
     assert _db_state(database_path)["versions"] == 2
     assert _db_state(database_path)["rules"] == 34
+    assert _db_state(database_path)["dictionary_entries"] == 6
 
 
 def test_save_operation_id_is_not_part_of_normalized_request_hash(tmp_path):
@@ -389,6 +409,7 @@ def test_two_overlapping_saves_use_separate_connections_and_one_version(
 
     assert _db_state(database_path)["versions"] == 2
     assert _db_state(database_path)["rules"] == 34
+    assert _db_state(database_path)["dictionary_entries"] == 6
 
 
 def test_replay_of_superseded_save_returns_current_without_reactivation(tmp_path):
@@ -413,6 +434,7 @@ def test_replay_of_superseded_save_returns_current_without_reactivation(tmp_path
     assert replay.idempotent_replay is True
     assert _db_state(database_path)["version_numbers"] == (1, 2, 3)
     assert _db_state(database_path)["base_versions"] == (None, 1, 2)
+    assert _db_state(database_path)["dictionary_entries"] == 9
 
 
 def test_compile_failure_writes_nothing_and_does_not_consume_version_number(tmp_path):
@@ -428,6 +450,7 @@ def test_compile_failure_writes_nothing_and_does_not_consume_version_number(tmp_
         set_active_gqga4_rules(_request(rules=invalid_rules), database_path, clock=lambda: NOW)
     assert _db_state(database_path)["version_numbers"] == (1,)
     assert _db_state(database_path)["rules"] == 17
+    assert _db_state(database_path)["dictionary_entries"] == 3
 
     fixed = set_active_gqga4_rules(_request(), database_path, clock=lambda: NOW)
     assert fixed.active_rules.rule_set_spec.version == "2"
@@ -451,6 +474,15 @@ def test_compile_failure_writes_nothing_and_does_not_consume_version_number(tmp_
             BEFORE INSERT ON v7_rule_definition
             WHEN NEW.sequence_no = 8
             BEGIN SELECT RAISE(ABORT, 'forced rule failure'); END
+            """,
+        ),
+        (
+            "test_fail_dictionary_insert",
+            """
+            CREATE TRIGGER test_fail_dictionary_insert
+            BEFORE INSERT ON v7_grade_dictionary_entry
+            WHEN NEW.normalized_grade = 'HC340LA+Z'
+            BEGIN SELECT RAISE(ABORT, 'forced dictionary failure'); END
             """,
         ),
         (
@@ -534,6 +566,33 @@ def test_conditional_activation_conflict_is_translated_after_full_rollback(tmp_p
     )
 
 
+def test_save_rejects_an_inconsistent_active_dictionary_without_writing(
+    tmp_path, monkeypatch
+):
+    database_path = tmp_path / "rules.sqlite3"
+    _, active_version_id = _seed_active_v1(database_path)
+    before = _db_state(database_path)
+    original_find_version = RuleStore.find_version
+
+    def find_version_with_wrong_dictionary_fingerprint(store, version_id):
+        record = original_find_version(store, version_id)
+        if version_id == active_version_id:
+            return replace(record, grade_dictionary_fingerprint="e" * 64)
+        return record
+
+    monkeypatch.setattr(
+        RuleStore,
+        "find_version",
+        find_version_with_wrong_dictionary_fingerprint,
+    )
+
+    with pytest.raises(RuleManagementServiceError) as caught:
+        set_active_gqga4_rules(_request(), database_path, clock=lambda: NOW)
+
+    assert caught.value.code == "stored_snapshot_inconsistent"
+    assert _db_state(database_path) == before
+
+
 @pytest.mark.parametrize(
     "corruption",
     (
@@ -549,6 +608,9 @@ def test_conditional_activation_conflict_is_translated_after_full_rollback(tmp_p
         "editor_snapshot",
         "remark",
         "request_hash",
+        "dictionary_null_fingerprint",
+        "dictionary_wrong_fingerprint",
+        "dictionary_missing_rows",
     ),
 )
 def test_read_active_rules_rejects_inconsistent_persisted_snapshot(tmp_path, corruption):
@@ -583,6 +645,13 @@ def test_read_active_rules_rejects_inconsistent_persisted_snapshot(tmp_path, cor
         if corruption == "request_hash"
         else service_module._request_hash(initial_version_id, rules, prototypes, remark)
     )
+    dictionary = sample_grade_dictionary()
+    if corruption == "dictionary_null_fingerprint":
+        dictionary_fingerprint = None
+    elif corruption == "dictionary_wrong_fingerprint":
+        dictionary_fingerprint = "e" * 64
+    else:
+        dictionary_fingerprint = dictionary.dictionary_fingerprint
 
     with RuleStore.open(database_path) as store:
         with store.transaction(write=True):
@@ -605,6 +674,7 @@ def test_read_active_rules_rejects_inconsistent_persisted_snapshot(tmp_path, cor
                 STAMP,
                 ACTOR,
                 STAMP,
+                grade_dictionary_fingerprint=dictionary_fingerprint,
             )
             definitions = compiled.rule_set_spec.rules
             if corruption == "rule_count":
@@ -622,6 +692,11 @@ def test_read_active_rules_rejects_inconsistent_persisted_snapshot(tmp_path, cor
                     rule.enabled,
                     rule.version,
                     dumps_exact_json(rule.parameters),
+                )
+            if corruption != "dictionary_missing_rows":
+                assert (
+                    store.copy_grade_dictionary_entries(initial_version_id, version_id)
+                    == len(dictionary.entries)
                 )
             store.activate_version(rule_set_id, version_id, initial_version_id, updated_at=STAMP)
 

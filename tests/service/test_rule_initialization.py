@@ -16,6 +16,7 @@ import yaml
 
 from apsgo_scheduler.api.rule_management import SetActiveRulesRequest
 from apsgo_v7_service import rule_management as service_module
+from apsgo_v7_service.grade_dictionary import GradeDictionarySnapshot
 from apsgo_v7_service.gqga4 import (
     GQGA4_INITIAL_RULES,
     GQGA4_INITIAL_VIRTUAL_PROTOTYPES,
@@ -30,6 +31,10 @@ from apsgo_v7_service.rule_management import (
     set_active_gqga4_rules,
 )
 from apsgo_v7_service.rule_store import RuleStore
+from tests.service.grade_dictionary_support import (
+    sample_grade_dictionary,
+    write_v3_grade_dictionary_database,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 NOW = datetime(2026, 9, 7, 10, 0, 0, 123456, tzinfo=timezone(timedelta(hours=8)))
@@ -58,7 +63,12 @@ def _counts(database_path):
     with sqlite3.connect(database_path) as connection:
         return tuple(
             connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-            for table in ("v7_rule_set", "v7_rule_set_version", "v7_rule_definition")
+            for table in (
+                "v7_rule_set",
+                "v7_rule_set_version",
+                "v7_rule_definition",
+                "v7_grade_dictionary_entry",
+            )
         )
 
 
@@ -78,11 +88,40 @@ def _changed_rules():
     return tuple(result)
 
 
+def _full_enabled_grade_dictionary():
+    sample = sample_grade_dictionary()
+    template = sample.entries[0]
+    return GradeDictionarySnapshot(
+        sample.product_line_code,
+        tuple(
+            replace(
+                template,
+                source_grade=f"TEST-GRADE-{index:03d}",
+                normalized_grade=f"TEST-GRADE-{index:03d}",
+                source_rows=str(index + 2),
+            )
+            for index in range(230)
+        ),
+    )
+
+
+def test_new_database_requires_grade_dictionary_before_creating_file(tmp_path):
+    database_path = tmp_path / "nested" / "rules.sqlite3"
+
+    with pytest.raises(ValueError, match="initial_grade_dictionary is required"):
+        initialize_gqga4_rules(database_path)
+
+    assert not database_path.exists()
+    assert not database_path.parent.exists()
+
+
 def test_empty_database_initializes_one_fully_verified_active_version(tmp_path):
     database_path = tmp_path / "nested" / "rules.sqlite3"
+    grade_dictionary = sample_grade_dictionary()
 
     result = initialize_gqga4_rules(
         database_path,
+        initial_grade_dictionary=grade_dictionary,
         audit_actor="  deployment-process  ",
         clock=lambda: NOW,
     )
@@ -90,6 +129,8 @@ def test_empty_database_initializes_one_fully_verified_active_version(tmp_path):
     active = result.active_rules
     spec = active.rule_set_spec
     assert result.created is True
+    assert result.grade_dictionary_fingerprint == grade_dictionary.dictionary_fingerprint
+    assert result.grade_dictionary_entry_count == len(grade_dictionary.entries)
     assert active == get_active_gqga4_rules(database_path)
     assert active.based_on_version_id is None
     assert active.remark == ""
@@ -110,7 +151,7 @@ def test_empty_database_initializes_one_fully_verified_active_version(tmp_path):
     assert len(spec.quality_spec) == 7
     assert spec.allowed_final_deviation_codes == frozenset({"chain_weight_below_minimum"})
     assert len(active.virtual_prototypes) == 27
-    assert _counts(database_path) == (1, 1, 17)
+    assert _counts(database_path) == (1, 1, 17, len(grade_dictionary.entries))
 
     with RuleStore.open(database_path) as store:
         version = store.find_version(active.active_version_id)
@@ -120,6 +161,7 @@ def test_empty_database_initializes_one_fully_verified_active_version(tmp_path):
     assert version.save_operation_id == INITIALIZATION_OPERATION_ID
     assert version.created_by == version.activated_by == "deployment-process"
     assert version.created_at == version.activated_at == UTC_STAMP
+    assert version.grade_dictionary_fingerprint == grade_dictionary.dictionary_fingerprint
     assert [item.sequence_no for item in definitions] == list(range(1, 18))
     assert "/Users/" not in version.compiled_rule_set_json
     assert "/Users/" not in version.virtual_prototypes_json
@@ -129,7 +171,11 @@ def test_empty_database_initializes_one_fully_verified_active_version(tmp_path):
 
 def test_repeated_initialization_only_verifies_and_changes_no_rows(tmp_path):
     database_path = tmp_path / "rules.sqlite3"
-    first = initialize_gqga4_rules(database_path, clock=lambda: NOW)
+    first = initialize_gqga4_rules(
+        database_path,
+        initial_grade_dictionary=sample_grade_dictionary(),
+        clock=lambda: NOW,
+    )
     before = _database_dump(database_path)
 
     second = initialize_gqga4_rules(
@@ -140,12 +186,18 @@ def test_repeated_initialization_only_verifies_and_changes_no_rows(tmp_path):
     assert first.created is True
     assert second.created is False
     assert second.active_rules == first.active_rules
+    assert second.grade_dictionary_fingerprint == first.grade_dictionary_fingerprint
+    assert second.grade_dictionary_entry_count == first.grade_dictionary_entry_count
     assert _database_dump(database_path) == before
 
 
 def test_initializer_preserves_a_later_user_version(tmp_path, monkeypatch):
     database_path = tmp_path / "rules.sqlite3"
-    first = initialize_gqga4_rules(database_path, clock=lambda: NOW)
+    first = initialize_gqga4_rules(
+        database_path,
+        initial_grade_dictionary=sample_grade_dictionary(),
+        clock=lambda: NOW,
+    )
     saved = set_active_gqga4_rules(
         SetActiveRulesRequest(
             save_operation_id="00000000-0000-4000-8000-000000000601",
@@ -263,15 +315,27 @@ def test_initialization_failure_rolls_back_all_seed_rows(tmp_path, monkeypatch, 
         )
 
     with pytest.raises(RuntimeError, match="forced"):
-        initialize_gqga4_rules(database_path, clock=lambda: NOW)
+        initialize_gqga4_rules(
+            database_path,
+            initial_grade_dictionary=sample_grade_dictionary(),
+            clock=lambda: NOW,
+        )
 
-    assert _counts(database_path) == (0, 0, 0)
+    assert _counts(database_path) == (0, 0, 0, 0)
     monkeypatch.undo()
-    assert initialize_gqga4_rules(database_path, clock=lambda: NOW).created is True
+    assert (
+        initialize_gqga4_rules(
+            database_path,
+            initial_grade_dictionary=sample_grade_dictionary(),
+            clock=lambda: NOW,
+        ).created
+        is True
+    )
 
 
 def test_two_overlapping_initializers_create_only_one_version(tmp_path):
     database_path = tmp_path / "rules.sqlite3"
+    grade_dictionary = sample_grade_dictionary()
     first_has_write_lock = Event()
     release_first = Event()
 
@@ -284,6 +348,7 @@ def test_two_overlapping_initializers_create_only_one_version(tmp_path):
         first = executor.submit(
             initialize_gqga4_rules,
             database_path,
+            initial_grade_dictionary=grade_dictionary,
             clock=slow_clock,
             timeout_seconds=2,
         )
@@ -291,6 +356,7 @@ def test_two_overlapping_initializers_create_only_one_version(tmp_path):
         second = executor.submit(
             initialize_gqga4_rules,
             database_path,
+            initial_grade_dictionary=grade_dictionary,
             clock=lambda: NOW,
             timeout_seconds=2,
         )
@@ -301,11 +367,16 @@ def test_two_overlapping_initializers_create_only_one_version(tmp_path):
 
     assert sorted(result.created for result in results) == [False, True]
     assert results[0].active_rules == results[1].active_rules
-    assert _counts(database_path) == (1, 1, 17)
+    assert _counts(database_path) == (1, 1, 17, len(grade_dictionary.entries))
 
 
 def test_module_command_uses_configuration_path_and_reports_repeat_status(tmp_path):
     database_path = tmp_path / "command" / "rules.sqlite3"
+    grade_dictionary = _full_enabled_grade_dictionary()
+    source_database_path = write_v3_grade_dictionary_database(
+        tmp_path / "source.sqlite3", grade_dictionary
+    )
+    source_database_bytes = source_database_path.read_bytes()
     ignored_legacy_database = tmp_path / "ignored-legacy-environment.sqlite3"
     configuration_path = _write_service_configuration(
         tmp_path / "config" / "service.yaml",
@@ -323,7 +394,12 @@ def test_module_command_uses_configuration_path_and_reports_repeat_status(tmp_pa
     ]
 
     first = subprocess.run(
-        command, cwd=tmp_path, env=environment, check=True, capture_output=True, text=True
+        [*command, "--source-database-path", str(source_database_path)],
+        cwd=tmp_path,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
     )
     second = subprocess.run(
         command,
@@ -346,8 +422,115 @@ def test_module_command_uses_configuration_path_and_reports_repeat_status(tmp_pa
         assert payload["fingerprint"] == EXPECTED_FINGERPRINT
         assert payload["rule_count"] == 17
         assert payload["virtual_prototype_count"] == 27
-    assert _counts(database_path) == (1, 1, 17)
+        assert (
+            payload["grade_dictionary_fingerprint"]
+            == grade_dictionary.dictionary_fingerprint
+        )
+        assert payload["grade_dictionary_entry_count"] == len(grade_dictionary.entries)
+    assert source_database_path.read_bytes() == source_database_bytes
+    assert _counts(database_path) == (1, 1, 17, len(grade_dictionary.entries))
     assert get_active_gqga4_rules(database_path).activated_by == "v7-rule-service"
+
+
+def test_module_command_requires_source_for_new_database_without_creating_it(tmp_path):
+    database_path = tmp_path / "command" / "rules.sqlite3"
+    configuration_path = _write_service_configuration(
+        tmp_path / "config" / "service.yaml",
+        "../command/rules.sqlite3",
+    )
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(ROOT / "src")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "apsgo_v7_service.initialize_gqga4_rules",
+            "--config",
+            str(configuration_path),
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "--source-database-path is required" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not database_path.exists()
+    assert not database_path.parent.exists()
+
+
+def test_module_command_validates_source_before_creating_target(tmp_path):
+    database_path = tmp_path / "command" / "rules.sqlite3"
+    invalid_source = write_v3_grade_dictionary_database(tmp_path / "invalid-source.sqlite3")
+    configuration_path = _write_service_configuration(
+        tmp_path / "config" / "service.yaml",
+        "../command/rules.sqlite3",
+    )
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(ROOT / "src")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "apsgo_v7_service.initialize_gqga4_rules",
+            "--config",
+            str(configuration_path),
+            "--source-database-path",
+            str(invalid_source),
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "must contain exactly 230 entries" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not database_path.exists()
+    assert not database_path.parent.exists()
+
+
+def test_module_command_rejects_relative_source_path_before_creating_target(tmp_path):
+    database_path = tmp_path / "command" / "rules.sqlite3"
+    source_database_path = write_v3_grade_dictionary_database(
+        tmp_path / "source.sqlite3", _full_enabled_grade_dictionary()
+    )
+    configuration_path = _write_service_configuration(
+        tmp_path / "config" / "service.yaml",
+        "../command/rules.sqlite3",
+    )
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = str(ROOT / "src")
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "apsgo_v7_service.initialize_gqga4_rules",
+            "--config",
+            str(configuration_path),
+            "--source-database-path",
+            source_database_path.name,
+        ],
+        cwd=tmp_path,
+        env=environment,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert result.stdout == ""
+    assert "must be an absolute path" in result.stderr
+    assert "Traceback" not in result.stderr
+    assert not database_path.exists()
+    assert not database_path.parent.exists()
 
 
 def test_module_command_rejects_invalid_configuration_before_creating_database(tmp_path):

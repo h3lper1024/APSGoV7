@@ -10,9 +10,12 @@ from pathlib import Path
 import pytest
 
 from apsgo_scheduler.api.rule_management import SetActiveRulesRequest
+from apsgo_v7_service import rule_management as service_module
 from apsgo_v7_service.gqga4 import (
     GQGA4_INITIAL_RULES,
     GQGA4_INITIAL_VIRTUAL_PROTOTYPES,
+    compile_gqga4_rule_set,
+    normalize_gqga4_rule_snapshot,
 )
 from apsgo_v7_service.restore_gqga4_rule_version import restore_gqga4_rule_version
 from apsgo_v7_service.rule_management import (
@@ -22,12 +25,20 @@ from apsgo_v7_service.rule_management import (
     set_active_gqga4_rules,
 )
 from apsgo_v7_service.rule_store import RuleStore
+from tests.service.grade_dictionary_support import sample_grade_dictionary
 
 ROOT = Path(__file__).resolve().parents[2]
 RESTORE_OPERATION = "00000000-0000-4000-8000-000000001101"
 SAVE_OPERATION_1 = "00000000-0000-4000-8000-000000001102"
 SAVE_OPERATION_2 = "00000000-0000-4000-8000-000000001103"
 STALE_RESTORE_OPERATION = "00000000-0000-4000-8000-000000001104"
+
+
+def _initialize(database_path):
+    return initialize_gqga4_rules(
+        database_path,
+        initial_grade_dictionary=sample_grade_dictionary(),
+    )
 
 
 def _rules_with_minimum(minimum: str):
@@ -67,18 +78,25 @@ def _counts(database_path):
         return (
             connection.execute("SELECT COUNT(*) FROM v7_rule_set_version").fetchone()[0],
             connection.execute("SELECT COUNT(*) FROM v7_rule_definition").fetchone()[0],
+            connection.execute(
+                "SELECT COUNT(*) FROM v7_grade_dictionary_entry"
+            ).fetchone()[0],
         )
 
 
 def test_restore_copies_historical_page_content_into_a_new_audited_version(tmp_path):
     database_path = tmp_path / "rules.sqlite3"
-    initialize_gqga4_rules(database_path)
+    _initialize(database_path)
     historical = _save(database_path, SAVE_OPERATION_1, "710", "历史规则备注")
     current = _save(database_path, SAVE_OPERATION_2, "720", "当前规则备注")
 
     with RuleStore.open(database_path) as store:
         historical_record_before = store.find_version(historical.saved_version_id)
         historical_rules_before = store.list_rule_definitions(historical.saved_version_id)
+        current_record_before = store.find_version(current.saved_version_id)
+        current_dictionary_before = store.list_grade_dictionary_entries(
+            current.saved_version_id
+        )
 
     with pytest.raises(RuleManagementServiceError) as caught:
         restore_gqga4_rule_version(
@@ -90,7 +108,7 @@ def test_restore_copies_historical_page_content_into_a_new_audited_version(tmp_p
     assert caught.value.code == "active_version_conflict"
     assert caught.value.expected_active_version_id == historical.saved_version_id
     assert caught.value.current_active_version_id == current.saved_version_id
-    assert _counts(database_path) == (3, 51)
+    assert _counts(database_path) == (3, 51, 9)
 
     restored = restore_gqga4_rule_version(
         historical.saved_version_id,
@@ -107,14 +125,23 @@ def test_restore_copies_historical_page_content_into_a_new_audited_version(tmp_p
     assert _minimum_weight(restored.active_rules) == Decimal("710")
     assert restored.active_rules.virtual_prototypes == historical.active_rules.virtual_prototypes
     assert restored.active_rules.remark == historical.active_rules.remark == "历史规则备注"
-    assert _counts(database_path) == (4, 68)
+    assert _counts(database_path) == (4, 68, 12)
 
     with RuleStore.open(database_path) as store:
         restored_record = store.find_version(restored.saved_version_id)
+        restored_dictionary = store.list_grade_dictionary_entries(restored.saved_version_id)
         assert store.find_version(historical.saved_version_id) == historical_record_before
         assert store.list_rule_definitions(historical.saved_version_id) == historical_rules_before
     assert restored_record.based_on_version_id == current.saved_version_id
     assert restored_record.save_operation_id == RESTORE_OPERATION
+    assert (
+        restored_record.grade_dictionary_fingerprint
+        == current_record_before.grade_dictionary_fingerprint
+    )
+    assert restored_dictionary == tuple(
+        replace(item, rule_set_version_id=restored.saved_version_id)
+        for item in current_dictionary_before
+    )
     assert (
         restored_record.created_by
         == restored_record.activated_by
@@ -122,9 +149,112 @@ def test_restore_copies_historical_page_content_into_a_new_audited_version(tmp_p
     )
 
 
+def test_restore_legacy_source_without_dictionary_inherits_active_dictionary(tmp_path):
+    database_path = tmp_path / "rules.sqlite3"
+    dictionary = sample_grade_dictionary()
+    historical_rules, prototypes = normalize_gqga4_rule_snapshot(
+        GQGA4_INITIAL_RULES, GQGA4_INITIAL_VIRTUAL_PROTOTYPES
+    )
+    current_rules, current_prototypes = normalize_gqga4_rule_snapshot(
+        _rules_with_minimum("720"), GQGA4_INITIAL_VIRTUAL_PROTOTYPES
+    )
+    historical_compiled = compile_gqga4_rule_set(historical_rules, 1)
+    current_compiled = compile_gqga4_rule_set(current_rules, 2)
+    stamp = "2026-09-07T00:00:00.000000+00:00"
+
+    with RuleStore.initialize(database_path) as store:
+        with store.transaction(write=True):
+            rule_set_id = store.create_rule_set(
+                "GQGA4", "default", "month", created_at=stamp
+            )
+            historical_version_id = store.create_version(
+                rule_set_id,
+                1,
+                None,
+                "legacy-operation",
+                service_module._request_hash(None, historical_rules, prototypes, "legacy"),
+                historical_compiled.compiled_rule_set_json,
+                historical_compiled.rule_set_spec.fingerprint,
+                service_module._virtual_prototypes_json(prototypes),
+                service_module._editor_snapshot_json(
+                    historical_rules, prototypes, "legacy"
+                ),
+                "legacy",
+                "legacy",
+                stamp,
+                "legacy",
+                stamp,
+            )
+            service_module._create_rule_definitions(
+                store, historical_version_id, historical_compiled.rule_set_spec.rules
+            )
+            current_version_id = store.create_version(
+                rule_set_id,
+                2,
+                historical_version_id,
+                SAVE_OPERATION_1,
+                service_module._request_hash(
+                    historical_version_id,
+                    current_rules,
+                    current_prototypes,
+                    "current",
+                ),
+                current_compiled.compiled_rule_set_json,
+                current_compiled.rule_set_spec.fingerprint,
+                service_module._virtual_prototypes_json(current_prototypes),
+                service_module._editor_snapshot_json(
+                    current_rules, current_prototypes, "current"
+                ),
+                "current",
+                "current",
+                stamp,
+                "current",
+                stamp,
+                grade_dictionary_fingerprint=dictionary.dictionary_fingerprint,
+            )
+            service_module._create_rule_definitions(
+                store, current_version_id, current_compiled.rule_set_spec.rules
+            )
+            service_module._create_grade_dictionary_entries(
+                store, current_version_id, dictionary
+            )
+            store.activate_version(
+                rule_set_id, current_version_id, None, updated_at=stamp
+            )
+
+    restored = restore_gqga4_rule_version(
+        historical_version_id,
+        RESTORE_OPERATION,
+        current_version_id,
+        database_path,
+    )
+
+    assert restored.active_rules.remark == "legacy"
+    assert _minimum_weight(restored.active_rules) == Decimal("700.0")
+    with RuleStore.open(database_path) as store:
+        legacy_record = store.find_version(historical_version_id)
+        current_record = store.find_version(current_version_id)
+        restored_record = store.find_version(restored.saved_version_id)
+        legacy_entries = store.list_grade_dictionary_entries(historical_version_id)
+        current_entries = store.list_grade_dictionary_entries(current_version_id)
+        restored_entries = store.list_grade_dictionary_entries(restored.saved_version_id)
+    assert legacy_record.grade_dictionary_fingerprint is None
+    assert legacy_entries == ()
+    assert (
+        restored_record.grade_dictionary_fingerprint
+        == current_record.grade_dictionary_fingerprint
+        == dictionary.dictionary_fingerprint
+    )
+    assert restored_entries == tuple(
+        replace(item, rule_set_version_id=restored.saved_version_id)
+        for item in current_entries
+    )
+    assert _counts(database_path) == (3, 51, 6)
+
+
 def test_restore_replays_the_original_request_without_reactivating_a_superseded_result(tmp_path):
     database_path = tmp_path / "rules.sqlite3"
-    initial = initialize_gqga4_rules(database_path).active_rules
+    initial = _initialize(database_path).active_rules
     current = _save(database_path, SAVE_OPERATION_1, "720", "当前规则")
 
     first = restore_gqga4_rule_version(
@@ -144,7 +274,7 @@ def test_restore_replays_the_original_request_without_reactivating_a_superseded_
     assert immediate_replay.previous_active_version_id == current.saved_version_id
     assert immediate_replay.saved_version_id == first.saved_version_id
     assert immediate_replay.saved_version_is_active is True
-    assert _counts(database_path) == (3, 51)
+    assert _counts(database_path) == (3, 51, 9)
 
     with pytest.raises(RuleManagementServiceError) as changed_expected:
         restore_gqga4_rule_version(
@@ -154,7 +284,7 @@ def test_restore_replays_the_original_request_without_reactivating_a_superseded_
             database_path,
         )
     assert changed_expected.value.code == "operation_payload_conflict"
-    assert _counts(database_path) == (3, 51)
+    assert _counts(database_path) == (3, 51, 9)
 
     later = _save(database_path, SAVE_OPERATION_2, "730", "后续规则")
     counts_before_replay = _counts(database_path)
@@ -175,7 +305,7 @@ def test_restore_replays_the_original_request_without_reactivating_a_superseded_
 
 def test_restore_rejects_the_active_source_and_same_operation_for_another_source(tmp_path):
     database_path = tmp_path / "rules.sqlite3"
-    initial = initialize_gqga4_rules(database_path).active_rules
+    initial = _initialize(database_path).active_rules
     current = _save(database_path, SAVE_OPERATION_1, "700", "")
 
     with pytest.raises(ValueError, match="historical version"):
@@ -185,7 +315,7 @@ def test_restore_rejects_the_active_source_and_same_operation_for_another_source
             current.saved_version_id,
             database_path,
         )
-    assert _counts(database_path) == (2, 34)
+    assert _counts(database_path) == (2, 34, 6)
 
     restored = restore_gqga4_rule_version(
         initial.active_version_id,
@@ -203,7 +333,7 @@ def test_restore_rejects_the_active_source_and_same_operation_for_another_source
 
     assert caught.value.code == "operation_payload_conflict"
     assert caught.value.current_active_version_id == restored.saved_version_id
-    assert _counts(database_path) == (3, 51)
+    assert _counts(database_path) == (3, 51, 9)
 
 
 @pytest.mark.parametrize(
@@ -217,7 +347,7 @@ def test_restore_rejects_an_inconsistent_historical_snapshot(
     tmp_path, monkeypatch, field_name, corrupted_value
 ):
     database_path = tmp_path / "rules.sqlite3"
-    historical = initialize_gqga4_rules(database_path).active_rules
+    historical = _initialize(database_path).active_rules
     current = _save(database_path, SAVE_OPERATION_1, "720", "当前规则")
     before = _counts(database_path)
     original_find_version = RuleStore.find_version
@@ -244,7 +374,7 @@ def test_restore_rejects_an_inconsistent_historical_snapshot(
 
 def test_restore_rejects_an_unknown_source_and_command_ignores_service_configuration(tmp_path):
     database_path = tmp_path / "rules.sqlite3"
-    initial = initialize_gqga4_rules(database_path).active_rules
+    initial = _initialize(database_path).active_rules
     _save(database_path, SAVE_OPERATION_1, "720", "当前规则")
     before = _counts(database_path)
 
@@ -299,6 +429,11 @@ def test_restore_rejects_an_unknown_source_and_command_ignores_service_configura
     assert replay_payload["status"] == "idempotent_replay"
     assert first_payload["database_path"] == replay_payload["database_path"] == str(database_path)
     assert first_payload["source_version_id"] == initial.active_version_id
+    assert (
+        first_payload["grade_dictionary_fingerprint"]
+        == replay_payload["grade_dictionary_fingerprint"]
+        == sample_grade_dictionary().dictionary_fingerprint
+    )
     assert replay_payload["saved_version_id"] == first_payload["saved_version_id"]
     assert replay_payload["saved_version_is_active"] is True
     later = _save(database_path, SAVE_OPERATION_2, "730", "后续规则")
@@ -316,7 +451,11 @@ def test_restore_rejects_an_unknown_source_and_command_ignores_service_configura
     assert superseded_payload["status"] == "superseded_replay"
     assert superseded_payload["saved_version_is_active"] is False
     assert superseded_payload["active_version_id"] == later.saved_version_id
-    assert _counts(database_path) == (4, 68)
+    assert (
+        superseded_payload["grade_dictionary_fingerprint"]
+        == first_payload["grade_dictionary_fingerprint"]
+    )
+    assert _counts(database_path) == (4, 68, 12)
 
 
 def test_restore_command_requires_an_explicit_absolute_existing_database(tmp_path):

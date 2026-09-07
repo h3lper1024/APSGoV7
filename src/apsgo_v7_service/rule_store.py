@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from functools import cache
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+LEGACY_SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class RuleStoreSchemaError(RuntimeError):
@@ -48,6 +49,7 @@ class RuleSetVersionRecord:
     created_at: str
     activated_by: str
     activated_at: str
+    grade_dictionary_fingerprint: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +66,23 @@ class RuleDefinitionRecord:
     parameters_json: str
 
 
-_SCHEMA_STATEMENTS = (
+@dataclass(frozen=True, slots=True)
+class GradeDictionaryEntryRecord:
+    rule_set_version_id: int
+    source_grade: str
+    normalized_grade: str
+    soft_hard_class: str
+    roll_type: str
+    steel_classes: str
+    is_if_steel: bool
+    enabled: bool
+    source_file: str
+    source_row_count: int
+    source_rows: str
+    remark: str
+
+
+_V1_SCHEMA_STATEMENTS = (
     """
     CREATE TABLE IF NOT EXISTS v7_rule_set (
         id INTEGER PRIMARY KEY,
@@ -232,6 +250,77 @@ _SCHEMA_STATEMENTS = (
     """,
 )
 
+_V1_TO_V2_SCHEMA_STATEMENTS = (
+    """
+    ALTER TABLE v7_rule_set_version
+    ADD COLUMN grade_dictionary_fingerprint TEXT
+        CHECK(
+            grade_dictionary_fingerprint IS NULL
+            OR (
+                length(grade_dictionary_fingerprint) = 64
+                AND grade_dictionary_fingerprint NOT GLOB '*[^0-9a-f]*'
+            )
+        )
+    """,
+    """
+    CREATE TABLE v7_grade_dictionary_entry (
+        rule_set_version_id INTEGER NOT NULL,
+        source_grade TEXT NOT NULL CHECK(length(trim(source_grade)) > 0),
+        normalized_grade TEXT NOT NULL
+            CHECK(
+                length(trim(normalized_grade)) > 0
+                AND normalized_grade = upper(trim(source_grade))
+            ),
+        soft_hard_class TEXT NOT NULL CHECK(soft_hard_class IN ('软钢', '硬钢')),
+        roll_type TEXT NOT NULL CHECK(length(trim(roll_type)) > 0),
+        steel_classes TEXT NOT NULL,
+        is_if_steel INTEGER NOT NULL CHECK(is_if_steel IN (0, 1)),
+        enabled INTEGER NOT NULL CHECK(enabled IN (0, 1)),
+        source_file TEXT NOT NULL,
+        source_row_count INTEGER NOT NULL
+            CHECK(typeof(source_row_count) = 'integer' AND source_row_count >= 0),
+        source_rows TEXT NOT NULL,
+        remark TEXT NOT NULL,
+        PRIMARY KEY (rule_set_version_id, normalized_grade),
+        FOREIGN KEY (rule_set_version_id)
+            REFERENCES v7_rule_set_version(id) ON DELETE RESTRICT
+    )
+    """,
+    """
+    CREATE TRIGGER trg_v7_grade_dictionary_no_historical_insert
+    BEFORE INSERT ON v7_grade_dictionary_entry
+    WHEN EXISTS (
+        SELECT 1
+        FROM v7_rule_set_version AS target_version
+        JOIN v7_rule_set AS owner ON owner.id = target_version.rule_set_id
+        JOIN v7_rule_set_version AS active_version
+            ON active_version.id = owner.active_version_id
+        WHERE target_version.id = NEW.rule_set_version_id
+          AND target_version.version_no <= active_version.version_no
+    )
+    BEGIN
+        SELECT RAISE(
+            ABORT,
+            'cannot append a grade dictionary entry to an active or historical version'
+        );
+    END
+    """,
+    """
+    CREATE TRIGGER trg_v7_grade_dictionary_no_update
+    BEFORE UPDATE ON v7_grade_dictionary_entry
+    BEGIN
+        SELECT RAISE(ABORT, 'v7_grade_dictionary_entry is immutable');
+    END
+    """,
+    """
+    CREATE TRIGGER trg_v7_grade_dictionary_no_delete
+    BEFORE DELETE ON v7_grade_dictionary_entry
+    BEGIN
+        SELECT RAISE(ABORT, 'v7_grade_dictionary_entry cannot be deleted');
+    END
+    """,
+)
+
 
 def _schema_signature(connection: sqlite3.Connection) -> tuple[tuple[str, str, str], ...]:
     rows = connection.execute(
@@ -247,10 +336,17 @@ def _schema_signature(connection: sqlite3.Connection) -> tuple[tuple[str, str, s
 
 
 @cache
-def _expected_schema_signature() -> tuple[tuple[str, str, str], ...]:
+def _expected_schema_signature(
+    schema_version: int = SCHEMA_VERSION,
+) -> tuple[tuple[str, str, str], ...]:
+    if schema_version not in (LEGACY_SCHEMA_VERSION, SCHEMA_VERSION):
+        raise ValueError(f"unsupported schema signature version: {schema_version}")
     with sqlite3.connect(":memory:") as reference:
-        for statement in _SCHEMA_STATEMENTS:
+        for statement in _V1_SCHEMA_STATEMENTS:
             reference.execute(statement)
+        if schema_version == SCHEMA_VERSION:
+            for statement in _V1_TO_V2_SCHEMA_STATEMENTS:
+                reference.execute(statement)
         return _schema_signature(reference)
 
 
@@ -318,6 +414,36 @@ class RuleStore:
             store.close()
             raise
 
+    @classmethod
+    def open_for_schema_upgrade(
+        cls,
+        database_path: str | Path,
+        *,
+        timeout_seconds: float = 5.0,
+    ) -> RuleStore:
+        """Open an exact v1 or v2 database for the explicit migration command."""
+
+        store = cls._open_unchecked(
+            database_path, timeout_seconds=timeout_seconds, create_parent=False
+        )
+        try:
+            with store.transaction():
+                current = store._connection.execute("PRAGMA user_version").fetchone()[0]
+                if current not in (LEGACY_SCHEMA_VERSION, SCHEMA_VERSION):
+                    if current > SCHEMA_VERSION:
+                        raise RuleStoreSchemaError(
+                            "database schema version "
+                            f"{current} is newer than supported {SCHEMA_VERSION}"
+                        )
+                    raise RuleStoreSchemaError(
+                        f"unsupported database schema version: {current}"
+                    )
+                store._verify_schema(expected_version=current)
+            return store
+        except BaseException:
+            store.close()
+            raise
+
     def close(self) -> None:
         self._connection.close()
 
@@ -356,9 +482,15 @@ class RuleStore:
                     )
                 if current not in (0, SCHEMA_VERSION):
                     raise RuleStoreSchemaError(f"unsupported database schema version: {current}")
-                for statement in _SCHEMA_STATEMENTS:
-                    self._connection.execute(statement)
                 if current == 0:
+                    if _schema_signature(self._connection):
+                        raise RuleStoreSchemaError(
+                            "unversioned database already contains rule-store schema objects"
+                        )
+                    for statement in _V1_SCHEMA_STATEMENTS:
+                        self._connection.execute(statement)
+                    for statement in _V1_TO_V2_SCHEMA_STATEMENTS:
+                        self._connection.execute(statement)
                     self._connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
                 self._verify_schema()
         except RuleStoreSchemaError:
@@ -366,16 +498,48 @@ class RuleStore:
         except sqlite3.DatabaseError as error:
             raise RuleStoreSchemaError("database schema initialization failed") from error
 
-    def _verify_schema(self) -> None:
+    def apply_schema_v2_upgrade(self) -> None:
+        """Apply only the v1-to-v2 DDL inside the migration's write transaction."""
+
+        self._require_write_transaction()
+        self._verify_schema(expected_version=LEGACY_SCHEMA_VERSION)
+        try:
+            for statement in _V1_TO_V2_SCHEMA_STATEMENTS:
+                self._connection.execute(statement)
+        except sqlite3.DatabaseError as error:
+            raise RuleStoreSchemaError("database schema upgrade to version 2 failed") from error
+
+    def finalize_schema_v2(self) -> None:
+        """Mark a fully written migration as v2 immediately before commit."""
+
+        self._require_write_transaction()
+        current = self._connection.execute("PRAGMA user_version").fetchone()[0]
+        if current != LEGACY_SCHEMA_VERSION:
+            raise RuleStoreSchemaError(
+                "schema version 2 finalization requires database schema version "
+                f"{LEGACY_SCHEMA_VERSION}, found {current}"
+            )
+        self._verify_schema_objects(SCHEMA_VERSION)
+        self._connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        self._verify_schema()
+
+    def _verify_schema(self, *, expected_version: int = SCHEMA_VERSION) -> None:
+        if expected_version not in (LEGACY_SCHEMA_VERSION, SCHEMA_VERSION):
+            raise ValueError(f"unsupported schema verification version: {expected_version}")
         current = self._connection.execute("PRAGMA user_version").fetchone()[0]
         if current > SCHEMA_VERSION:
             raise RuleStoreSchemaError(
                 f"database schema version {current} is newer than supported {SCHEMA_VERSION}"
             )
-        if current != SCHEMA_VERSION:
+        if current != expected_version:
             raise RuleStoreSchemaError(f"unexpected database schema version: {current}")
-        if _schema_signature(self._connection) != _expected_schema_signature():
-            raise RuleStoreSchemaError("database schema objects do not match schema version 1")
+        self._verify_schema_objects(expected_version)
+
+    def _verify_schema_objects(self, schema_version: int) -> None:
+        if _schema_signature(self._connection) != _expected_schema_signature(schema_version):
+            raise RuleStoreSchemaError(
+                f"database schema objects do not match schema version {schema_version}"
+            )
         violations = self._connection.execute("PRAGMA foreign_key_check").fetchall()
         if violations:
             raise RuleStoreSchemaError(f"database contains foreign-key violations: {violations}")
@@ -445,6 +609,7 @@ class RuleStore:
         created_at: str,
         activated_by: str,
         activated_at: str,
+        grade_dictionary_fingerprint: str | None = None,
     ) -> int:
         self._require_write_transaction()
         cursor = self._connection.execute(
@@ -453,8 +618,9 @@ class RuleStore:
                 rule_set_id, version_no, based_on_version_id, save_operation_id,
                 request_hash, compiled_rule_set_json, rule_set_fingerprint,
                 virtual_prototypes_json, editor_snapshot_json, remark,
-                created_by, created_at, activated_by, activated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                created_by, created_at, activated_by, activated_at,
+                grade_dictionary_fingerprint
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 rule_set_id,
@@ -471,6 +637,7 @@ class RuleStore:
                 created_at,
                 activated_by,
                 activated_at,
+                grade_dictionary_fingerprint,
             ),
         )
         return cursor.lastrowid
@@ -540,6 +707,97 @@ class RuleStore:
             RuleDefinitionRecord(**(dict(row) | {"enabled": bool(row["enabled"])})) for row in rows
         )
 
+    def create_grade_dictionary_entry(
+        self,
+        rule_set_version_id: int,
+        source_grade: str,
+        normalized_grade: str,
+        soft_hard_class: str,
+        roll_type: str,
+        steel_classes: str,
+        is_if_steel: bool,
+        enabled: bool,
+        source_file: str,
+        source_row_count: int,
+        source_rows: str,
+        remark: str,
+    ) -> None:
+        self._require_write_transaction()
+        self._connection.execute(
+            """
+            INSERT INTO v7_grade_dictionary_entry (
+                rule_set_version_id, source_grade, normalized_grade,
+                soft_hard_class, roll_type, steel_classes, is_if_steel, enabled,
+                source_file, source_row_count, source_rows, remark
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                rule_set_version_id,
+                source_grade,
+                normalized_grade,
+                soft_hard_class,
+                roll_type,
+                steel_classes,
+                is_if_steel,
+                enabled,
+                source_file,
+                source_row_count,
+                source_rows,
+                remark,
+            ),
+        )
+
+    def list_grade_dictionary_entries(
+        self, version_id: int
+    ) -> tuple[GradeDictionaryEntryRecord, ...]:
+        rows = self._connection.execute(
+            """
+            SELECT rule_set_version_id, source_grade, normalized_grade,
+                   soft_hard_class, roll_type, steel_classes, is_if_steel, enabled,
+                   source_file, source_row_count, source_rows, remark
+            FROM v7_grade_dictionary_entry
+            WHERE rule_set_version_id = ?
+            ORDER BY normalized_grade
+            """,
+            (version_id,),
+        ).fetchall()
+        return tuple(
+            GradeDictionaryEntryRecord(
+                **(
+                    dict(row)
+                    | {
+                        "is_if_steel": bool(row["is_if_steel"]),
+                        "enabled": bool(row["enabled"]),
+                    }
+                )
+            )
+            for row in rows
+        )
+
+    def copy_grade_dictionary_entries(
+        self,
+        source_version_id: int,
+        target_version_id: int,
+    ) -> int:
+        self._require_write_transaction()
+        cursor = self._connection.execute(
+            """
+            INSERT INTO v7_grade_dictionary_entry (
+                rule_set_version_id, source_grade, normalized_grade,
+                soft_hard_class, roll_type, steel_classes, is_if_steel, enabled,
+                source_file, source_row_count, source_rows, remark
+            )
+            SELECT ?, source_grade, normalized_grade,
+                   soft_hard_class, roll_type, steel_classes, is_if_steel, enabled,
+                   source_file, source_row_count, source_rows, remark
+            FROM v7_grade_dictionary_entry
+            WHERE rule_set_version_id = ?
+            ORDER BY normalized_grade
+            """,
+            (target_version_id, source_version_id),
+        )
+        return cursor.rowcount
+
     def activate_version(
         self,
         rule_set_id: int,
@@ -562,6 +820,8 @@ class RuleStore:
 
 
 __all__ = [
+    "GradeDictionaryEntryRecord",
+    "LEGACY_SCHEMA_VERSION",
     "RuleDefinitionRecord",
     "RuleSetRecord",
     "RuleSetVersionRecord",
