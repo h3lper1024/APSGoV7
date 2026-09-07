@@ -4,7 +4,7 @@ listen_host: 0.0.0.0
 listen_port: 8001
 monthly_solve:
   seed: 590531
-  total_time_limit_seconds: 180
+  total_time_limit_seconds: 310
   finalization_reserve_seconds: 10
   candidate_check_limit: 200000
   whole_chain_pair_scan_slack_weight: 40

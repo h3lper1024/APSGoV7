@@ -56,8 +56,13 @@ def test_tracked_default_configuration_points_to_the_v7_database():
     assert result.listen_host == "0.0.0.0"
     assert result.listen_port == 8001
     assert result.monthly_solve_policy.seed == 590531
-    assert result.monthly_solve_policy.total_time_limit_seconds == Decimal("180")
+    assert result.monthly_solve_policy.total_time_limit_seconds == Decimal("310")
     assert result.monthly_solve_policy.finalization_reserve_seconds == Decimal("10")
+    assert (
+        result.monthly_solve_policy.total_time_limit_seconds
+        - result.monthly_solve_policy.finalization_reserve_seconds
+        == Decimal("300")
+    )
     assert result.monthly_solve_policy.candidate_check_limit == 200000
     assert result.monthly_solve_policy.construction_order_key == CONSTRUCTION_ORDER_KEY
     assert result.monthly_solve_policy.numeric_semantics_key == NUMERIC_SEMANTICS_KEY

@@ -217,7 +217,7 @@ def verify_csharp(csharp_root: Path) -> None:
     expected_values = {
         "PipelineV7ApiBaseUrl": "http://192.168.4.42:8001",
         "PipelineV7MonthlySolvePath": "/api/v1/scheduling/GQGA4/default/month/solve",
-        "PipelineV7MonthlySolveTimeoutSeconds": "240",
+        "PipelineV7MonthlySolveTimeoutSeconds": "370",
     }
     for key, value in expected_values.items():
         if values.get(key) != value:

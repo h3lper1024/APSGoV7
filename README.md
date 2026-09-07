@@ -23,7 +23,7 @@ listen_host: 0.0.0.0
 listen_port: 8001
 monthly_solve:
   seed: 590531
-  total_time_limit_seconds: 180
+  total_time_limit_seconds: 310
   finalization_reserve_seconds: 10
   candidate_check_limit: 200000
   whole_chain_pair_scan_slack_weight: 40
@@ -34,6 +34,8 @@ monthly_solve:
 解析到仓库根 `data/apsgo_v7_rules.sqlite3`，不受启动命令当前目录变化影响。配置文件缺失、
 不可读、不是 UTF-8、YAML 非法、键重复或任一值非法时，命令在数据库操作或服务器启动前失败。
 V7 不再读取 `APSGO_V7_RULE_DB_PATH`。
+
+当前总时限 310 秒由 **300 秒搜索时间 + 10 秒收尾预留**组成；候选检查上限仍为 200000 次，先到达任一上限即停止搜索。
 
 `listen_host` 允许 `127.0.0.1`（仅本机访问）或 `0.0.0.0`（监听全部 IPv4 网卡）。其他电脑
 访问时，C# 客户端中的 `PipelineV7ApiBaseUrl` 必须填写服务器实际局域网 IP，例如

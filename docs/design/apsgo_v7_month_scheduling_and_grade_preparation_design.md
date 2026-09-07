@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.9 / 2026-09-07 |
+| 版本 / 日期 | v0.10 / 2026-09-07 |
 | 状态 | 阶段 0～7 已实施；阶段 8 的 Python/真实 HTTP 子项已通过，Windows 页面验收与正式数据库迁移待实施 |
 | 用户本轮授权 | 按实施计划持续实施；每阶段独立验证和提交，业务语义需要确认时暂停 |
 | 适用范围 | `GQGA4/default/month`，C# 月计划前端与 V7 独立服务 |
@@ -267,10 +267,10 @@ V3 还填入 `roll_type/is_if_steel`；本期仅保存这些源字段用于追�
 
 YAML 原四项继续保留，已新增 `monthly_solve` 映射，用严格字段校验加载以下生产策略：
 
-| 项 | 初始值 |
+| 项 | 当前值 |
 |---|---:|
 | `seed` | 590531 |
-| `total_time_limit_seconds` | 180 |
+| `total_time_limit_seconds` | 310 |
 | `finalization_reserve_seconds` | 10 |
 | `candidate_check_limit` | 200000 |
 | `whole_chain_pair_scan_slack_weight` | 40 |
@@ -280,13 +280,15 @@ YAML 原四项继续保留，已新增 `monthly_solve` 映射，用严格字段�
 
 加载器要求根级和 `monthly_solve` 六项字段集合精确匹配，拒绝布尔冒充整数/实数、非有限值及非法预算，再由既有 `SolverPolicy` 做统一语义校验。HTTP 层不复制求解策略默认值；直接构造应用但未提供已加载策略时，规则接口可用，求解接口明确返回 `503 monthly_solve_not_configured`。
 
-180 秒是当前公共求解入口预算；新报告另记请求解析、字典绑定、结果编码和总服务耗时，不能把网络等待或准备耗时藏进“求解耗时”。集成验收同时观察外层总耗时是否仍符合既定 180 秒标准，超出应定位准备/传输开销，不自动放宽门槛。客户端建议超时 240 秒以接收最终审计和网络传输，客户端超时不是求解器的新预算。
+当前公共求解入口的总时限为 310 秒，其中搜索阶段最多使用 300 秒，最后 10 秒只供最终审计、结果组装和释放；候选检查达到 200000 次时仍可提前停止。新报告另记请求解析、字典绑定、结果编码和总服务耗时，不能把网络等待或准备耗时藏进“求解耗时”。客户端等待超时为 370 秒，用于覆盖 310 秒后端总时限及 60 秒传输余量，客户端超时不是求解器的新预算。
+
+此前 180 秒完整流程性能门槛和 `run_01`～`run_05` 仍是历史验收口径，不改写旧结果；它们不能证明当前 310 秒运行策略满足原 180 秒门槛。新策略尚未完整复跑，后续验证必须建立新证据，不能覆盖既有产物或据此提前宣称质量改善。
 
 任务内字典只查询一次，不逐订单 SQL。边缓存和候选索引沿用已有 `RuleEdgeDecisionCache`、构造图及其语义声明；分类补齐发生在缓存创建前。规则或字典改变后的新任务从新问题创建缓存，进行中的任务继续使用原快照。无需新增进程全局字典缓存或第二套连接矩阵。
 
 ## 9. C# 专属配置、客户端与回写
 
-新增 `ApsgoV7Configuration`、`ApsgoV7SchedulingApiClient` 和 `ApsgoV7SchedRecordSolveService`。复用现有 V7 规则客户端 `ApsgoV7RuleApiClient`：它与求解客户端统一从配置类读取 `PipelineV7ApiBaseUrl`。建议新增 `PipelineV7MonthlySolvePath`（本文新路由）和 `PipelineV7MonthlySolveTimeoutSeconds`（240）。原 V3 配置键及服务保持原路径，其他产线不随 GQGA4 切换。
+新增 `ApsgoV7Configuration`、`ApsgoV7SchedulingApiClient` 和 `ApsgoV7SchedRecordSolveService`。复用现有 V7 规则客户端 `ApsgoV7RuleApiClient`：它与求解客户端统一从配置类读取 `PipelineV7ApiBaseUrl`。`PipelineV7MonthlySolvePath` 保存本文新路由，`PipelineV7MonthlySolveTimeoutSeconds` 当前为 370。原 V3 配置键及服务保持原路径，其他产线不随 GQGA4 切换。
 
 只在 `SchedApp/Forms/SchedPage/Test/GQGA4/CalcRollPosCommandGQGA4RequestSolution.cs` 中切换求解服务。保持“选中记录定位版本，再求解该 Version/ProductLine/配置规则步骤的全部记录”，不能变成只求解选中的几行。前端继续负责预设大辊号、记录来源保存、结果显示、日期计算与图表；不查询或同步 V7 字典，不计算软硬钢关系。
 
@@ -324,7 +326,7 @@ GQGA4 命令显式设置 `RunInBackground => true`，`ChangesSchedRecords` 在�
 
 ## 11. 决策与后续
 
-本设计采用：独立字典表关联规则版本、显式 SQLite 到 SQLite 的一次性导入、一次性任务绑定、精确匹配、保留单牌号缺失兜底、V7 专属求解路由和 C# 服务、复用现有核心规则与求解器。生产包没有也不保存字典 JSON；运行时只读 V7 数据库。新路由、YAML 配置键和 8 MiB 请求上限已在阶段 5 实现；240 秒客户端超时及 C# 传输客户端已在阶段 6 实现；GQGA4 C# 求解服务、页面命令切换、结果校验和原子回写已在阶段 7 实现。真实 531 单前后端联调和 Windows 门禁留在阶段 8，正式部署数据库迁移留在阶段 9。
+本设计采用：独立字典表关联规则版本、显式 SQLite 到 SQLite 的一次性导入、一次性任务绑定、精确匹配、保留单牌号缺失兜底、V7 专属求解路由和 C# 服务、复用现有核心规则与求解器。生产包没有也不保存字典 JSON；运行时只读 V7 数据库。新路由、YAML 配置键和 8 MiB 请求上限已在阶段 5 实现；C# 传输客户端已在阶段 6 实现，其等待超时现随 300 秒搜索时限调整为 370 秒；GQGA4 C# 求解服务、页面命令切换、结果校验和原子回写已在阶段 7 实现。真实 531 单前后端联调和 Windows 门禁留在阶段 8，正式部署数据库迁移留在阶段 9。
 
 `HC220YD+Z-GL` 暂沿用当前缺失语义，不阻塞实施；其分类补录需要业务依据。首期对正重量已生成虚拟材和重复合同来源明确拒绝；若实际月计划前置步骤必须包含它们，则先记录真实案例并设计来源还原规则，不能静默删除或扩展核心输入材料类型。
 
