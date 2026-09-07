@@ -8,6 +8,7 @@ from pathlib import Path
 from apsgo_scheduler.api.request import (
     OrderInput,
     PeriodInput,
+    QualityCriterionSpec,
     SchedulingRequest,
     fingerprint_public_request,
 )
@@ -21,11 +22,11 @@ from apsgo_scheduler.core.contracts import (
     require_text,
 )
 
+from .gqga4 import GQGA4_RULE_SET_TEMPLATE
 from .grade_dictionary import (
     GradePreparationReport,
     prepare_orders_with_grade_dictionary,
 )
-from .gqga4 import GQGA4_RULE_SET_TEMPLATE
 from .rule_management import get_active_gqga4_scheduling_snapshot
 
 
@@ -62,6 +63,7 @@ class BoundSchedulingTask:
     """A task request paired with the database version that supplied its rules."""
 
     active_rule_set_version_id: int
+    task_input_fingerprint: str
     rule_set_fingerprint: str
     grade_dictionary_fingerprint: str
     preparation_report: GradePreparationReport
@@ -71,6 +73,7 @@ class BoundSchedulingTask:
 
     def __post_init__(self):
         require_int(self.active_rule_set_version_id, "active_rule_set_version_id", minimum=1)
+        require_text(self.task_input_fingerprint, "task_input_fingerprint")
         require_text(self.rule_set_fingerprint, "rule_set_fingerprint")
         require_text(self.grade_dictionary_fingerprint, "grade_dictionary_fingerprint")
         if not isinstance(self.preparation_report, GradePreparationReport):
@@ -94,7 +97,10 @@ class BoundSchedulingTask:
             fingerprint(
                 (
                     ("active_rule_set_version_id", self.active_rule_set_version_id),
+                    ("task_input_fingerprint", self.task_input_fingerprint),
+                    ("rule_set_version", self.request.rule_set_spec.version),
                     ("rule_set_fingerprint", self.rule_set_fingerprint),
+                    ("quality_spec", self.request.rule_set_spec.quality_spec),
                     ("grade_dictionary_fingerprint", self.grade_dictionary_fingerprint),
                     (
                         "grade_preparation_report_fingerprint",
@@ -111,7 +117,10 @@ class BoundSchedulingResult:
     """A solver result with the exact rule-version provenance retained outside the core."""
 
     active_rule_set_version_id: int
+    task_input_fingerprint: str
+    rule_set_version: str
     rule_set_fingerprint: str
+    quality_spec: tuple[QualityCriterionSpec, ...]
     grade_dictionary_fingerprint: str
     preparation_report: GradePreparationReport
     request_fingerprint: str
@@ -121,6 +130,8 @@ class BoundSchedulingResult:
 
     def __post_init__(self):
         require_int(self.active_rule_set_version_id, "active_rule_set_version_id", minimum=1)
+        require_text(self.task_input_fingerprint, "task_input_fingerprint")
+        require_text(self.rule_set_version, "rule_set_version")
         for name in (
             "rule_set_fingerprint",
             "grade_dictionary_fingerprint",
@@ -128,6 +139,11 @@ class BoundSchedulingResult:
             "binding_fingerprint",
         ):
             require_text(getattr(self, name), name)
+        object.__setattr__(
+            self,
+            "quality_spec",
+            freeze_tuple(self.quality_spec, QualityCriterionSpec, "quality_spec"),
+        )
         if not isinstance(self.preparation_report, GradePreparationReport):
             raise ValueError("preparation_report must be GradePreparationReport")
         if (
@@ -140,7 +156,10 @@ class BoundSchedulingResult:
         expected_binding = fingerprint(
             (
                 ("active_rule_set_version_id", self.active_rule_set_version_id),
+                ("task_input_fingerprint", self.task_input_fingerprint),
+                ("rule_set_version", self.rule_set_version),
                 ("rule_set_fingerprint", self.rule_set_fingerprint),
+                ("quality_spec", self.quality_spec),
                 ("grade_dictionary_fingerprint", self.grade_dictionary_fingerprint),
                 (
                     "grade_preparation_report_fingerprint",
@@ -162,7 +181,10 @@ class BoundSchedulingResult:
             fingerprint(
                 (
                     ("active_rule_set_version_id", self.active_rule_set_version_id),
+                    ("task_input_fingerprint", self.task_input_fingerprint),
+                    ("rule_set_version", self.rule_set_version),
                     ("rule_set_fingerprint", self.rule_set_fingerprint),
+                    ("quality_spec", self.quality_spec),
                     ("grade_dictionary_fingerprint", self.grade_dictionary_fingerprint),
                     (
                         "grade_preparation_report_fingerprint",
@@ -219,6 +241,7 @@ def bind_gqga4_scheduling_task(
     )
     return BoundSchedulingTask(
         active_rule_set_version_id=active_rules.active_version_id,
+        task_input_fingerprint=fingerprint(task_input),
         rule_set_fingerprint=active_rules.rule_set_spec.fingerprint,
         grade_dictionary_fingerprint=active.grade_dictionary.dictionary_fingerprint,
         preparation_report=prepared_orders.report,
@@ -243,7 +266,10 @@ def solve_gqga4_scheduling_task(
     result = solve_request(task.request, cancellation)
     return BoundSchedulingResult(
         active_rule_set_version_id=task.active_rule_set_version_id,
+        task_input_fingerprint=task.task_input_fingerprint,
+        rule_set_version=task.request.rule_set_spec.version,
         rule_set_fingerprint=task.rule_set_fingerprint,
+        quality_spec=task.request.rule_set_spec.quality_spec,
         grade_dictionary_fingerprint=task.grade_dictionary_fingerprint,
         preparation_report=task.preparation_report,
         request_fingerprint=task.request_fingerprint,

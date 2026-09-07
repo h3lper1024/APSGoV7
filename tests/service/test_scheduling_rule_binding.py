@@ -11,11 +11,11 @@ from apsgo_scheduler.app import solve_request
 from apsgo_scheduler.core.contracts import SolveStatus, fingerprint
 from apsgo_scheduler.core.model import MaterialRole
 from apsgo_v7_service import scheduling
-from apsgo_v7_service.grade_dictionary import GradePreparationError
 from apsgo_v7_service.gqga4 import (
     GQGA4_INITIAL_RULES,
     GQGA4_INITIAL_VIRTUAL_PROTOTYPES,
 )
+from apsgo_v7_service.grade_dictionary import GradePreparationError
 from apsgo_v7_service.rule_management import (
     RuleManagementServiceError,
     initialize_gqga4_rules,
@@ -122,6 +122,7 @@ def test_binding_constructs_request_from_database_snapshot_and_records_version(t
     task = scheduling.bind_gqga4_scheduling_task(task_input, database_path)
 
     assert task.active_rule_set_version_id == active.active_version_id == 2
+    assert task.task_input_fingerprint == fingerprint(task_input)
     assert task.active_rule_set_version_id != int(task.request.rule_set_spec.version)
     assert task.rule_set_fingerprint == task.request.rule_set_spec.fingerprint
     assert task.grade_dictionary_fingerprint == sample_grade_dictionary().dictionary_fingerprint
@@ -157,7 +158,10 @@ def test_binding_constructs_request_from_database_snapshot_and_records_version(t
     assert task.binding_fingerprint == fingerprint(
         (
             ("active_rule_set_version_id", task.active_rule_set_version_id),
+            ("task_input_fingerprint", task.task_input_fingerprint),
+            ("rule_set_version", task.request.rule_set_spec.version),
             ("rule_set_fingerprint", task.rule_set_fingerprint),
+            ("quality_spec", task.request.rule_set_spec.quality_spec),
             ("grade_dictionary_fingerprint", task.grade_dictionary_fingerprint),
             (
                 "grade_preparation_report_fingerprint",
@@ -292,8 +296,14 @@ def test_running_task_keeps_version_a_while_a_new_task_gets_version_b(tmp_path, 
 
     assert read_count == 2
     assert result_a.active_rule_set_version_id == first.active_version_id
+    assert result_a.task_input_fingerprint == fingerprint(task_input)
+    assert result_a.rule_set_version == first.rule_set_spec.version
+    assert result_a.quality_spec == first.rule_set_spec.quality_spec
     assert result_a.rule_set_fingerprint == first.rule_set_spec.fingerprint
     assert result_b.active_rule_set_version_id == second.active_version_id
+    assert result_b.task_input_fingerprint == fingerprint(task_input)
+    assert result_b.rule_set_version == second.rule_set_spec.version
+    assert result_b.quality_spec == second.rule_set_spec.quality_spec
     assert result_b.rule_set_fingerprint == second.rule_set_spec.fingerprint
     assert result_a.rule_set_fingerprint != result_b.rule_set_fingerprint
     assert result_a.grade_dictionary_fingerprint == result_b.grade_dictionary_fingerprint
@@ -312,6 +322,12 @@ def test_running_task_keeps_version_a_while_a_new_task_gets_version_b(tmp_path, 
         )
     with pytest.raises(ValueError, match="binding identity"):
         replace(result_a, active_rule_set_version_id=result_b.active_rule_set_version_id)
+    with pytest.raises(ValueError, match="binding identity"):
+        replace(result_a, task_input_fingerprint="wrong")
+    with pytest.raises(ValueError, match="binding identity"):
+        replace(result_a, rule_set_version="999")
+    with pytest.raises(ValueError, match="binding identity"):
+        replace(result_a, quality_spec=tuple(reversed(result_a.quality_spec)))
     with pytest.raises(ValueError, match="bound dictionary"):
         replace(result_a, grade_dictionary_fingerprint="wrong")
     different_report = replace(

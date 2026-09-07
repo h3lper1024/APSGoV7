@@ -4,9 +4,9 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.3 / 2026-09-07 |
-| 状态 | 阶段 0～3 已实施；月计划传输、HTTP、C# 和正式数据库迁移待实施 |
-| 用户本轮授权 | 形成设计文档、实施计划，并更新 V7 `AGENTS.md` 入口 |
+| 版本 / 日期 | v0.4 / 2026-09-07 |
+| 状态 | 阶段 0～4 已实施；HTTP、C# 和正式数据库迁移待实施 |
+| 用户本轮授权 | 按实施计划持续实施；每阶段独立验证和提交，业务语义需要确认时暂停 |
 | 适用范围 | `GQGA4/default/month`，C# 月计划前端与 V7 独立服务 |
 | 当前 V7 基线 | `codex/rule-setting-api-integration@072a6d0`，写文档前工作树干净 |
 | 配套计划 | [月计划求解接入与软硬钢数据准备实施计划](../implementation/apsgo_v7_month_scheduling_and_grade_preparation_implementation_plan.md) |
@@ -15,7 +15,7 @@
 
 用户已确认：C# 使用 V7 专属配置、API 客户端和求解服务；保留用户将 V7 地址改为读取 `PipelineV7ApiBaseUrl` 的修改；V3 客户端、服务和其他产线路径继续保留。本文不替代原规则设置接口设计的业务语义，仅扩展其数据库快照和 V7 配置使用方式。旧文档中“V7 使用 `BACKEND_ALGORITHM_URL`”及“服务只有两个规则接口”是本次变更前的事实，目标态以本文为准。
 
-本轮不执行迁移、不修改代码、不重跑排程。后续实施按配套计划逐项验证、逐项创建中文 `#feat` 或 `#fix` 提交。
+阶段 0～4 已按配套计划实现并逐项验证；阶段 4 只完成传输转换，不提前接入 HTTP。后续继续逐项创建中文 `#feat` 或 `#fix` 提交，正式数据库迁移仍留到阶段 9 的明确操作窗口。
 
 ## 2. 已核验的现状
 
@@ -205,6 +205,10 @@ V3 还填入 `roll_type/is_if_steel`；本期仅保存这些源字段用于追�
 
 `node_id`、`source_resource_id` 首期由服务端使用唯一 `source_order_id` 派生为同值，禁止静默合并同合同的多条记录。所有实数字段通过现有精确 JSON 编解码转换为 Decimal；拒绝 NaN、无穷、布尔充当数值和重复 JSON 键。未知字段、非对象订单、重复来源和错误期序均定位返回。请求体上限在新求解入口单独设为 8 MiB，并用实际 531 单请求验证；原规则接口 256 KiB 上限保持。
 
+根对象、计划期对象和订单对象都采用严格字段集合：表中字段必须出现；其中 `grade_class`、`hot_roll_grade`、`width`、`thickness`、温区、客户等级、客户名称、执行标准和表面等级允许值为 null，文本空白统一转为 null。`periods` 与 `orders` 都不能为空，计划期标识和序号分别唯一，序号必须从 0 连续，订单来源期必须存在于计划期目录。服务端按显式序号排列计划期，但保持订单提交的相对顺序。
+
+传输转换分别记录三层身份：`raw_request_fingerprint` 对已完成精确 JSON 解析的外部语义对象取指纹，包含 `expected_active_version_id`；`typed_request_fingerprint` 对字典补齐前、已映射且含求解策略的 `SchedulingTaskInput` 取指纹；`request_fingerprint` 继续表示规则、字典和原型绑定后交给核心的完整请求。三者用途不同，不能互相替代。
+
 交货日期、前端指定开始日期 `CalcDay`、连镀用时不进入本轮请求，继续用于既有结果后处理，不新增交期评分。完整原订单属性保留于 C# 来源记录，真实结果按来源克隆，避免为传输引入第二份全量业务实体。
 
 ### 7.3 返回字段
@@ -214,21 +218,30 @@ V3 还填入 `roll_type/is_if_steel`；本期仅保存这些源字段用于追�
 | `contract_version`、`request_id` | 与本次请求对应 |
 | `status`、`stop_reason`、`publishable` | 原样表达 V7 求解状态、停止原因；可发布需要双审计通过且有 release |
 | `active_rule_set_version_id`、`rule_set_version` | 数据库版本 ID 与业务版本号分别返回，不能混用 |
-| `rule_set_fingerprint`、`grade_dictionary_fingerprint`、`request_fingerprint`、`binding_fingerprint`、`result_fingerprint`、`bound_result_fingerprint` | 规则、字典、请求、绑定、核心公开结果及外层绑定结果身份 |
+| `rule_set_fingerprint`、`grade_dictionary_fingerprint` | 本次冻结的规则和软硬钢字典身份 |
+| `raw_request_fingerprint`、`typed_request_fingerprint`、`request_fingerprint` | 外部语义请求、字典补齐前服务输入、绑定后核心请求三层身份 |
+| `binding_fingerprint`、`result_fingerprint`、`bound_result_fingerprint` | 活动快照绑定、核心公开结果及外层绑定结果身份 |
 | `preparation_report` | 命中、未命中及来源诊断 |
 | `quality`、`metrics`、`issues`、`audit_summary`、`run_manifest` | 评分名称与值、规则/资源统计、诊断、双审计和运行计数 |
 | `violations` | 从 `release.evaluation.violations` 原序输出的权威规则违规；`issues` 是流程诊断，不能代替它 |
 | `rows` | 仅发布结果才有的完整有序节点数组；不截断，不用服务端 CSV 路径替代 |
 
-每个结果行包括 `node_id`、`source_order_id`（生成型虚拟材可空）、`source_period`、`assigned_period`、`chain_id`、`chain_sequence`（该期内从 1 开始）、`node_sequence`（链内从 1 开始）、`weight`、宽厚温区、`grade`、`hot_roll_grade`、`soft_hard_class`、`material_role`、`virtual_prototype_id`、必要拆单谱系和该节点诊断。数组顺序与 release 发布顺序一致；`chain_sequence` 依该顺序派生，HTTP 和 C# 都不二次按链号字符串重排。
+每个结果行固定包含：
 
-协议细节：`material_role` 仅为现有 `normal_real`、`actual_transition`、`virtual_sphc`；真实行的来源字段必填，虚拟行的来源字段为 null。`split_lineage`、`virtual_lineage` 按 [现有核心模型](../../src/apsgo_scheduler/core/model.py) 的全部字段原名输出为对象或 null，枚举用字符串值，不丢掉授权指纹、分片序号/数量和虚拟用途。`quality` 为按正式优先级排列的 `{criterion_id, metric_key, value}` 数组，`metrics` 为指标名到值的对象；`issues` 复用诊断字段，`audit_summary` 分别记录核心审计、结果审计状态及 passed，不能只用一个 HTTP 成功标记代替。
+- 身份与顺序：`node_id`、`source_order_id`、`source_resource_id`、`source_period`、`assigned_period`、`chain_id`、`chain_sequence`、`node_sequence`；
+- 工艺与分类：`weight`、`width`、`thickness`、`min_temperature`、`max_temperature`、`grade`、`grade_class`、`hot_roll_grade`、`soft_hard_class`、`material_role`；
+- 来源谱系：`split_lineage`、`virtual_lineage`；
+- 展示告警：`width_warning`、`thickness_warning`、`temperature_warning`、`chain_warning`。
+
+数组顺序与 release 发布顺序一致；`chain_sequence` 在各自 `assigned_period` 内从 1 开始，`node_sequence` 在链内从 1 开始，HTTP 和 C# 都不二次按链号字符串重排。虚拟原型标识已经完整包含在 `virtual_lineage.prototype_id`，不再增加重复的顶层 `virtual_prototype_id`。
+
+协议细节：`material_role` 仅为现有 `normal_real`、`actual_transition`、`virtual_sphc`；真实行保留来源字段，虚拟行的 `source_order_id`、`source_resource_id`、`source_period` 全部为 null。`split_lineage`、`virtual_lineage` 按 [现有核心模型](../../src/apsgo_scheduler/core/model.py) 的全部字段原名输出为对象或 null，枚举用字符串值，不丢掉授权指纹、分片序号/数量和虚拟用途。`quality` 为按正式优先级排列的 `{criterion_id, metric_key, value}` 数组，`metrics` 为指标名到值的对象；`issues` 复用诊断字段，`audit_summary` 分别记录核心审计、结果审计状态及 passed，不能只用一个 HTTP 成功标记代替。
 
 每条 `violations` 保留 `rule_id/scope/subject_id/reason_code/message/disposition/severity` 全部字段。节点、边、链、方案级主体不相互替换；逐行展示只能引用或投影已有违规，不能用逐行提示重算违规数量。无 release 时 `violations` 为空，诊断方案如需附带评价须单独标识为不可发布诊断，不能混入发布违规。允许欠重的链级记录须完整保留，C# 不依据重量阈值重新生成它。
 
-行级告警投影增加可空的 `width_warning/thickness_warning/temperature_warning`，从上述权威违规生成，不重新执行规则；链级允许欠重可在该链首行提供明确标注链主体的 `chain_warning`。其他方案级/准备阶段提示保留在整单响应，不伪造成每个节点违规。投影测试以权威违规主体和已发布链映射为依据，不能靠截取 `subject_id` 猜订单。
+行级告警投影增加可空的 `width_warning/thickness_warning/temperature_warning`，从上述权威违规生成，不重新执行规则；链级允许欠重在该链首行提供明确标注链主体的 `chain_warning`。其他方案级/准备阶段提示保留在整单响应，不伪造成每个节点违规。投影测试以权威违规主体和已发布链映射为依据，不能靠截取 `subject_id` 猜订单。当前正式 release 只可能无违规或包含允许的欠重违规，因此宽度、厚度和温度告警仅在纯转换测试覆盖其定位契约；禁止违规不能包装进可发布结果。
 
-`success` 和 `publishable_with_allowed_deviation` 且双审计通过、有 release 时允许回写；后者展示允许偏差。当前允许偏差只有链重低于下限，GQGA4 冻结基准验收仍要求零欠重。`complete_not_publishable`、`no_complete_plan`、`cancelled`、`failed` 不生成可回写 rows；诊断候选只作报告，不能包装为成功方案。预算用尽不等于失败，是否发布取决于现有审计结果。
+`success` 和 `publishable_with_allowed_deviation` 且双审计通过、有 release 时允许回写；后者展示允许偏差。当前允许偏差只有链重低于下限，GQGA4 冻结基准验收仍要求零欠重。`complete_not_publishable`、`no_complete_plan`、`cancelled`、`failed` 不生成可回写 rows；诊断候选只作报告，不能包装为成功方案。预算用尽不等于失败，是否发布取决于现有审计结果。核心模型不允许空链或空计划；请求中的某个计划期没有产出时不生成占位行，也不占用该期链序。
 
 ### 7.4 失败响应
 
@@ -244,7 +257,9 @@ V3 还填入 `roll_type/is_if_steel`；本期仅保存这些源字段用于追�
 
 单个牌号未命中写入准备报告，不返回 503；该场景依已有缺失分类策略求解。
 
-启用规则要求的字段由已有标准化器判断；若公共求解入口返回 `failed/input_invalid`，HTTP 统一映射为 422，并保留其输入诊断、任务身份和空 rows。其他正常返回的求解状态按 200 表达，未捕获异常按 500 处理；不能在适配层复制一套规则必填字段校验。
+协议错误使用固定 `error` 对象，包含 `code`、`message`、`request_id`、`expected_active_version_id`、`current_active_version_id` 和 `issues`；无法从请求安全取得的身份字段为 null。`issues` 保持既有 `code/phase/field_path/subject_id/message/severity` 定位结构。
+
+启用规则要求的字段由已有标准化器判断；若公共求解入口返回 `status=failed` 且 `stop_reason=input_invalid`，HTTP 统一映射为 422，并保留其输入诊断、任务身份和空 rows。其他正常返回的求解状态按 200 表达，未捕获异常按 500 处理；不能在适配层复制一套规则必填字段校验。
 
 ## 8. 求解预算、配置与缓存
 
