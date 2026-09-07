@@ -81,7 +81,7 @@ def _baseline_prototypes() -> tuple[VirtualPrototypeInput, ...]:
             min_temperature=None,
             max_temperature=None,
             grade=item["display_hot_rolled_grade"],
-            rule_attributes={},
+            rule_attributes={"hot_roll_grade": item["display_hot_rolled_grade"]},
         )
         for item in source["virtual_catalog"]["prototypes"]
     )
@@ -118,9 +118,13 @@ LEGAL_RULE_EDITS = (
 
 def test_production_seed_matches_the_frozen_formal_rule_and_prototype_baselines():
     assert GQGA4_RULE_SET_TEMPLATE == _read_baseline_spec()
+    assert all(
+        prototype.rule_attributes["hot_roll_grade"] == "SPHC"
+        for prototype in GQGA4_INITIAL_VIRTUAL_PROTOTYPES
+    )
     assert GQGA4_INITIAL_VIRTUAL_PROTOTYPES == _baseline_prototypes()
     assert fingerprint(GQGA4_INITIAL_VIRTUAL_PROTOTYPES) == (
-        "33cea496fa6909ec53e6048f142776eba25d2bdca19fee9b565f775b64df965c"
+        "8d1b635f5a5bceaae5477d125d8b5304ef7de1015062eefeafa1c8499256a26e"
     )
     source = Path(__file__).resolve().parents[2] / "src/apsgo_v7_service/gqga4.py"
     assert "tests/" not in source.read_text(encoding="utf-8")

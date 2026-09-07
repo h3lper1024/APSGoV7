@@ -341,7 +341,7 @@ GQGA4_INITIAL_VIRTUAL_PROTOTYPES = tuple(
         min_temperature=None,
         max_temperature=None,
         grade="SPHC",
-        rule_attributes={},
+        rule_attributes={"hot_roll_grade": "SPHC"},
     )
     for width in ("1000", "1250", "1500")
     for thickness in ("0.4", "0.5", "0.6", "0.8", "1", "1.2", "1.5", "2", "2.5")

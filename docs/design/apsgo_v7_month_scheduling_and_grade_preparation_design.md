@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.7 / 2026-09-07 |
-| 状态 | 阶段 0～7 已实施；真实数据完整联调和正式数据库迁移待实施 |
+| 版本 / 日期 | v0.8 / 2026-09-07 |
+| 状态 | 阶段 0～7 已实施；阶段 8 已修复拆单边界及虚拟原型热轧牌号，真实 HTTP 复测中；正式数据库迁移待实施 |
 | 用户本轮授权 | 按实施计划持续实施；每阶段独立验证和提交，业务语义需要确认时暂停 |
 | 适用范围 | `GQGA4/default/month`，C# 月计划前端与 V7 独立服务 |
 | 专项初始基线 | `codex/rule-setting-api-integration@072a6d0`，写文档前工作树干净 |
@@ -15,7 +15,7 @@
 
 用户已确认：C# 使用 V7 专属配置、API 客户端和求解服务；保留用户将 V7 地址改为读取 `PipelineV7ApiBaseUrl` 的修改；V3 客户端、服务和其他产线路径继续保留。本文不替代原规则设置接口设计的业务语义，仅扩展其数据库快照和 V7 配置使用方式。旧文档中“V7 使用 `BACKEND_ALGORITHM_URL`”及“服务只有两个规则接口”是本次变更前的事实，目标态以本文为准。
 
-阶段 0～7 已按配套计划实现并逐项验证；月计划传输已接入现有 FastAPI 宿主及 YAML 策略，C# 已建立 V7 专属配置、求解客户端、GQGA4 求解服务与原子回写。下一项是阶段 8 的真实数据和前后端联调，正式数据库迁移仍留到阶段 9 的明确操作窗口。
+阶段 0～7 已按配套计划实现并逐项验证；月计划传输已接入现有 FastAPI 宿主及 YAML 策略，C# 已建立 V7 专属配置、求解客户端、GQGA4 求解服务与原子回写。阶段 8 的第三轮真实求解已经得到零违规、双审计通过的可发布方案，同时暴露出旧活动原型没有输出 C# 必需的热轧牌号；当前按原型源头修复并复测。正式数据库迁移仍留到阶段 9 的明确操作窗口。
 
 当前生产包事实：`src/apsgo_v7_service` 中不存在牌号字典 JSON 或字典数据目录，`pyproject.toml` 也未注册这类包数据。230 条 GQGA4 字典只能通过显式 SQLite 到 SQLite 的初始化/迁移流程进入 V7 数据库；服务运行时只读所绑定规则版本的数据库快照，不从包内文件或 V3 路径加载字典。
 
@@ -154,9 +154,9 @@ schema v1 旧版本永久保留空字典身份，不回填历史行。显式迁�
 | 字典整份缺失、为空或损坏 | 返回配置错误，求解不开始；不同于单个牌号未命中 |
 | 空牌号 / 非文本牌号 | 输入错误，不进入字典匹配 |
 
-普通真实材和真实过渡材都补齐分类。真实过渡材由原始客户等级、热轧牌号、执行标准按已有 GQGA4 三条件判定，与软硬分类分开。虚拟原型来自绑定的规则版本，不按订单字典二次分类；生成型虚拟材依现有虚拟角色参与规则。拆单片段继承父订单已经冻结的属性，不重新查字典。
+普通真实材和真实过渡材都补齐分类。真实过渡材由原始客户等级、热轧牌号、执行标准按已有 GQGA4 三条件判定，与软硬分类分开。虚拟原型来自绑定的规则版本，不按订单字典二次分类；GQGA4 每个虚拟原型必须显式携带 `rule_attributes.hot_roll_grade=SPHC`，物化后原样进入结果。拆单片段继承父订单已经冻结的属性，不重新查字典。
 
-三条件精确定义：客户等级去空白后不等于 `战略客户`、热轧牌号去空白转大写后等于 `SPHC`、执行标准去空白后等于 `Q/TB 305-2017`，须同时满足；客户等级空值按既有判定视为空文本，其他条件仍须满足。其余订单为普通真实材。实际过渡材当前不可受控拆单；生成型虚拟材包括拆单分隔材，只继承原型属性，不继承相邻真实单的软硬分类。
+三条件精确定义：客户等级去空白后不等于 `战略客户`、热轧牌号去空白转大写后等于 `SPHC`、执行标准去空白后等于 `Q/TB 305-2017`，须同时满足；客户等级空值按既有判定视为空文本，其他条件仍须满足。其余订单为普通真实材。实际过渡材当前不可受控拆单；生成型虚拟材包括拆单分隔材，只继承原型属性，不继承相邻真实单的软硬分类，因此其 `soft_hard_class` 保持 null，而 `hot_roll_grade` 固定来自原型的 `SPHC`。这不是把虚拟材送入订单牌号字典。
 
 V3 还填入 `roll_type/is_if_steel`；本期仅保存这些源字段用于追溯，不据此改变 V7 材料角色、钢种大类、窄钢判定或连接顺序。`steel_classes` 也不覆盖原订单的 `grade_class`。
 
@@ -237,7 +237,7 @@ V3 还填入 `roll_type/is_if_steel`；本期仅保存这些源字段用于追�
 
 数组顺序与 release 发布顺序一致；`chain_sequence` 在各自 `assigned_period` 内从 1 开始，`node_sequence` 在链内从 1 开始，HTTP 和 C# 都不二次按链号字符串重排。虚拟原型标识已经完整包含在 `virtual_lineage.prototype_id`，不再增加重复的顶层 `virtual_prototype_id`。
 
-协议细节：`material_role` 仅为现有 `normal_real`、`actual_transition`、`virtual_sphc`；真实行保留来源字段，虚拟行的 `source_order_id`、`source_resource_id`、`source_period` 全部为 null。`split_lineage`、`virtual_lineage` 按 [现有核心模型](../../src/apsgo_scheduler/core/model.py) 的全部字段原名输出为对象或 null，枚举用字符串值，不丢掉授权指纹、分片序号/数量和虚拟用途。`quality` 为按正式优先级排列的 `{criterion_id, metric_key, value}` 数组，`metrics` 为指标名到值的对象；`issues` 复用诊断字段，`audit_summary` 分别记录核心审计、结果审计状态及 passed，不能只用一个 HTTP 成功标记代替。
+协议细节：`material_role` 仅为现有 `normal_real`、`actual_transition`、`virtual_sphc`；真实行保留来源字段，虚拟行的 `source_order_id`、`source_resource_id`、`source_period` 全部为 null，`soft_hard_class` 为 null，`hot_roll_grade` 必须为原型提供的 `SPHC`。`split_lineage`、`virtual_lineage` 按 [现有核心模型](../../src/apsgo_scheduler/core/model.py) 的全部字段原名输出为对象或 null，枚举用字符串值，不丢掉授权指纹、分片序号/数量和虚拟用途。`quality` 为按正式优先级排列的 `{criterion_id, metric_key, value}` 数组，`metrics` 为指标名到值的对象；`issues` 复用诊断字段，`audit_summary` 分别记录核心审计、结果审计状态及 passed，不能只用一个 HTTP 成功标记代替。
 
 每条 `violations` 保留 `rule_id/scope/subject_id/reason_code/message/disposition/severity` 全部字段。节点、边、链、方案级主体不相互替换；逐行展示只能引用或投影已有违规，不能用逐行提示重算违规数量。无 release 时 `violations` 为空，诊断方案如需附带评价须单独标识为不可发布诊断，不能混入发布违规。允许欠重的链级记录须完整保留，C# 不依据重量阈值重新生成它。
 

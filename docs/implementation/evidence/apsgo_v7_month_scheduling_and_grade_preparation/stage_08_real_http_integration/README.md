@@ -1,4 +1,4 @@
-# 阶段 8：真实 HTTP 复测与拆单边界重建
+# 阶段 8：真实 HTTP 复测、拆单边界重建与虚拟原型补正
 
 ## 范围
 
@@ -7,6 +7,7 @@
 - 使用 C# 业务库版本 `20260805100613` 的 GQGA4 531 条原始订单、V3 GQGA4 230 条软硬钢字典、V7 正式规则库的临时副本，以及正式 200000 次候选检查和 180 秒核心预算。
 - 正式 V7 库只复制到临时目录并在副本中迁移；C#、V7、V3 三个源数据库及边车文件验证前后不变。
 - 本项不执行 Windows 构建、Designer、页面点击或真实回写，不迁移正式 V7 数据库。
+- 拆单边界重建已由 `ab31244 #fix 重建受控拆单后的原链边界` 提交；后续原型补正使用独立提交。
 
 ## 首轮真实请求
 
@@ -69,6 +70,35 @@ virtual-000008 → virtual-000009 → 0002002073-000010
 
 该修复仍使用现有虚拟材原型、连接缓存、规则、评分、预算和接受条件，没有新建第二套桥接算法。
 
+## 第三轮真实请求与新发现
+
+边界重建提交后，`run_03` 使用同一 531 条 C# 原始订单、同一软硬钢字典、种子和正式预算再次通过真实 HTTP 求解。请求 SHA-256 仍为 `fe652234a1299b480f1d7862b88afb82f646f11fe6d69260119020c9ae6386f6`，响应 SHA-256 为 `e7deb2ea0ad11da4d571f4f35289b872356d0661abc514b3ed96ddefb24e0c46`。
+
+求解器本身已产生可发布结果：
+
+| 指标 | 实际值 |
+|---|---:|
+| 状态 / 可发布 | `success` / `true` |
+| 结果行 / 真实行 / 虚拟行 | 561 / 533 / 28 |
+| 禁止违规 / 欠重链 / 问题诊断 | 0 / 0 / 0 |
+| 候选检查 / 完整候选评价 / 接受动作 | 139177 / 3516 / 52 |
+| 同计划期拆单 / 未来借入归还拆单 | 1 / 1 |
+| 初始链 / 最终链 | 31 / 23 |
+| 七级质量 | `(0, 0, 0, 0, 11746, 560, 23)` |
+| 核心求解 | 170.204668 秒；`search_time_limit_reached` |
+| 审计 | 核心审计、结果审计及来源重量守恒均通过 |
+
+外层验收仍以退出码 1 结束：28 个生成型虚拟行的 `hot_roll_grade` 均为 null。C# 回写契约要求该字段非空并写入 `HMGrade`；V3 与参考 `solver.py` 也都把生成型虚拟材热轧牌号设为 `SPHC`。因此不能删除验收字段检查。
+
+根因是旧 GQGA4 虚拟原型虽然 `grade=SPHC`，但 `rule_attributes` 为空；结果转换按模型原样读取 `rule_attributes.hot_roll_grade`，没有数据可输出。正确语义为：
+
+- GQGA4 虚拟原型显式携带 `hot_roll_grade=SPHC`；
+- 生成型虚拟材不查订单牌号字典，`soft_hard_class` 继续为 null；
+- Python 新库种子和 C# 新增/重新启用规格使用相同属性；
+- 已有数据库通过向前新版本补属性，不改历史版本，不在响应层兜底。
+
+曾为验证假设临时放宽验收脚本并启动 `run_04`，在确认 C# 与参考实现均要求热轧牌号后立即中断；该目录只保留规范请求，未生成响应，不作为求解结果。
+
 ## 当前验证
 
 ```bash
@@ -94,13 +124,29 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
 
 结果：`3298 passed in 181.71s`。
 
+原型补正后的相关 Python 测试：
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src \
+  /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
+  -m pytest -p no:cacheprovider \
+  tests/app/test_rule_set_compiler.py \
+  tests/service/test_rule_initialization.py \
+  tests/service/test_rule_management_service.py \
+  tests/service/test_gqga4_grade_dictionary_migration.py \
+  tests/service/test_month_scheduling.py \
+  tests/service/test_month_scheduling_http.py
+```
+
+结果：`146 passed in 4.92s`。随后运行 `tests/architecture tests/api tests/app tests/core tests/service`，共享树结果为 `3298 passed in 175.41s`。精确暂存树 `7cad4f87708b82318c27ef778b2c7814b9f366b2` 的首轮干净导出通过残留门禁，同范围为 `3298 passed in 178.16s`，`compileall` 和 wheel 构建通过。C# 阶段 9 页面加载与阶段 10 保存静态检查通过；新增或重新启用的虚拟规格已固定携带 `hot_roll_grade=SPHC`，提交 `5c3bff8 #fix 补齐虚拟原型热轧牌号`。原阶段 8 规则客户端检查仍包含已被用户确认替换的旧地址提示断言，因此未把该项失败误算为本次原型回归。
+
 首轮精确暂存树的全新干净导出先通过残留门禁，再执行同一累计范围，结果为 `3298 passed in 177.90s`。随后在该导出中完成 `compileall`，并使用同一 Conda 环境已有的 `pip wheel --no-deps --no-build-isolation` 成功构建 wheel；最终暂存树按相同范围复验后提交。此处不沿用第一版拒绝式保护的 3297 项结果。
 
 共享工作树的旧 V6 残留清单仍因已不存在的 `.claude`、旧 `dist` 和 `apsgo.egg-info` 报告失败；未重建或提交这些残留。正式提交以精确暂存树的干净导出检查和同范围回归为准。
 
 ## 待完成
 
-1. 完成最终暂存树复验并独立提交边界重建修复。
-2. 使用同一数据来源、订单顺序、规则、种子和预算生成独立 `run_03`，不得覆盖 `run_01` 或 `run_02`。
-3. 验证零禁止违规、零欠重、来源覆盖与重量守恒、拆单谱系、双审计、响应行和源数据库不变。
+1. 完成虚拟原型补正的累计回归、干净导出复验并独立提交。
+2. 使用同一数据来源、订单相对顺序、规则、种子和预算生成独立 `run_05`，不得覆盖 `run_01`～`run_04`。临时库字典迁移后复用既有保存并启用事务，只给当前原型合并 `hot_roll_grade=SPHC`。
+3. 验证零禁止违规、零欠重、来源覆盖与重量守恒、拆单谱系、双审计、每个虚拟行热轧牌号、响应行和源数据库不变。
 4. Python/HTTP 子项通过后，阶段 8 仍需 Windows Debug/Release、Designer、真实页面和失败回滚验证；未执行前不得把整个阶段标记完成。

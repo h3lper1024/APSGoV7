@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 from collections import Counter, defaultdict
+from dataclasses import replace
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -27,6 +28,10 @@ if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
 
 from apsgo_scheduler.api.json_codec import dumps_exact_json  # noqa: E402
+from apsgo_scheduler.api.rule_management import (  # noqa: E402
+    EditableRuleInput,
+    SetActiveRulesRequest,
+)
 from apsgo_scheduler.core.contracts import SolverPolicy  # noqa: E402
 from apsgo_v7_service.migrate_gqga4_grade_dictionary import (  # noqa: E402
     migrate_gqga4_grade_dictionary,
@@ -35,11 +40,13 @@ from apsgo_v7_service.month_scheduling import (  # noqa: E402
     MONTH_SOLVE_CONTRACT_VERSION,
     loads_month_solve_request,
 )
+from apsgo_v7_service.rule_management import set_active_gqga4_rules  # noqa: E402
 
 
 GET_ACTIVE_RULES_PATH = "/api/v1/rule-sets/GQGA4/default/month/getActiveRules"
 MONTH_SOLVE_PATH = "/api/v1/scheduling/GQGA4/default/month/solve"
 MIGRATION_OPERATION_ID = "00000000-0000-4000-8000-000000000808"
+PROTOTYPE_REPAIR_OPERATION_ID = "00000000-0000-4000-8000-000000000809"
 DEFAULT_REQUEST_ID = "00000000-0000-4000-8000-000000000531"
 VALID_ROLES = frozenset(("normal_real", "actual_transition", "virtual_sphc"))
 TRUE_VIRTUAL_VALUES = frozenset(("是", "1", "TRUE", "T", "虚拟"))
@@ -608,8 +615,16 @@ def validate_rows(
                 require(isinstance(lineage.get(name), str) and lineage[name], f"{node_id}: {name} is blank")
             if lineage["purpose"] != "split_separator":
                 require(lineage.get("related_partition_id") is None, f"{node_id}: non-separator refers to a partition")
-            for name in ("width", "thickness", "min_temperature", "max_temperature", "hot_roll_grade"):
+            # The prototype supplies the hot-roll grade; soft/hard classification stays null.
+            for name in (
+                "width",
+                "thickness",
+                "min_temperature",
+                "max_temperature",
+                "hot_roll_grade",
+            ):
                 require(row.get(name) is not None, f"{node_id}: virtual prototype field {name} is missing")
+            require(row["hot_roll_grade"] == "SPHC", f"{node_id}: virtual hot-roll grade changed")
             continue
 
         source_id = row.get("source_order_id")
@@ -753,6 +768,35 @@ def run_acceptance(arguments) -> dict[str, object]:
         require(saved.saved_version_is_active, "temporary migrated version is not active")
         require(saved.previous_active_version_id == 1, "temporary migration did not start from version 1")
         require(len(migration.source.snapshot.entries) == 230, "temporary migration did not import 230 dictionary rows")
+        repaired_prototypes = tuple(
+            replace(
+                prototype,
+                rule_attributes={
+                    **prototype.rule_attributes,
+                    "hot_roll_grade": "SPHC",
+                },
+            )
+            for prototype in saved.active_rules.virtual_prototypes
+        )
+        repaired = set_active_gqga4_rules(
+            SetActiveRulesRequest(
+                save_operation_id=PROTOTYPE_REPAIR_OPERATION_ID,
+                expected_active_version_id=saved.active_rules.active_version_id,
+                rules=tuple(
+                    EditableRuleInput(rule.rule_id, rule.enabled, rule.parameters)
+                    for rule in saved.active_rules.rule_set_spec.rules
+                ),
+                virtual_prototypes=repaired_prototypes,
+                remark=saved.active_rules.remark,
+            ),
+            temporary_database,
+            audit_actor="v7-stage08-acceptance",
+        )
+        require(repaired.saved_version_is_active, "temporary prototype repair is not active")
+        require(
+            repaired.previous_active_version_id == saved.active_rules.active_version_id,
+            "temporary prototype repair did not follow the dictionary migration",
+        )
         with sqlite3.connect(temporary_database) as connection:
             require(connection.execute("PRAGMA user_version").fetchone() == (2,), "temporary migration did not produce schema v2")
             require(connection.execute("PRAGMA integrity_check").fetchone() == ("ok",), "temporary migrated database is corrupt")
@@ -783,12 +827,19 @@ def run_acceptance(arguments) -> dict[str, object]:
             )
             try:
                 active = wait_for_server(process, base_url, service_log)
-                require(active.get("active_version_id") == saved.active_rules.active_version_id, "HTTP active version differs from migration")
-                require(active.get("fingerprint") == saved.active_rules.rule_set_spec.fingerprint, "HTTP rule fingerprint differs from migration")
+                require(active.get("active_version_id") == repaired.active_rules.active_version_id, "HTTP active version differs from prototype repair")
+                require(active.get("fingerprint") == repaired.active_rules.rule_set_spec.fingerprint, "HTTP rule fingerprint differs from prototype repair")
                 require(len(active.get("rules", [])) == 17, "active rule count changed")
                 require(sum(rule.get("enabled") is True for rule in active["rules"]) == 16, "enabled rule count changed")
                 require(len(active.get("quality_spec", [])) == 7, "quality criterion count changed")
                 require(len(active.get("virtual_prototypes", [])) == 27, "virtual prototype count changed")
+                require(
+                    all(
+                        prototype.get("rule_attributes", {}).get("hot_roll_grade") == "SPHC"
+                        for prototype in active["virtual_prototypes"]
+                    ),
+                    "active virtual prototype hot-roll grade changed",
+                )
 
                 request_data = {
                     "contract_version": MONTH_SOLVE_CONTRACT_VERSION,

@@ -209,7 +209,7 @@ def verify(client_root: Path) -> dict[str, object]:
             'Grade = "SPHC"',
             "MinTemperature = null",
             "MaxTemperature = null",
-            "RuleAttributes = new JObject()",
+            '["hot_roll_grade"] = "SPHC"',
         ),
         "new virtual prototypes must use the confirmed canonical defaults",
     )
