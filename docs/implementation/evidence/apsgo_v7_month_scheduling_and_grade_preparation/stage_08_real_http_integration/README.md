@@ -13,6 +13,8 @@
 
 `run_real_http_acceptance.py` 通过动态回环端口启动真实 Uvicorn，先在临时 V7 副本完成 schema v1→v2 和字典导入，再调用正式月计划 GET/POST 路由。请求构造只读取 C# 原始列，不从测试夹具预填 `soft_hard_class`。
 
+后续复测可通过 `--service-config config/apsgo_v7_service.yaml` 直接读取当前运行策略；该参数覆盖历史 JSON 策略输入，HTTP 等待时间按“配置总时限 + 60 秒”计算。未传该参数时仍使用原冻结 JSON，`run_01`～`run_05` 产物及其 180 秒口径保持不变。
+
 `run_01` 的请求 SHA-256 为 `fe652234a1299b480f1d7862b88afb82f646f11fe6d69260119020c9ae6386f6`，响应 SHA-256 为 `2bd58da9fe610728b72828e3f536999c34efee8279ae29260346200cacaa458e`。数据准备为 531 条输入、529 条命中字典、2 条 `HC220YD+Z-GL` 未命中，与冻结事实一致。
 
 搜索自然结束而非预算截断，但结果为 `complete_not_publishable`：

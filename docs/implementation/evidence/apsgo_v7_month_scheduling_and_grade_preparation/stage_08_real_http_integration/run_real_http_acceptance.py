@@ -33,6 +33,7 @@ from apsgo_scheduler.api.rule_management import (  # noqa: E402
     SetActiveRulesRequest,
 )
 from apsgo_scheduler.core.contracts import SolverPolicy  # noqa: E402
+from apsgo_v7_service.configuration import load_service_configuration  # noqa: E402
 from apsgo_v7_service.migrate_gqga4_grade_dictionary import (  # noqa: E402
     migrate_gqga4_grade_dictionary,
 )
@@ -291,6 +292,27 @@ def load_policy(path: Path) -> tuple[dict, SolverPolicy]:
         maximum_virtual_bridge_nodes=data["maximum_virtual_bridge_nodes"],
     )
     return data, policy
+
+
+def policy_data(policy: SolverPolicy) -> dict[str, object]:
+    return {
+        "seed": policy.seed,
+        "total_time_limit_seconds": policy.total_time_limit_seconds,
+        "finalization_reserve_seconds": policy.finalization_reserve_seconds,
+        "candidate_check_limit": policy.candidate_check_limit,
+        "construction_order_key": policy.construction_order_key,
+        "numeric_semantics_key": policy.numeric_semantics_key,
+        "whole_chain_pair_scan_slack_weight": policy.whole_chain_pair_scan_slack_weight,
+        "maximum_virtual_bridge_nodes": policy.maximum_virtual_bridge_nodes,
+    }
+
+
+def load_requested_policy(arguments) -> tuple[Path, dict, SolverPolicy]:
+    if arguments.service_config is None:
+        data, policy = load_policy(arguments.solver_policy)
+        return arguments.solver_policy, data, policy
+    policy = load_service_configuration(arguments.service_config).monthly_solve_policy
+    return arguments.service_config, policy_data(policy), policy
 
 
 def backup_database(source_path: Path, target_path: Path) -> None:
@@ -733,11 +755,13 @@ def run_acceptance(arguments) -> dict[str, object]:
         arguments.csharp_version,
     )
     frozen_comparison = compare_frozen_input(orders, arguments.frozen_input)
-    policy_data, policy = load_policy(arguments.solver_policy)
+    policy_source, policy_values, policy = load_requested_policy(arguments)
+    search_time_limit_seconds = (
+        policy.total_time_limit_seconds - policy.finalization_reserve_seconds
+    )
     quality_gate = read_json(arguments.quality_gate)
     require(isinstance(quality_gate, dict), "quality gate must be a JSON object")
     require(policy.candidate_check_limit == 200000, "stage 8 requires the frozen 200000 candidate limit")
-    require(policy.total_time_limit_seconds == Decimal("180"), "stage 8 requires the frozen 180-second solver budget")
     require([period["period_id"] for period in periods] == [
         "BR_00000001",
         "BR_00000002",
@@ -802,7 +826,7 @@ def run_acceptance(arguments) -> dict[str, object]:
             require(connection.execute("PRAGMA integrity_check").fetchone() == ("ok",), "temporary migrated database is corrupt")
 
         port = free_loopback_port()
-        write_service_configuration(service_configuration, temporary_database, port, policy_data)
+        write_service_configuration(service_configuration, temporary_database, port, policy_values)
         environment = os.environ.copy()
         environment.update(
             {
@@ -858,7 +882,7 @@ def run_acceptance(arguments) -> dict[str, object]:
                     "POST",
                     MONTH_SOLVE_PATH,
                     payload=request_payload,
-                    timeout=240,
+                    timeout=float(policy.total_time_limit_seconds) + 60,
                 )
                 solve_elapsed = time.monotonic() - solve_started
             finally:
@@ -923,7 +947,12 @@ def run_acceptance(arguments) -> dict[str, object]:
         "source_database_states_after": states_after,
         "source_databases_unchanged": True,
         "frozen_input": {"path": str(arguments.frozen_input), "sha256": sha256(arguments.frozen_input), **frozen_comparison},
-        "solver_policy": {"path": str(arguments.solver_policy), "sha256": sha256(arguments.solver_policy), **policy_data},
+        "solver_policy": {
+            "path": str(policy_source),
+            "sha256": sha256(policy_source),
+            "search_time_limit_seconds": search_time_limit_seconds,
+            **policy_values,
+        },
         "quality_gate": {"path": str(arguments.quality_gate), "sha256": sha256(arguments.quality_gate)},
         "temporary_migration": {
             "previous_active_version_id": saved.previous_active_version_id,
@@ -942,7 +971,9 @@ def run_acceptance(arguments) -> dict[str, object]:
             "response_bytes": len(response_payload),
             "response_sha256": hashlib.sha256(response_payload).hexdigest(),
             "solve_elapsed_seconds": Decimal(f"{solve_elapsed:.6f}"),
-            "single_sample_within_180_seconds": solve_elapsed <= 180,
+            "single_sample_within_configured_total_time": (
+                solve_elapsed <= float(policy.total_time_limit_seconds)
+            ),
         },
         "preparation_report": preparation,
         "identity_and_quality": identity_quality,
@@ -966,6 +997,11 @@ def parse_arguments(argv=None):
         "--solver-policy",
         type=existing_file,
         default=ROOT / "tests/baselines/gqga4/gqga4_solver_policy.json",
+    )
+    parser.add_argument(
+        "--service-config",
+        type=existing_file,
+        help="Read the solve policy from the tracked V7 service YAML; overrides --solver-policy.",
     )
     parser.add_argument(
         "--quality-gate",
