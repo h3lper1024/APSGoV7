@@ -125,6 +125,45 @@ virtual-000008 → virtual-000009 → 0002002073-000010
 
 这是一轮真实 HTTP 功能验收和一个性能单样本，不替代既定的 20 对性能样本，也不替代 Windows 页面与真实回写验收。
 
+## 第六轮 300 秒搜索预算复测
+
+搜索预算补正提交 `d98ff45 #fix 将V7搜索时限提高至300秒` 后，验收工具提交 `b902f0d #fix 支持按当前服务预算执行真实复测` 改为直接读取受跟踪 YAML，并按配置总时限派生 HTTP 等待时间。`run_06` 继续使用正式 V7 数据库的临时副本完成字典迁移和原型补正，没有修改三个源数据库或 `run_01`～`run_05`。
+
+执行命令：
+
+```bash
+caffeinate -dimsu /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
+  docs/implementation/evidence/apsgo_v7_month_scheduling_and_grade_preparation/stage_08_real_http_integration/run_real_http_acceptance.py \
+  --csharp-database /Users/miles/dev/dev-cs/aps-code-0806/SchedApp/Data/SchedDatas.db \
+  --csharp-version 20260805100613 \
+  --v7-rule-database /Users/miles/dev/dev-py/APSGOV7/data/apsgo_v7_rules.sqlite3 \
+  --v3-rule-database /Users/miles/dev/dev-py/apsgo-v3/data/aps_rule_dsl.sqlite3 \
+  --frozen-input /Users/miles/dev/dev-py/APSGOV7/tests/baselines/gqga4/inputs/input_orders.csv \
+  --service-config /Users/miles/dev/dev-py/APSGOV7/config/apsgo_v7_service.yaml \
+  --quality-gate /Users/miles/dev/dev-py/APSGOV7/tests/baselines/gqga4/quality_gate.json \
+  --request-id 00000000-0000-4000-8000-000000000606 \
+  --output-dir /Users/miles/dev/dev-py/APSGOV7/docs/implementation/evidence/apsgo_v7_month_scheduling_and_grade_preparation/stage_08_real_http_integration/run_06
+```
+
+结果：
+
+| 指标 | `run_05` | `run_06` |
+|---|---:|---:|
+| 搜索时限 / 总时限 | 170 / 180 秒 | 300 / 310 秒 |
+| 停止原因 | 搜索时间达到上限 | 候选检查达到上限 |
+| HTTP 求解耗时 | 170.840363 秒 | 222.596230 秒 |
+| 候选检查 | 140529 | 200000 |
+| 链间宽差 | 11741 | 11726 |
+| 虚拟材重量 / 数量 | 640 吨 / 32 | 660 吨 / 33 |
+| 非空链数 | 23 | 23 |
+| 同计划期 / 未来借入归还拆单 | 1 / 1 | 1 / 1 |
+| 禁止违规 / 欠重链 | 0 / 0 | 0 / 0 |
+| 双审计与来源守恒 | 通过 | 通过 |
+
+`run_06` 的七级质量为 `(0,0,0,0,11726,660,23)`。第五级链间宽差比 `run_05` 减少 15，第六级虚拟材重量增加 20 吨；由于质量按既定顺序逐级比较，宽差先于虚拟材重量，因此新结果整体更优。搜索在 222.596230 秒先达到 200000 次候选检查上限，没有用满 300 秒；若保持 20 万次上限，继续增加时间不会让本数据集执行更多候选。
+
+另对默认服务执行了真实重启：进程成功监听 `0.0.0.0:8001`，但规则 GET 返回 HTTP 500，根因是正式 `data/apsgo_v7_rules.sqlite3` 仍为 schema v1，而当前服务要求 schema v2。该实例已正常关闭；正式库没有迁移或写入，须在阶段 9 明确备份位置和服务窗口后才能恢复普通服务健康。
+
 ## 当前验证
 
 ```bash
@@ -172,6 +211,5 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src \
 
 ## 待完成
 
-1. 将 `run_05` 四份产物、当前文档和状态独立提交；不覆盖 `run_01`～`run_04`。
-2. 阶段 8 的 Python/真实 HTTP 子项已通过；仍需 Windows Debug/Release、Designer、真实页面和失败回滚验证，未执行前不得把整个阶段标记完成。
-3. 阶段 9 迁移正式目标库前，必须确认服务停机/切换窗口和备份位置；不能把本轮临时副本操作视为正式迁移授权。
+1. 阶段 8 的 Python/真实 HTTP 子项及 300 秒策略单次复测已通过；仍需 Windows Debug/Release、Designer、真实页面和失败回滚验证，未执行前不得把整个阶段标记完成。
+2. 阶段 9 迁移正式目标库前，必须确认服务停机/切换窗口和备份位置；不能把本轮临时副本操作视为正式迁移授权。
