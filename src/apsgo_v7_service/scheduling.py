@@ -21,8 +21,12 @@ from apsgo_scheduler.core.contracts import (
     require_text,
 )
 
+from .grade_dictionary import (
+    GradePreparationReport,
+    prepare_orders_with_grade_dictionary,
+)
 from .gqga4 import GQGA4_RULE_SET_TEMPLATE
-from .rule_management import get_active_gqga4_rules
+from .rule_management import get_active_gqga4_scheduling_snapshot
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +63,8 @@ class BoundSchedulingTask:
 
     active_rule_set_version_id: int
     rule_set_fingerprint: str
+    grade_dictionary_fingerprint: str
+    preparation_report: GradePreparationReport
     request: SchedulingRequest
     request_fingerprint: str = field(init=False)
     binding_fingerprint: str = field(init=False)
@@ -66,8 +72,18 @@ class BoundSchedulingTask:
     def __post_init__(self):
         require_int(self.active_rule_set_version_id, "active_rule_set_version_id", minimum=1)
         require_text(self.rule_set_fingerprint, "rule_set_fingerprint")
+        require_text(self.grade_dictionary_fingerprint, "grade_dictionary_fingerprint")
+        if not isinstance(self.preparation_report, GradePreparationReport):
+            raise ValueError("preparation_report must be GradePreparationReport")
+        if (
+            self.preparation_report.grade_dictionary_fingerprint
+            != self.grade_dictionary_fingerprint
+        ):
+            raise ValueError("grade preparation report does not match the bound dictionary")
         if not isinstance(self.request, SchedulingRequest):
             raise ValueError("request must be SchedulingRequest")
+        if self.preparation_report.input_order_count != len(self.request.orders):
+            raise ValueError("grade preparation report does not match the bound orders")
         if self.request.rule_set_spec.fingerprint != self.rule_set_fingerprint:
             raise ValueError("bound task rule fingerprint does not match its request")
         request_fingerprint = fingerprint_public_request(self.request)
@@ -79,6 +95,11 @@ class BoundSchedulingTask:
                 (
                     ("active_rule_set_version_id", self.active_rule_set_version_id),
                     ("rule_set_fingerprint", self.rule_set_fingerprint),
+                    ("grade_dictionary_fingerprint", self.grade_dictionary_fingerprint),
+                    (
+                        "grade_preparation_report_fingerprint",
+                        self.preparation_report.report_fingerprint,
+                    ),
                     ("request_fingerprint", request_fingerprint),
                 )
             ),
@@ -91,6 +112,8 @@ class BoundSchedulingResult:
 
     active_rule_set_version_id: int
     rule_set_fingerprint: str
+    grade_dictionary_fingerprint: str
+    preparation_report: GradePreparationReport
     request_fingerprint: str
     binding_fingerprint: str
     result: SchedulingResult
@@ -98,14 +121,31 @@ class BoundSchedulingResult:
 
     def __post_init__(self):
         require_int(self.active_rule_set_version_id, "active_rule_set_version_id", minimum=1)
-        for name in ("rule_set_fingerprint", "request_fingerprint", "binding_fingerprint"):
+        for name in (
+            "rule_set_fingerprint",
+            "grade_dictionary_fingerprint",
+            "request_fingerprint",
+            "binding_fingerprint",
+        ):
             require_text(getattr(self, name), name)
+        if not isinstance(self.preparation_report, GradePreparationReport):
+            raise ValueError("preparation_report must be GradePreparationReport")
+        if (
+            self.preparation_report.grade_dictionary_fingerprint
+            != self.grade_dictionary_fingerprint
+        ):
+            raise ValueError("grade preparation report does not match the bound dictionary")
         if not isinstance(self.result, SchedulingResult):
             raise ValueError("result must be SchedulingResult")
         expected_binding = fingerprint(
             (
                 ("active_rule_set_version_id", self.active_rule_set_version_id),
                 ("rule_set_fingerprint", self.rule_set_fingerprint),
+                ("grade_dictionary_fingerprint", self.grade_dictionary_fingerprint),
+                (
+                    "grade_preparation_report_fingerprint",
+                    self.preparation_report.report_fingerprint,
+                ),
                 ("request_fingerprint", self.request_fingerprint),
             )
         )
@@ -123,6 +163,11 @@ class BoundSchedulingResult:
                 (
                     ("active_rule_set_version_id", self.active_rule_set_version_id),
                     ("rule_set_fingerprint", self.rule_set_fingerprint),
+                    ("grade_dictionary_fingerprint", self.grade_dictionary_fingerprint),
+                    (
+                        "grade_preparation_report_fingerprint",
+                        self.preparation_report.report_fingerprint,
+                    ),
                     ("request_fingerprint", self.request_fingerprint),
                     ("binding_fingerprint", self.binding_fingerprint),
                     ("result_fingerprint", self.result.result_fingerprint),
@@ -151,22 +196,32 @@ def bind_gqga4_scheduling_task(
     if identity != expected:
         raise ValueError("task_input must target the GQGA4/default/month rule set")
 
-    active = get_active_gqga4_rules(database_path, timeout_seconds=timeout_seconds)
+    active = get_active_gqga4_scheduling_snapshot(
+        database_path,
+        timeout_seconds=timeout_seconds,
+    )
+    prepared_orders = prepare_orders_with_grade_dictionary(
+        task_input.orders,
+        active.grade_dictionary,
+    )
+    active_rules = active.active_rules
     bound_request = SchedulingRequest(
         contract_version=task_input.contract_version,
         request_id=task_input.request_id,
         product_line_code=task_input.product_line_code,
         process_code=task_input.process_code,
         scenario=task_input.scenario,
-        orders=task_input.orders,
+        orders=prepared_orders.orders,
         periods=task_input.periods,
-        rule_set_spec=active.rule_set_spec,
-        virtual_prototypes=active.virtual_prototypes,
+        rule_set_spec=active_rules.rule_set_spec,
+        virtual_prototypes=active_rules.virtual_prototypes,
         policy=task_input.policy,
     )
     return BoundSchedulingTask(
-        active_rule_set_version_id=active.active_version_id,
-        rule_set_fingerprint=active.rule_set_spec.fingerprint,
+        active_rule_set_version_id=active_rules.active_version_id,
+        rule_set_fingerprint=active_rules.rule_set_spec.fingerprint,
+        grade_dictionary_fingerprint=active.grade_dictionary.dictionary_fingerprint,
+        preparation_report=prepared_orders.report,
         request=bound_request,
     )
 
@@ -189,6 +244,8 @@ def solve_gqga4_scheduling_task(
     return BoundSchedulingResult(
         active_rule_set_version_id=task.active_rule_set_version_id,
         rule_set_fingerprint=task.rule_set_fingerprint,
+        grade_dictionary_fingerprint=task.grade_dictionary_fingerprint,
+        preparation_report=task.preparation_report,
         request_fingerprint=task.request_fingerprint,
         binding_fingerprint=task.binding_fingerprint,
         result=result,

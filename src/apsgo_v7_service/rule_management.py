@@ -47,6 +47,25 @@ class RuleInitializationResult:
     grade_dictionary_entry_count: int
 
 
+@dataclass(frozen=True, slots=True)
+class ActiveGqga4SchedulingSnapshot:
+    """Rules, virtual prototypes and grade dictionary from one active version."""
+
+    active_rules: ActiveRulesResponse
+    grade_dictionary: GradeDictionarySnapshot
+
+    def __post_init__(self):
+        if not isinstance(self.active_rules, ActiveRulesResponse):
+            raise ValueError("active_rules must be ActiveRulesResponse")
+        if not isinstance(self.grade_dictionary, GradeDictionarySnapshot):
+            raise ValueError("grade_dictionary must be GradeDictionarySnapshot")
+        if (
+            self.grade_dictionary.product_line_code
+            != self.active_rules.rule_set_spec.product_line_code
+        ):
+            raise ValueError("grade dictionary does not belong to the active rule set")
+
+
 class RuleManagementServiceError(RuntimeError):
     """A stable service-layer failure for later HTTP status mapping."""
 
@@ -361,14 +380,40 @@ def _read_rules_version(
     )
 
 
-def _read_active_rules(store: RuleStore, rule_set: RuleSetRecord) -> ActiveRulesResponse:
+def _read_active_scheduling_snapshot(
+    store: RuleStore,
+    rule_set: RuleSetRecord,
+) -> ActiveGqga4SchedulingSnapshot:
     if rule_set.active_version_id is None:
         raise RuleManagementServiceError(
             "rule_set_not_initialized", "GQGA4 月计划规则尚无启用版本。"
         )
-    response = _read_rules_version(store, rule_set, rule_set.active_version_id)
-    _read_grade_dictionary_snapshot(store, rule_set, rule_set.active_version_id)
-    return response
+    return ActiveGqga4SchedulingSnapshot(
+        active_rules=_read_rules_version(store, rule_set, rule_set.active_version_id),
+        grade_dictionary=_read_grade_dictionary_snapshot(
+            store,
+            rule_set,
+            rule_set.active_version_id,
+        ),
+    )
+
+
+def _read_active_rules(store: RuleStore, rule_set: RuleSetRecord) -> ActiveRulesResponse:
+    return _read_active_scheduling_snapshot(store, rule_set).active_rules
+
+
+def get_active_gqga4_scheduling_snapshot(
+    database_path: str | Path,
+    *,
+    timeout_seconds: float = 5.0,
+) -> ActiveGqga4SchedulingSnapshot:
+    """Read the complete active scheduling snapshot in one database transaction."""
+
+    with RuleStore.open(database_path, timeout_seconds=timeout_seconds) as store:
+        with store.transaction():
+            snapshot = _read_active_scheduling_snapshot(store, _find_rule_set(store))
+            dumps_active_rules_response(snapshot.active_rules)
+            return snapshot
 
 
 def get_active_gqga4_rules(
@@ -376,11 +421,10 @@ def get_active_gqga4_rules(
 ) -> ActiveRulesResponse:
     """Read one fully verified active GQGA4 monthly rule snapshot."""
 
-    with RuleStore.open(database_path, timeout_seconds=timeout_seconds) as store:
-        with store.transaction():
-            response = _read_active_rules(store, _find_rule_set(store))
-            dumps_active_rules_response(response)
-            return response
+    return get_active_gqga4_scheduling_snapshot(
+        database_path,
+        timeout_seconds=timeout_seconds,
+    ).active_rules
 
 
 def initialize_gqga4_rules(
@@ -614,12 +658,14 @@ def set_active_gqga4_rules(
 
 
 __all__ = [
+    "ActiveGqga4SchedulingSnapshot",
     "DEFAULT_AUDIT_ACTOR",
     "INITIALIZATION_OPERATION_ID",
     "MIGRATION_AUDIT_ACTOR",
     "RuleInitializationResult",
     "RuleManagementServiceError",
     "get_active_gqga4_rules",
+    "get_active_gqga4_scheduling_snapshot",
     "initialize_gqga4_rules",
     "set_active_gqga4_rules",
 ]

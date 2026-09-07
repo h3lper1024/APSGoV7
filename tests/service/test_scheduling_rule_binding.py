@@ -8,9 +8,10 @@ import pytest
 from apsgo_scheduler.api.request import PeriodInput
 from apsgo_scheduler.api.rule_management import SetActiveRulesRequest
 from apsgo_scheduler.app import solve_request
-from apsgo_scheduler.core.contracts import SolveStatus
+from apsgo_scheduler.core.contracts import SolveStatus, fingerprint
 from apsgo_scheduler.core.model import MaterialRole
 from apsgo_v7_service import scheduling
+from apsgo_v7_service.grade_dictionary import GradePreparationError
 from apsgo_v7_service.gqga4 import (
     GQGA4_INITIAL_RULES,
     GQGA4_INITIAL_VIRTUAL_PROTOTYPES,
@@ -30,7 +31,7 @@ def _base_task_input():
         "surface_grade": None,
         "grade_class": "普通钢",
         "hot_roll_grade": "DC01",
-        "soft_hard_class": "soft",
+        "soft_hard_class": None,
         "customer_name": None,
     }
     orders = (
@@ -123,10 +124,26 @@ def test_binding_constructs_request_from_database_snapshot_and_records_version(t
     assert task.active_rule_set_version_id == active.active_version_id == 2
     assert task.active_rule_set_version_id != int(task.request.rule_set_spec.version)
     assert task.rule_set_fingerprint == task.request.rule_set_spec.fingerprint
+    assert task.grade_dictionary_fingerprint == sample_grade_dictionary().dictionary_fingerprint
     assert task.request.rule_set_spec == active.rule_set_spec
     assert task.request.virtual_prototypes == active.virtual_prototypes
+    assert task.preparation_report.input_order_count == 2
+    assert task.preparation_report.matched_order_count == 2
+    assert task.preparation_report.missing_order_count == 0
+    assert task.preparation_report.missing_grades == ()
+    assert task.preparation_report.grade_dictionary_fingerprint == (
+        task.grade_dictionary_fingerprint
+    )
     assert task.request_fingerprint != "" and task.binding_fingerprint != ""
-    assert task.request.orders == task_input.orders
+    assert task.request.orders != task_input.orders
+    assert all(
+        order.rule_attributes["soft_hard_class"] == "软钢"
+        for order in task.request.orders
+    )
+    assert all(
+        order.rule_attributes["soft_hard_class"] is None
+        for order in task_input.orders
+    )
     assert task.request.periods == task_input.periods
     assert task.request.policy == task_input.policy
     assert not hasattr(task_input, "rule_set_spec")
@@ -135,6 +152,20 @@ def test_binding_constructs_request_from_database_snapshot_and_records_version(t
         task.active_rule_set_version_id = 9
     with pytest.raises(ValueError, match="does not match"):
         replace(task, rule_set_fingerprint="wrong")
+    with pytest.raises(ValueError, match="does not match the bound dictionary"):
+        replace(task, grade_dictionary_fingerprint="wrong")
+    assert task.binding_fingerprint == fingerprint(
+        (
+            ("active_rule_set_version_id", task.active_rule_set_version_id),
+            ("rule_set_fingerprint", task.rule_set_fingerprint),
+            ("grade_dictionary_fingerprint", task.grade_dictionary_fingerprint),
+            (
+                "grade_preparation_report_fingerprint",
+                task.preparation_report.report_fingerprint,
+            ),
+            ("request_fingerprint", task.request_fingerprint),
+        )
+    )
 
 
 def test_wrong_identity_fails_before_reading_the_rule_store(tmp_path, monkeypatch):
@@ -145,7 +176,11 @@ def test_wrong_identity_fails_before_reading_the_rule_store(tmp_path, monkeypatc
         calls.append((args, kwargs))
         raise AssertionError("rule store must not be read")
 
-    monkeypatch.setattr(scheduling, "get_active_gqga4_rules", unexpected_read)
+    monkeypatch.setattr(
+        scheduling,
+        "get_active_gqga4_scheduling_snapshot",
+        unexpected_read,
+    )
     with pytest.raises(ValueError, match="GQGA4/default/month"):
         scheduling.bind_gqga4_scheduling_task(task_input, tmp_path / "must-not-be-read.sqlite3")
     assert calls == []
@@ -161,7 +196,11 @@ def test_binding_failure_does_not_fall_back_or_start_the_solver(tmp_path, monkey
             "活动规则版本损坏。",
         )
 
-    monkeypatch.setattr(scheduling, "get_active_gqga4_rules", failed_read)
+    monkeypatch.setattr(
+        scheduling,
+        "get_active_gqga4_scheduling_snapshot",
+        failed_read,
+    )
     monkeypatch.setattr(scheduling, "solve_request", lambda *args: solve_calls.append(args))
 
     with pytest.raises(RuleManagementServiceError) as caught:
@@ -190,6 +229,12 @@ def test_bound_request_solves_after_all_rule_store_access_is_disabled(tmp_path, 
     assert result.core_audit.passed and result.audit_report.passed
     assert result.run_manifest.request_fingerprint == task.request_fingerprint
     assert result.run_manifest.rule_set_fingerprint == task.rule_set_fingerprint
+    assert all(
+        node.rule_attributes["soft_hard_class"] == "软钢"
+        for chain in result.release.plan.chains
+        for node in chain.nodes
+        if node.material_role is not MaterialRole.GENERATED_VIRTUAL
+    )
 
 
 def test_running_task_keeps_version_a_while_a_new_task_gets_version_b(tmp_path, monkeypatch):
@@ -202,7 +247,7 @@ def test_running_task_keeps_version_a_while_a_new_task_gets_version_b(tmp_path, 
     release_solver = Event()
     captured_requests = []
     read_count = 0
-    original_read = scheduling.get_active_gqga4_rules
+    original_read = scheduling.get_active_gqga4_scheduling_snapshot
     original_solve = scheduling.solve_request
 
     def counted_read(*args, **kwargs):
@@ -216,7 +261,11 @@ def test_running_task_keeps_version_a_while_a_new_task_gets_version_b(tmp_path, 
         assert release_solver.wait(10)
         return original_solve(bound_request, cancellation)
 
-    monkeypatch.setattr(scheduling, "get_active_gqga4_rules", counted_read)
+    monkeypatch.setattr(
+        scheduling,
+        "get_active_gqga4_scheduling_snapshot",
+        counted_read,
+    )
     monkeypatch.setattr(scheduling, "solve_request", paused_solve)
 
     with ThreadPoolExecutor(max_workers=1) as pool:
@@ -247,6 +296,9 @@ def test_running_task_keeps_version_a_while_a_new_task_gets_version_b(tmp_path, 
     assert result_b.active_rule_set_version_id == second.active_version_id
     assert result_b.rule_set_fingerprint == second.rule_set_spec.fingerprint
     assert result_a.rule_set_fingerprint != result_b.rule_set_fingerprint
+    assert result_a.grade_dictionary_fingerprint == result_b.grade_dictionary_fingerprint
+    assert result_a.preparation_report.matched_order_count == 2
+    assert result_b.preparation_report.matched_order_count == 2
     assert captured_requests[0].rule_set_spec == first.rule_set_spec
     assert captured_requests[1].rule_set_spec == second.rule_set_spec
     for result in (result_a, result_b):
@@ -254,5 +306,79 @@ def test_running_task_keeps_version_a_while_a_new_task_gets_version_b(tmp_path, 
         assert result.result.run_manifest.rule_set_fingerprint == result.rule_set_fingerprint
         assert result.result.run_manifest.request_fingerprint == result.request_fingerprint
         assert result.bound_result_fingerprint != ""
+        assert all(
+            order.rule_attributes["soft_hard_class"] == "软钢"
+            for order in captured_requests.pop(0).orders
+        )
     with pytest.raises(ValueError, match="binding identity"):
         replace(result_a, active_rule_set_version_id=result_b.active_rule_set_version_id)
+    with pytest.raises(ValueError, match="bound dictionary"):
+        replace(result_a, grade_dictionary_fingerprint="wrong")
+    different_report = replace(
+        result_a.preparation_report,
+        input_order_count=3,
+        matched_order_count=3,
+    )
+    with pytest.raises(ValueError, match="binding identity"):
+        replace(result_a, preparation_report=different_report)
+
+
+def test_missing_grade_is_reported_but_can_still_use_the_existing_rule_fallback(tmp_path):
+    database_path = tmp_path / "rules.sqlite3"
+    initialize_gqga4_rules(
+        database_path,
+        initial_grade_dictionary=sample_grade_dictionary(),
+    )
+    original = _base_task_input()
+    missing_orders = tuple(replace(order, grade="UNKNOWN") for order in original.orders)
+    task_input = replace(original, orders=missing_orders)
+
+    result = scheduling.solve_gqga4_scheduling_task(task_input, database_path)
+
+    assert result.preparation_report.matched_order_count == 0
+    assert result.preparation_report.missing_order_count == 2
+    assert tuple(
+        item.source_order_id for item in result.preparation_report.missing_grades
+    ) == tuple(sorted(order.source_order_id for order in missing_orders))
+    assert result.result.status is SolveStatus.SUCCESS
+    assert result.result.core_audit.passed and result.result.audit_report.passed
+
+
+def test_existing_matching_classification_passes_and_conflict_stops_before_solver(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "rules.sqlite3"
+    initialize_gqga4_rules(
+        database_path,
+        initial_grade_dictionary=sample_grade_dictionary(),
+    )
+    original = _base_task_input()
+
+    def with_classification(value):
+        return replace(
+            original,
+            orders=tuple(
+                replace(
+                    order,
+                    rule_attributes={**order.rule_attributes, "soft_hard_class": value},
+                )
+                for order in original.orders
+            ),
+        )
+
+    matching = scheduling.bind_gqga4_scheduling_task(
+        with_classification("软钢"),
+        database_path,
+    )
+    assert matching.preparation_report.matched_order_count == 2
+
+    solve_calls = []
+    monkeypatch.setattr(scheduling, "solve_request", lambda *args: solve_calls.append(args))
+    with pytest.raises(GradePreparationError) as caught:
+        scheduling.solve_gqga4_scheduling_task(
+            with_classification("硬钢"),
+            database_path,
+        )
+    assert {issue.code for issue in caught.value.issues} == {"soft_hard_class_conflict"}
+    assert solve_calls == []
