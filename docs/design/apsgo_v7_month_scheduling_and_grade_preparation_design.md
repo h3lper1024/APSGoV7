@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.5 / 2026-09-07 |
-| 状态 | 阶段 0～5 已实施；C#、真实数据完整联调和正式数据库迁移待实施 |
+| 版本 / 日期 | v0.6 / 2026-09-07 |
+| 状态 | 阶段 0～6 已实施；C# 求解服务/回写、真实数据完整联调和正式数据库迁移待实施 |
 | 用户本轮授权 | 按实施计划持续实施；每阶段独立验证和提交，业务语义需要确认时暂停 |
 | 适用范围 | `GQGA4/default/month`，C# 月计划前端与 V7 独立服务 |
 | 专项初始基线 | `codex/rule-setting-api-integration@072a6d0`，写文档前工作树干净 |
@@ -15,7 +15,7 @@
 
 用户已确认：C# 使用 V7 专属配置、API 客户端和求解服务；保留用户将 V7 地址改为读取 `PipelineV7ApiBaseUrl` 的修改；V3 客户端、服务和其他产线路径继续保留。本文不替代原规则设置接口设计的业务语义，仅扩展其数据库快照和 V7 配置使用方式。旧文档中“V7 使用 `BACKEND_ALGORITHM_URL`”及“服务只有两个规则接口”是本次变更前的事实，目标态以本文为准。
 
-阶段 0～5 已按配套计划实现并逐项验证；月计划传输已接入现有 FastAPI 宿主及 YAML 策略。后续继续逐项创建中文 `#feat` 或 `#fix` 提交，正式数据库迁移仍留到阶段 9 的明确操作窗口。
+阶段 0～6 已按配套计划实现并逐项验证；月计划传输已接入现有 FastAPI 宿主及 YAML 策略，C# 已建立 V7 专属配置和求解客户端。后续继续逐项创建中文 `#feat` 或 `#fix` 提交，正式数据库迁移仍留到阶段 9 的明确操作窗口。
 
 ## 2. 已核验的现状
 
@@ -30,7 +30,7 @@
 | V7 绑定 | `bind_gqga4_scheduling_task()` 在同一事务读取并核验活动规则、字典和原型，再补齐订单分类 | [scheduling.py](../../src/apsgo_v7_service/scheduling.py) |
 | V7 输入 | 通用标准化器消费已补齐的 `rule_attributes.soft_hard_class`；数据库派生限定在 V7 服务绑定层 | [input_normalizer.py](../../src/apsgo_scheduler/app/input_normalizer.py)、[grade_dictionary.py](../../src/apsgo_v7_service/grade_dictionary.py) |
 | V7 规则 / 缓存 | 已消费软硬分类；边语义声明包含分类、热轧牌号及材料角色 | [concrete.py](../../src/apsgo_scheduler/core/rules/concrete.py)、[compatibility.py](../../src/apsgo_scheduler/core/compatibility.py) |
-| V7 HTTP | 同一宿主现提供两个规则设置接口和一个月计划求解接口；C# 接入与正式部署尚未完成 | [app.py](../../src/apsgo_v7_service/app.py) |
+| V7 HTTP | 同一宿主现提供两个规则设置接口和一个月计划求解接口；C# 传输客户端已建立，求解服务、页面回写与正式部署尚未完成 | [app.py](../../src/apsgo_v7_service/app.py) |
 | 旧完整测试 | 从冻结 `optimization_problem.json` 预填软硬分类，不是原始订单在线拼接 | [输入夹具](../../tests/app/test_input_normalizer.py) |
 
 外部 V3 证据根目录为 `/Users/miles/dev/dev-py/apsgo-v3`，核验提交 `e5bdcdfd3dd1ed880037d28159bfe8b6bef5d15f`。默认源库为该目录下 `data/aps_rule_dsl.sqlite3`，本轮只读核验 SHA-256 为 `2c4e44c4b4c2060cb54890217ea7097164b4c88e25a452796a931883df4cce7e`。这说明当前本地证据，不代表其他部署环境使用同一数据库。
@@ -322,7 +322,7 @@ GQGA4 命令显式设置 `RunInBackground => true`，`ChangesSchedRecords` 在�
 
 ## 11. 决策与后续
 
-本设计采用：独立字典表关联规则版本、显式 SQLite 到 SQLite 的一次性导入、一次性任务绑定、精确匹配、保留单牌号缺失兜底、V7 专属求解路由和 C# 服务、复用现有核心规则与求解器。生产包不保存字典 JSON；运行时只读 V7 数据库。新路由、YAML 配置键和 8 MiB 请求上限已在阶段 5 实现；240 秒客户端超时、C# 接入和正式部署仍待后续阶段完成。
+本设计采用：独立字典表关联规则版本、显式 SQLite 到 SQLite 的一次性导入、一次性任务绑定、精确匹配、保留单牌号缺失兜底、V7 专属求解路由和 C# 服务、复用现有核心规则与求解器。生产包不保存字典 JSON；运行时只读 V7 数据库。新路由、YAML 配置键和 8 MiB 请求上限已在阶段 5 实现；240 秒客户端超时及 C# 传输客户端已在阶段 6 实现，C# 求解服务、页面回写和正式部署仍待后续阶段完成。
 
 `HC220YD+Z-GL` 暂沿用当前缺失语义，不阻塞实施；其分类补录需要业务依据。首期对正重量已生成虚拟材和重复合同来源明确拒绝；若实际月计划前置步骤必须包含它们，则先记录真实案例并设计来源还原规则，不能静默删除或扩展核心输入材料类型。
 
