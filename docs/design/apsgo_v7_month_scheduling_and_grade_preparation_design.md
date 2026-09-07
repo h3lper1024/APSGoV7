@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.11 / 2026-09-07 |
-| 状态 | 阶段 0～7 已实施；阶段 8 的 Python/真实 HTTP 子项已通过，Windows 页面验收与正式数据库迁移待实施 |
+| 版本 / 日期 | v0.12 / 2026-09-07 |
+| 状态 | 阶段 0～7 已实施；阶段 8 的 Python/真实 HTTP 子项已通过；阶段 9 正式数据库迁移和服务冒烟已完成；Windows 页面验收待实施 |
 | 用户本轮授权 | 按实施计划持续实施；每阶段独立验证和提交，业务语义需要确认时暂停 |
 | 适用范围 | `GQGA4/default/month`，C# 月计划前端与 V7 独立服务 |
 | 专项初始基线 | `codex/rule-setting-api-integration@072a6d0`，写文档前工作树干净 |
@@ -15,7 +15,7 @@
 
 用户已确认：C# 使用 V7 专属配置、API 客户端和求解服务；保留用户将 V7 地址改为读取 `PipelineV7ApiBaseUrl` 的修改；V3 客户端、服务和其他产线路径继续保留。本文不替代原规则设置接口设计的业务语义，仅扩展其数据库快照和 V7 配置使用方式。旧文档中“V7 使用 `BACKEND_ALGORITHM_URL`”及“服务只有两个规则接口”是本次变更前的事实，目标态以本文为准。
 
-阶段 0～7 已按配套计划实现并逐项验证；月计划传输已接入现有 FastAPI 宿主及 YAML 策略，C# 已建立 V7 专属配置、求解客户端、GQGA4 求解服务与原子回写。阶段 8 已通过真实 C# 531 单、临时规则库和正式预算完成 Python/真实 HTTP 验收：零违规、零欠重、双审计、来源守恒、两类拆单和虚拟材热轧牌号均通过。Windows 页面验收仍未执行，正式数据库迁移继续留到阶段 9 的明确操作窗口。
+阶段 0～7 已按配套计划实现并逐项验证；月计划传输已接入现有 FastAPI 宿主及 YAML 策略，C# 已建立 V7 专属配置、求解客户端、GQGA4 求解服务与原子回写。阶段 8 已通过真实 C# 531 单、临时规则库和正式预算完成 Python/真实 HTTP 验收：零违规、零欠重、双审计、来源守恒、两类拆单和虚拟材热轧牌号均通过。阶段 9 已在停服和一致性备份保护下将正式库升级到 schema v2，并建立只补齐虚拟原型热轧牌号的活动版本 3；服务已恢复并通过回环和局域网 GET 冒烟。Windows 页面验收仍未执行。
 
 当前生产包事实：`src/apsgo_v7_service` 中不存在牌号字典 JSON 或字典数据目录，`pyproject.toml` 也未注册这类包数据。230 条 GQGA4 字典只能通过显式 SQLite 到 SQLite 的初始化/迁移流程进入 V7 数据库；服务运行时只读所绑定规则版本的数据库快照，不从包内文件或 V3 路径加载字典。
 
@@ -28,7 +28,7 @@
 | V3 字典 | 默认 SQLite 的 `aps_gqga4_grade_dictionary`；按产线和启用状态查询 | [SQLite 仓储](/Users/miles/dev/dev-py/apsgo-v3/rules_engine/db/sqlite_repository.py:126) |
 | V3 拼接 | 按订单 `grade` 去空格、转大写精确匹配；补分类、辊型和 IF 标志 | [字典拼接](/Users/miles/dev/dev-py/apsgo-v3/rules_engine/grade_dictionary.py:18) |
 | V3 连接判断 | 普通材同软硬分类可连接；分类缺失时按配置检查相同热轧牌号 | [连接规则](/Users/miles/dev/dev-py/apsgo-v3/rules_engine/dsl/runtime.py:961) |
-| V7 存储 | 生产代码支持 schema v2 及版本化牌号字典；正式目标库尚保持 schema v1，待阶段 9 迁移 | [rule_store.py](../../src/apsgo_v7_service/rule_store.py) |
+| V7 存储 | 正式目标库已为 schema v2、活动版本 3；版本 1 保留迁移前规则，版本 2 附加 230 条字典，版本 3 只补齐 27 个虚拟原型的 `hot_roll_grade=SPHC` | [阶段 9 证据](../implementation/evidence/apsgo_v7_month_scheduling_and_grade_preparation/stage_09_production_database_migration/README.md) |
 | V7 绑定 | `bind_gqga4_scheduling_task()` 在同一事务读取并核验活动规则、字典和原型，再补齐订单分类 | [scheduling.py](../../src/apsgo_v7_service/scheduling.py) |
 | V7 输入 | 通用标准化器消费已补齐的 `rule_attributes.soft_hard_class`；数据库派生限定在 V7 服务绑定层 | [input_normalizer.py](../../src/apsgo_scheduler/app/input_normalizer.py)、[grade_dictionary.py](../../src/apsgo_v7_service/grade_dictionary.py) |
 | V7 规则 / 缓存 | 已消费软硬分类；边语义声明包含分类、热轧牌号及材料角色 | [concrete.py](../../src/apsgo_scheduler/core/rules/concrete.py)、[compatibility.py](../../src/apsgo_scheduler/core/compatibility.py) |
@@ -326,8 +326,8 @@ GQGA4 命令显式设置 `RunInBackground => true`，`ChangesSchedRecords` 在�
 
 ## 11. 决策与后续
 
-本设计采用：独立字典表关联规则版本、显式 SQLite 到 SQLite 的一次性导入、一次性任务绑定、精确匹配、保留单牌号缺失兜底、V7 专属求解路由和 C# 服务、复用现有核心规则与求解器。生产包没有也不保存字典 JSON；运行时只读 V7 数据库。新路由、YAML 配置键和 8 MiB 请求上限已在阶段 5 实现；C# 传输客户端已在阶段 6 实现，其等待超时现随 300 秒搜索时限调整为 370 秒；GQGA4 C# 求解服务、页面命令切换、结果校验和原子回写已在阶段 7 实现。真实 531 单前后端联调和 Windows 门禁留在阶段 8，正式部署数据库迁移留在阶段 9。
+本设计采用：独立字典表关联规则版本、显式 SQLite 到 SQLite 的一次性导入、一次性任务绑定、精确匹配、保留单牌号缺失兜底、V7 专属求解路由和 C# 服务、复用现有核心规则与求解器。生产包没有也不保存字典 JSON；运行时只读 V7 数据库。新路由、YAML 配置键和 8 MiB 请求上限已在阶段 5 实现；C# 传输客户端已在阶段 6 实现，其等待超时现随 300 秒搜索时限调整为 370 秒；GQGA4 C# 求解服务、页面命令切换、结果校验和原子回写已在阶段 7 实现；正式数据库迁移和服务冒烟已在阶段 9 完成。真实 Windows 页面联调仍留在阶段 8。
 
 `HC220YD+Z-GL` 暂沿用当前缺失语义，不阻塞实施；其分类补录需要业务依据。首期对正重量已生成虚拟材和重复合同来源明确拒绝；若实际月计划前置步骤必须包含它们，则先记录真实案例并设计来源还原规则，不能静默删除或扩展核心输入材料类型。
 
-后续按配套计划实施；阶段 5 的临时库 HTTP 回环和阶段 7 的 C# 静态/SQLite 临时副本验证已经通过，但不表示正式数据库迁移、C#/Windows 联调或正式 GQGA4 完整验收已完成。
+后续按配套计划关闭 Windows 门禁；阶段 5 的临时库 HTTP 回环、阶段 7 的 C# 静态/SQLite 临时副本验证、阶段 8 的真实 Python/HTTP 求解和阶段 9 的正式数据库迁移均已有独立证据，但不表示 C#/Windows 页面联调已经完成。

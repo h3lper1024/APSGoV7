@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | 实施中；服务已允许配置为全部 IPv4 网卡监听；Windows 构建和页面实测待完成 |
-| 文档版本 | v0.15 |
+| 文档状态 | 实施中；正式规则库已迁至 schema v2、活动版本 3；服务已允许配置为全部 IPv4 网卡监听；Windows 构建和页面实测待完成 |
+| 文档版本 | v0.16 |
 | 编写日期 | 2026-09-07 |
 | 适用范围 | GQGA4、默认工序、月计划场景 |
 | 规则集身份 | `GQGA4/default/month` |
@@ -13,7 +13,7 @@
 | 求解器工程 | `/Users/miles/dev/dev-py/APSGOV7` |
 | 实施入口 | [APSGo V7 月计划规则设置接口实施计划](../implementation/apsgo_v7_rule_setting_api_implementation_plan.md) |
 
-> 本文描述目标设计；规则管理契约、GQGA4 完整规则编译、SQLite 规则版本存储、保存并启用事务、两条 HTTP 路由、初始化、求解启动绑定、历史规则受控恢复以及 C# 页面查询和保存流程均已实现。运行配置使用 `config/apsgo_v7_service.yaml` 并由 PyYAML 安全解析；用户进一步确认服务需要允许其他电脑访问，因此 `listen_host` 现支持 `127.0.0.1` 和 `0.0.0.0`，默认使用后者。业务 HTTP JSON、数据库编译 JSON 和历史阶段事实不变。本专项仍不包含月计划排程 HTTP 接口适配，Windows 构建和真实页面联调尚未完成。
+> 本文描述目标设计；规则管理契约、GQGA4 完整规则编译、SQLite 规则版本存储、保存并启用事务、两条 HTTP 路由、初始化、求解启动绑定、历史规则受控恢复以及 C# 页面查询和保存流程均已实现。运行配置使用 `config/apsgo_v7_service.yaml` 并由 PyYAML 安全解析；用户进一步确认服务需要允许其他电脑访问，因此 `listen_host` 现支持 `127.0.0.1` 和 `0.0.0.0`，默认使用后者。正式库已按月计划接入专项迁至 schema v2、活动版本 3，规则 GET 在回环和本机局域网地址均通过；迁移事实及软硬钢字典扩展见[阶段 9 证据](../implementation/evidence/apsgo_v7_month_scheduling_and_grade_preparation/stage_09_production_database_migration/README.md)。Windows 构建和真实页面联调尚未完成。
 
 ## 2. 结论
 
@@ -82,7 +82,7 @@
 
 ## 6. 总体结构
 
-物理部署采用独立 `apsgo_v7_service` 服务包：默认监听 `0.0.0.0:8001`，即全部 IPv4 网卡；也可配置为仅本机使用的 `127.0.0.1:8001`。V7 服务从受跟踪的 `config/apsgo_v7_service.yaml` 读取运行参数；C# 地址继续由其 `SchedApp/App.config` 管理，不合并进 Python 配置。其他电脑访问时，`BACKEND_ALGORITHM_URL` 填写服务端实际局域网 IP，不能填写只用于服务端绑定的 `0.0.0.0`。服务包持有 FastAPI、SQLite 和 GQGA4 固定模板；现有 `apsgo_scheduler` 只提供框架无关契约、编译与求解能力，不依赖服务包。
+物理部署采用独立 `apsgo_v7_service` 服务包：默认监听 `0.0.0.0:8001`，即全部 IPv4 网卡；也可配置为仅本机使用的 `127.0.0.1:8001`。V7 服务从受跟踪的 `config/apsgo_v7_service.yaml` 读取运行参数；C# 地址继续由其 `SchedApp/App.config` 管理，不合并进 Python 配置。其他电脑访问时，`PipelineV7ApiBaseUrl` 填写服务端实际局域网 IP，不能填写只用于服务端绑定的 `0.0.0.0`。服务包持有 FastAPI、SQLite 和 GQGA4 固定模板；现有 `apsgo_scheduler` 只提供框架无关契约、编译与求解能力，不依赖服务包。
 
 阶段 5 已使用 FastAPI `0.128.x` 和 Uvicorn `0.40.x` 建立最小宿主。HTTPX 只属于开发测试依赖，不进入生产运行依赖。服务关闭自动接口文档与尾斜杠重定向，公开运行面只保留本文确认的两个业务路径；项目支持的启动入口只接受 `127.0.0.1` 或 `0.0.0.0`，其他主机值在调用 Uvicorn 前被拒绝。
 
@@ -574,7 +574,7 @@ apsgo-v7-restore-gqga4-rule-version \
 - `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.cs`
 - `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.designer.cs`
 
-新增独立 V7 客户端，例如 `SchedApp/ApsgoV7RuleApiClient.cs`，并复用现有 `BACKEND_ALGORITHM_URL`。同机部署可使用 `http://127.0.0.1:8001`；其他电脑访问时改为服务端实际局域网地址，例如 `http://192.168.1.20:8001`。不得直接删除或整体改名 `PipelineV3ApiClient.cs`，因为其他页面仍可能依赖 V3 客户端。
+新增独立 V7 客户端，例如 `SchedApp/ApsgoV7RuleApiClient.cs`，并读取 V7 专属 `PipelineV7ApiBaseUrl`。同机部署可使用 `http://127.0.0.1:8001`；其他电脑访问时改为服务端实际局域网地址，例如 `http://192.168.1.20:8001`。不得直接删除或整体改名 `PipelineV3ApiClient.cs`，因为其他页面仍可能依赖 V3 客户端。
 
 ### 16.2 页面加载
 
@@ -716,7 +716,7 @@ apsgo-v7-restore-gqga4-rule-version \
 ## 22. 已确认的宿主环境
 
 1. V7 新建独立 FastAPI 服务包 `apsgo_v7_service`，不修改 V3 `8008` 服务。
-2. 服务默认监听 `0.0.0.0:8001`，也允许配置为 `127.0.0.1:8001`；C# 复用 `BACKEND_ALGORITHM_URL`，跨机器时填写服务端实际局域网 IP。
+2. 服务默认监听 `0.0.0.0:8001`，也允许配置为 `127.0.0.1:8001`；C# 使用 V7 专属 `PipelineV7ApiBaseUrl`，跨机器时填写服务端实际局域网 IP。
 3. V7 使用受跟踪的 `config/apsgo_v7_service.yaml` 统一配置数据库路径、SQLite 超时和监听端点；由 PyYAML 安全解析，相对数据库路径按配置文件目录解析，不再读取 `APSGO_V7_RULE_DB_PATH`。
 4. V7 使用独立 SQLite 文件和标准库 `sqlite3`，不复用 V3 数据库，不同时实现 MySQL；运行期数据库文件不进入 Git。
 5. 首期没有登录鉴权；服务端进程身份作为审计主体，客户端用户名不可信。
@@ -736,8 +736,8 @@ apsgo-v7-restore-gqga4-rule-version \
 8. 虚拟材料原型与规则版本同时生效，但不伪装成规则。
 9. 首期只适配 GQGA4 月计划规则设置，不建设通用规则平台。
 10. V7 新建独立 FastAPI 服务，`listen_host` 允许 `127.0.0.1` 或 `0.0.0.0`，默认后者以支持其他电脑访问。
-11. C# 复用现有 `BACKEND_ALGORITHM_URL`，不增加第二个 V7 地址键。
+11. C# 使用 V7 专属 `PipelineV7ApiBaseUrl`，不改 V3 地址配置。
 12. V7 使用独立 SQLite 文件，不复用 V3 规则数据库，也不同时实现 MySQL。
 13. 首期不新增登录鉴权，审计记录服务端进程身份；用户已确认开放非回环地址不以鉴权为前置条件。
 14. V7 服务运行参数统一保存在受跟踪的 `config/apsgo_v7_service.yaml`；PyYAML 安全解析的四项配置严格校验，相对数据库路径按配置文件目录解析，初始化器和服务支持 `--config`，不再使用 `APSGO_V7_RULE_DB_PATH`。
-15. 历史规则恢复仍要求显式既有数据库绝对路径；C# 继续使用自身 `App.config` 中的 `BACKEND_ALGORITHM_URL`，两者不被 Python 服务配置替代。
+15. 历史规则恢复仍要求显式既有数据库绝对路径；C# 继续使用自身 `App.config` 中的 `PipelineV7ApiBaseUrl`，两者不被 Python 服务配置替代。

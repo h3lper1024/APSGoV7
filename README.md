@@ -43,6 +43,10 @@ V7 不再读取 `APSGO_V7_RULE_DB_PATH`。
 运行期 SQLite 主文件及 journal/WAL/SHM 文件由 Git 忽略，不得提交。C# 客户端地址继续使用
 `SchedApp/App.config` 中的 `PipelineV7ApiBaseUrl`，不由该 Python 配置文件替代。
 
+当前本地正式库已于 2026-09-07 完成 schema v1→v2 迁移，活动版本为 3：版本 2 引入
+230 条 GQGA4 软硬钢字典，版本 3 只给 27 个既有虚拟原型补齐 `hot_roll_grade=SPHC`。
+迁移前备份、哈希、恢复演练和服务冒烟结果见[阶段 9 证据](docs/implementation/evidence/apsgo_v7_month_scheduling_and_grade_preparation/stage_09_production_database_migration/README.md)。
+
 ## 初始化与启动
 
 Python 3.10 及以上，先安装项目：

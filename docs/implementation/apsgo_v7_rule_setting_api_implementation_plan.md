@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 文档状态 | 实施中；阶段 13“允许其他电脑访问规则服务”已验证；Windows 构建和页面实测待关闭 |
-| 文档版本 | v0.17 |
+| 文档状态 | 实施中；阶段 13“允许其他电脑访问规则服务”及正式库 schema v2 迁移已验证；Windows 构建和页面实测待关闭 |
+| 文档版本 | v0.18 |
 | 编写日期 | 2026-09-07 |
 | 实施基线 | `main@6d12365` |
 | 开发分支 | `codex/rule-setting-api-integration` |
@@ -13,7 +13,7 @@
 | 求解器工程 | `/Users/miles/dev/dev-py/APSGOV7` |
 | 前端工程 | `/Users/miles/dev/dev-cs/aps-code-0806` |
 
-> 阶段 0～13 的后端实施与验证已完成。用户确认其他电脑必须能够访问规则服务，并明确不把登录鉴权作为本次前置条件；默认 `listen_host` 已改为 `0.0.0.0`，同时保留 `127.0.0.1`，只接受这两个值。真实进程已确认监听全部 IPv4 网卡，并通过本机局域网地址完成 GET；第二台电脑仍需部署后现场验证。业务 HTTP、数据库、规则和求解语义不变。C# V7 客户端、页面单次 GET 加载及单次 POST 保存并启用已经完成代码与静态契约验证，Windows/.NET Framework 构建及真实页面联调仍是最终强制门禁。
+> 阶段 0～13 的后端实施与验证已完成。用户确认其他电脑必须能够访问规则服务，并明确不把登录鉴权作为本次前置条件；默认 `listen_host` 已改为 `0.0.0.0`，同时保留 `127.0.0.1`，只接受这两个值。正式规则库已按月计划接入计划迁至 schema v2、活动版本 3，真实进程已确认监听全部 IPv4 网卡，并通过回环和本机局域网地址完成 GET；第二台电脑仍需部署后现场验证。C# V7 客户端、页面单次 GET 加载及单次 POST 保存并启用已经完成代码与静态契约验证，Windows/.NET Framework 构建及真实页面联调仍是最终强制门禁。
 
 ## 2. 实施目标
 
@@ -84,6 +84,8 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 
 阶段 2 已将业务内容固化为 `apsgo_v7_service` 包内的生产种子；阶段 6 使用该种子初始化并核验数据库活动版本。测试基线只用于证明生产种子等价，不作为部署后运行时输入。样本中的指纹只作核对，不可绕过生产路径重新计算。
 
+当前本地正式库为 schema v2、活动版本 3，仍是 17 条规则、16 条启用和 7 项评分；规则指纹为 `fd313421b74603e10a942d60f05fffc1b58d41f41677b1579ad14c8ec1863607`。版本 2 附加 230 条 GQGA4 软硬钢字典，版本 3 只补齐 27 个虚拟原型的 `hot_roll_grade=SPHC`；迁移、备份和回读证据见[月计划接入阶段 9](evidence/apsgo_v7_month_scheduling_and_grade_preparation/stage_09_production_database_migration/README.md)。
+
 ### 5.2 当前代码边界
 
 - V7 已建立框架无关规则管理契约、通用编译器和 GQGA4 生产模板；外层服务已用标准库 SQLite 实现版本存储与保存并启用事务，并通过 FastAPI 接入两条固定 HTTP 路由。`apsgo_scheduler` 仍无 Web 或数据库依赖。
@@ -96,7 +98,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 - 已从 `main@6d12365` 建立 `codex/rule-setting-api-integration`。
 - 已固定两条接口地址、完整快照边界、逻辑数据模型和页面迁移方案。
 - 已确认在 APSGOV7 内新增独立 `apsgo_v7_service` FastAPI 服务；阶段 13 将默认监听改为 `0.0.0.0:8001`，并继续允许 `127.0.0.1:8001`。
-- C# 复用 `BACKEND_ALGORITHM_URL`，不增加新的 V7 地址配置键。
+- C# 使用 V7 专属 `PipelineV7ApiBaseUrl`，不改 V3 地址配置键。
 - [历史信息] 阶段 0 当时确认使用 V7 独立 SQLite 和标准库 `sqlite3`，默认路径为 `data/apsgo_v7_rules.sqlite3`，专用覆盖变量为 `APSGO_V7_RULE_DB_PATH`；阶段 12 以统一服务配置取代该环境变量入口，不改变“不复用 V3 数据库、不同时实现 MySQL”的边界。
 - 首期不增加登录鉴权；服务端进程身份作为审计主体，客户端用户名不可信。
 - 现状证据见 `docs/implementation/evidence/apsgo_v7_rule_setting_api/stage_00_environment_baseline/README.md`。
@@ -119,7 +121,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 | C# | `SchedApp/ApsgoV7RuleApiClient.cs` | V7 专用 GET/POST 客户端和请求/响应数据结构。 |
 | C# | `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.cs` | 页面加载、映射、保存和错误处理。 |
 | C# | `SchedApp/Forms/RuleConf/RuleConfFormGQGA4.designer.cs` | 按钮和旧预览区域调整。 |
-| C# | `SchedApp/App.config` | 复用现有 `BACKEND_ALGORITHM_URL`，只删除不用的 GQGA4 旧规则路径时才改。 |
+| C# | `SchedApp/App.config` | 使用 V7 专属 `PipelineV7ApiBaseUrl`，保留 V3 地址及其他产线配置。 |
 | C# | `SchedApp/SchedApp.csproj` | 旧式工程需要时显式加入新增源码。 |
 
 `apsgo_v7_service` 单向依赖 `apsgo_scheduler`；`apsgo_scheduler` 不得反向导入 FastAPI、SQLite 或服务包。GQGA4 字面模板位于服务包，通用编译器不含具体产线名称，保持现有生产核心门禁。
@@ -164,7 +166,7 @@ POST /api/v1/rule-sets/GQGA4/default/month/setActiveRules
 
 - [历史信息] 阶段 0 当时确认服务只监听 `127.0.0.1:8001`；阶段 13 按用户最新决定改为默认监听 `0.0.0.0:8001`。
 - 已确认 V7 独立 SQLite、标准库事务和服务端进程审计身份。
-- 已确认 C# 复用 `BACKEND_ALGORITHM_URL`；V3 `8008` 服务与数据库均不复用。
+- 已确认 C# 使用 V7 专属 `PipelineV7ApiBaseUrl`；V3 `8008` 服务与数据库均不复用。
 - 已确认通用求解核心继续无 Web/数据库依赖，GQGA4 模板位于外层服务包。
 - 本阶段只修改文档和证据，不修改生产逻辑。
 
@@ -430,7 +432,7 @@ GET 服务从活动版本读取规则行与编译快照，核对数据库版本�
 ### 16.1 实现
 
 - 新建 V7 专用客户端和最少请求/响应数据结构，只包含两个接口需要的字段。
-- 复用现有 `App.config` 中的 `BACKEND_ALGORITHM_URL`，不增加第二个 V7 地址键；同机可填写 `http://127.0.0.1:8001`，跨机器必须填写服务端实际局域网 IP。配置缺失、空白或非法时明确失败，不在代码中静默回退。
+- 读取 `App.config` 中 V7 专属 `PipelineV7ApiBaseUrl`，不修改 V3 地址键；同机可填写 `http://127.0.0.1:8001`，跨机器必须填写服务端实际局域网 IP。配置缺失、空白或非法时明确失败，不在代码中静默回退。
 - GET/POST 路径使用常量并保持已确认的 camelCase。
 - JSON 数值使用适合现有 .NET 版本的十进制类型；不经 `double` 修改后回传。
 - 解析统一错误、字段问题、当前版本和幂等重放标识。
@@ -569,7 +571,7 @@ GET 服务从活动版本读取规则行与编译快照，核对数据库版本�
 - 初始化器和服务均支持 `--config <配置文件路径>`；当前运行路径不再读取 `APSGO_V7_RULE_DB_PATH`。
 - 运行期 SQLite 主文件及 journal/WAL/SHM 文件继续忽略且不得提交；默认配置文件不含凭据和本机绝对路径，必须提交。
 - 历史规则恢复命令保持独立安全边界，仍必须显式传入既有数据库的绝对 `--database-path`，不读取服务配置。
-- C# 继续读取 `SchedApp/App.config` 中既有 `BACKEND_ALGORITHM_URL`，本阶段不新增或迁移前端地址键。
+- C# 继续读取 `SchedApp/App.config` 中的 `PipelineV7ApiBaseUrl`，不把地址迁入 Python YAML。
 - 本补正只改变服务运行配置的文件格式和解析依赖，不改变业务 HTTP JSON、数据库编译 JSON、SQLite schema、活动规则内容、求解算法或历史阶段事实。
 
 ### 20.2 配置契约与命令
@@ -625,7 +627,7 @@ apsgo-v7-rule-service --config config/apsgo_v7_service.yaml
 - 保留用户已经写入默认 YAML 的 `listen_host: 0.0.0.0`。
 - 配置加载器接受 `127.0.0.1` 或 `0.0.0.0`，其他值继续在 Uvicorn 启动前失败。
 - 服务默认监听常量同步为 `0.0.0.0`；数据库、端口、HTTP 路由和规则行为不变。
-- C# 继续复用 `BACKEND_ALGORITHM_URL`；跨机器客户端填写服务端实际局域网 IP，不能填写 `0.0.0.0`。
+- C# 继续使用 `PipelineV7ApiBaseUrl`；跨机器客户端填写服务端实际局域网 IP，不能填写 `0.0.0.0`。
 
 ### 21.3 验证与完成标准
 
@@ -703,7 +705,7 @@ PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider \
 5. 使用同一 `--config` 执行 GQGA4 初始活动版本导入并完成回读验证。
 6. 部署排程任务启动时的 V7 活动规则绑定。
 7. 使用接口和一次固定 GQGA4 求解完成后端验收。
-8. 最后部署 C# GQGA4 规则页面改造；其服务地址仍来自 `SchedApp/App.config` 的 `BACKEND_ALGORITHM_URL`，跨机器时填写服务端实际局域网 IP。
+8. 最后部署 C# GQGA4 规则页面改造；其服务地址来自 `SchedApp/App.config` 的 `PipelineV7ApiBaseUrl`，跨机器时填写服务端实际局域网 IP。
 9. 完成页面 GET、POST、并发冲突和错误提示手测。
 
 前端不得先于可用的后端活动版本上线，否则页面没有合法配置可读。
