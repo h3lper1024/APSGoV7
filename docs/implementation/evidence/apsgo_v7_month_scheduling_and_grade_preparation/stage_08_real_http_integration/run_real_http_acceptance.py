@@ -927,8 +927,9 @@ def run_acceptance(arguments) -> dict[str, object]:
         "quality_gate": {"path": str(arguments.quality_gate), "sha256": sha256(arguments.quality_gate)},
         "temporary_migration": {
             "previous_active_version_id": saved.previous_active_version_id,
-            "active_version_id": saved.active_rules.active_version_id,
-            "rule_set_fingerprint": saved.active_rules.rule_set_spec.fingerprint,
+            "grade_dictionary_version_id": saved.saved_version_id,
+            "active_version_id": repaired.active_rules.active_version_id,
+            "rule_set_fingerprint": repaired.active_rules.rule_set_spec.fingerprint,
             "grade_dictionary_entry_count": len(migration.source.snapshot.entries),
             "grade_dictionary_fingerprint": migration.source.snapshot.dictionary_fingerprint,
             "backup_created": migration.backup.created if migration.backup else False,
