@@ -57,6 +57,14 @@ def _write_service_configuration(
                 "database_timeout_seconds": timeout_seconds,
                 "listen_host": host,
                 "listen_port": port,
+                "monthly_solve": {
+                    "seed": 590531,
+                    "total_time_limit_seconds": 180,
+                    "finalization_reserve_seconds": 10,
+                    "candidate_check_limit": 200000,
+                    "whole_chain_pair_scan_slack_weight": 40,
+                    "maximum_virtual_bridge_nodes": 2,
+                },
             },
             sort_keys=False,
         ),
@@ -234,20 +242,24 @@ def client(database_path):
         yield value
 
 
-def test_http_surface_contains_only_the_two_confirmed_operations(database_path):
+def test_http_surface_contains_the_three_confirmed_operations(database_path):
     application = http_module.create_app(database_path=database_path)
     assert http_module.MAX_REQUEST_BODY_BYTES == 262_144
     schema = application.openapi()
-    assert set(schema["paths"]) == {GET_PATH, POST_PATH}
+    assert set(schema["paths"]) == {GET_PATH, POST_PATH, http_module.MONTH_SOLVE_PATH}
     assert set(schema["paths"][GET_PATH]) == {"get"}
     assert set(schema["paths"][POST_PATH]) == {"post"}
+    assert set(schema["paths"][http_module.MONTH_SOLVE_PATH]) == {"post"}
     writes = {
         (path, method)
         for path, operations in schema["paths"].items()
         for method in operations
         if method in {"post", "put", "patch", "delete"}
     }
-    assert writes == {(POST_PATH, "post")}
+    assert writes == {
+        (POST_PATH, "post"),
+        (http_module.MONTH_SOLVE_PATH, "post"),
+    }
 
     with TestClient(application, raise_server_exceptions=False) as value:
         wrong_get = value.post(GET_PATH, content=b"{}")
@@ -256,6 +268,9 @@ def test_http_surface_contains_only_the_two_confirmed_operations(database_path):
         wrong_post = value.get(POST_PATH)
         _assert_error(wrong_post, 405, code="method_not_allowed")
         assert wrong_post.headers["allow"] == "POST"
+        wrong_solve = value.get(http_module.MONTH_SOLVE_PATH)
+        _assert_error(wrong_solve, 405, code="method_not_allowed")
+        assert wrong_solve.headers["allow"] == "POST"
         assert value.get(f"{GET_PATH}/").status_code == 404
         assert value.get(GET_PATH.replace("getActiveRules", "getactiverules")).status_code == 404
 
@@ -704,8 +719,8 @@ def test_run_server_loads_one_configuration_and_uses_the_confirmed_endpoint(tmp_
     calls = []
     applications = []
 
-    def create_app(database_path, *, timeout_seconds):
-        applications.append((database_path, timeout_seconds))
+    def create_app(database_path, *, timeout_seconds, monthly_solve_policy):
+        applications.append((database_path, timeout_seconds, monthly_solve_policy))
         return object()
 
     monkeypatch.setattr(http_module, "create_app", create_app)
@@ -715,12 +730,16 @@ def test_run_server_loads_one_configuration_and_uses_the_confirmed_endpoint(tmp_
 
     assert not hasattr(http_module, "app")
     assert http_module._LOGGER.name.startswith("uvicorn.error.")
-    assert applications == [(database_path.resolve(), 2.5)]
+    assert len(applications) == 1
+    assert applications[0][:2] == (database_path.resolve(), 2.5)
+    assert applications[0][2].seed == 590531
+    assert applications[0][2].candidate_check_limit == 200000
     assert len(calls) == 1
     args, kwargs = calls[0]
     assert kwargs.get("host", args[1] if len(args) > 1 else None) == "0.0.0.0"
     assert kwargs.get("port", args[2] if len(args) > 2 else None) == 8123
     assert kwargs["access_log"] is False
+    assert kwargs["workers"] == 1
 
 
 def test_run_server_rejects_missing_configuration_before_start(tmp_path, monkeypatch):

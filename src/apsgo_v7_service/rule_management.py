@@ -20,9 +20,8 @@ from apsgo_scheduler.api.rule_management import (
     dumps_set_active_rules_response,
 )
 from apsgo_scheduler.app.rule_set_compiler import load_compiled_rule_set_json
-from apsgo_scheduler.core.contracts import fingerprint
+from apsgo_scheduler.core.contracts import fingerprint, require_int
 
-from .grade_dictionary import GradeDictionaryEntry, GradeDictionarySnapshot
 from .gqga4 import (
     GQGA4_INITIAL_RULES,
     GQGA4_INITIAL_VIRTUAL_PROTOTYPES,
@@ -30,6 +29,7 @@ from .gqga4 import (
     compile_gqga4_rule_set,
     normalize_gqga4_rule_snapshot,
 )
+from .grade_dictionary import GradeDictionaryEntry, GradeDictionarySnapshot
 from .rule_store import RuleSetRecord, RuleStore, RuleStoreConflict
 
 DEFAULT_AUDIT_ACTOR = "v7-rule-service"
@@ -251,8 +251,15 @@ def _read_grade_dictionary_snapshot(
     version = store.find_version(version_id)
     if version is None or version.rule_set_id != rule_set.id:
         raise _stored_inconsistent("规则版本与软硬钢字典所属规则集不一致。")
+    records = store.list_grade_dictionary_entries(version.id)
     if version.grade_dictionary_fingerprint is None:
-        raise _stored_inconsistent("规则版本缺少软硬钢字典指纹。")
+        if records:
+            raise _stored_inconsistent("规则版本包含字典明细但缺少软硬钢字典指纹。")
+        raise RuleManagementServiceError(
+            "grade_dictionary_unavailable",
+            "活动规则版本尚未绑定软硬钢字典。",
+            current_active_version_id=version_id,
+        )
 
     try:
         snapshot = GradeDictionarySnapshot(
@@ -271,7 +278,7 @@ def _read_grade_dictionary_snapshot(
                     source_rows=record.source_rows,
                     remark=record.remark,
                 )
-                for record in store.list_grade_dictionary_entries(version.id)
+                for record in records
             ),
         )
     except (RecursionError, TypeError, ValueError) as error:
@@ -383,10 +390,21 @@ def _read_rules_version(
 def _read_active_scheduling_snapshot(
     store: RuleStore,
     rule_set: RuleSetRecord,
+    expected_active_version_id: int | None = None,
 ) -> ActiveGqga4SchedulingSnapshot:
     if rule_set.active_version_id is None:
         raise RuleManagementServiceError(
             "rule_set_not_initialized", "GQGA4 月计划规则尚无启用版本。"
+        )
+    if (
+        expected_active_version_id is not None
+        and rule_set.active_version_id != expected_active_version_id
+    ):
+        raise RuleManagementServiceError(
+            "active_version_conflict",
+            "活动规则版本已变化，请重新加载后再求解。",
+            expected_active_version_id=expected_active_version_id,
+            current_active_version_id=rule_set.active_version_id,
         )
     return ActiveGqga4SchedulingSnapshot(
         active_rules=_read_rules_version(store, rule_set, rule_set.active_version_id),
@@ -406,12 +424,23 @@ def get_active_gqga4_scheduling_snapshot(
     database_path: str | Path,
     *,
     timeout_seconds: float = 5.0,
+    expected_active_version_id: int | None = None,
 ) -> ActiveGqga4SchedulingSnapshot:
     """Read the complete active scheduling snapshot in one database transaction."""
 
+    if expected_active_version_id is not None:
+        require_int(
+            expected_active_version_id,
+            "expected_active_version_id",
+            minimum=1,
+        )
     with RuleStore.open(database_path, timeout_seconds=timeout_seconds) as store:
         with store.transaction():
-            snapshot = _read_active_scheduling_snapshot(store, _find_rule_set(store))
+            snapshot = _read_active_scheduling_snapshot(
+                store,
+                _find_rule_set(store),
+                expected_active_version_id,
+            )
             dumps_active_rules_response(snapshot.active_rules)
             return snapshot
 

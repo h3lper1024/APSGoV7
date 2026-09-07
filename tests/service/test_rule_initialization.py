@@ -16,13 +16,13 @@ import yaml
 
 from apsgo_scheduler.api.rule_management import SetActiveRulesRequest
 from apsgo_v7_service import rule_management as service_module
-from apsgo_v7_service.grade_dictionary import GradeDictionarySnapshot
 from apsgo_v7_service.gqga4 import (
     GQGA4_INITIAL_RULES,
     GQGA4_INITIAL_VIRTUAL_PROTOTYPES,
     compile_gqga4_rule_set,
     normalize_gqga4_rule_snapshot,
 )
+from apsgo_v7_service.grade_dictionary import GradeDictionarySnapshot
 from apsgo_v7_service.rule_management import (
     INITIALIZATION_OPERATION_ID,
     RuleManagementServiceError,
@@ -51,6 +51,14 @@ def _write_service_configuration(configuration_path, database_path):
                 "database_timeout_seconds": 5.0,
                 "listen_host": "127.0.0.1",
                 "listen_port": 8001,
+                "monthly_solve": {
+                    "seed": 590531,
+                    "total_time_limit_seconds": 180,
+                    "finalization_reserve_seconds": 10,
+                    "candidate_check_limit": 200000,
+                    "whole_chain_pair_scan_slack_weight": 40,
+                    "maximum_virtual_bridge_nodes": 2,
+                },
             },
             sort_keys=False,
         ),

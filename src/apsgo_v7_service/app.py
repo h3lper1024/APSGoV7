@@ -1,12 +1,15 @@
-"""HTTP adapter for GQGA4 monthly rule management."""
+"""HTTP adapter for GQGA4 monthly rules and scheduling."""
 
 from __future__ import annotations
 
 import argparse
+import asyncio
 import logging
 import sqlite3
 from collections.abc import Sequence
 from pathlib import Path
+from threading import Event, Lock
+from types import SimpleNamespace
 
 import uvicorn
 from fastapi import FastAPI, Request, Response
@@ -22,9 +25,18 @@ from apsgo_scheduler.api.rule_management import (
 )
 from apsgo_scheduler.app.rule_set_compiler import RuleSetCompilationError
 from apsgo_scheduler.app.rule_set_loader import RuleSetLoadError
+from apsgo_scheduler.core.contracts import SearchStopReason, SolverPolicy, SolveStatus
 
 from .configuration import DEFAULT_CONFIGURATION_PATH, load_service_configuration
 from .gqga4 import GQGA4_RULE_SET_TEMPLATE
+from .grade_dictionary import GradePreparationError
+from .month_scheduling import (
+    MonthSchedulingContractError,
+    MonthSchedulingMappingError,
+    dumps_month_solve_error,
+    dumps_month_solve_response,
+    loads_month_solve_request,
+)
 from .rule_management import (
     DEFAULT_AUDIT_ACTOR,
     RuleManagementServiceError,
@@ -32,10 +44,13 @@ from .rule_management import (
     set_active_gqga4_rules,
 )
 from .rule_store import RuleStoreSchemaError
+from .scheduling import solve_gqga4_scheduling_task
 
 GET_ACTIVE_RULES_PATH = "/api/v1/rule-sets/GQGA4/default/month/getActiveRules"
 SET_ACTIVE_RULES_PATH = "/api/v1/rule-sets/GQGA4/default/month/setActiveRules"
+MONTH_SOLVE_PATH = "/api/v1/scheduling/GQGA4/default/month/solve"
 MAX_REQUEST_BODY_BYTES = 262_144
+MAX_MONTH_SOLVE_REQUEST_BODY_BYTES = 8 * 1024 * 1024
 DEFAULT_LISTEN_HOST = "0.0.0.0"
 DEFAULT_LISTEN_PORT = 8001
 
@@ -52,8 +67,9 @@ _UNAVAILABLE_SQLITE_MESSAGES = (
 
 
 class _HttpRequestError(ValueError):
-    def __init__(self, code: str, message: str):
+    def __init__(self, code: str, message: str, status_code: int = 400):
         self.code = code
+        self.status_code = status_code
         super().__init__(message)
 
 
@@ -85,6 +101,29 @@ def _error_response(
     )
     return _json_response(
         dumps_rule_management_error(error), status_code=status_code, headers=headers
+    )
+
+
+def _month_error_response(
+    status_code: int,
+    code: str,
+    message: str,
+    *,
+    request_id: str | None = None,
+    expected_active_version_id: int | None = None,
+    current_active_version_id: int | None = None,
+    issues: Sequence = (),
+) -> Response:
+    return _json_response(
+        dumps_month_solve_error(
+            code,
+            message,
+            request_id=request_id,
+            expected_active_version_id=expected_active_version_id,
+            current_active_version_id=current_active_version_id,
+            issues=issues,
+        ),
+        status_code=status_code,
     )
 
 
@@ -140,7 +179,7 @@ def _mapped_error(error: Exception) -> tuple[Response, str]:
             error.code,
         )
     if isinstance(error, _HttpRequestError):
-        return _error_response(400, error.code, str(error)), error.code
+        return _error_response(error.status_code, error.code, str(error)), error.code
     if isinstance(error, RuleStoreSchemaError):
         return (
             _error_response(500, "internal_server_error", "规则设置服务发生内部错误。"),
@@ -180,6 +219,125 @@ def _mapped_error(error: Exception) -> tuple[Response, str]:
     )
 
 
+def _month_contract_status(error: MonthSchedulingContractError) -> int:
+    issue = error.issues[0]
+    if issue.code in {
+        "duplicate_json_key",
+        "invalid_json",
+        "missing_field",
+        "unknown_field",
+        "unsupported_contract_version",
+    }:
+        return 400
+    if issue.field_path in {"contract_version", "request_id", "expected_active_version_id"}:
+        return 400
+    return 422
+
+
+def _mapped_month_error(
+    error: Exception,
+    *,
+    request_id: str | None,
+    expected_active_version_id: int | None,
+) -> tuple[Response, str]:
+    if isinstance(error, MonthSchedulingContractError):
+        status = _month_contract_status(error)
+        code = "invalid_request" if status == 400 else "scheduling_input_invalid"
+        return (
+            _month_error_response(
+                status,
+                code,
+                "请求格式不正确。" if status == 400 else "月计划输入未通过校验。",
+                request_id=request_id,
+                expected_active_version_id=expected_active_version_id,
+                issues=error.issues,
+            ),
+            code,
+        )
+    if isinstance(error, GradePreparationError):
+        return (
+            _month_error_response(
+                422,
+                "scheduling_input_invalid",
+                "月计划输入未通过软硬钢数据准备校验。",
+                request_id=request_id,
+                expected_active_version_id=expected_active_version_id,
+                issues=error.issues,
+            ),
+            "scheduling_input_invalid",
+        )
+    if isinstance(error, RuleManagementServiceError):
+        if error.code == "active_version_conflict":
+            status, message = 409, "活动规则版本已变化，请重新加载后再求解。"
+        elif error.code in {"rule_set_not_initialized", "grade_dictionary_unavailable"}:
+            status, message = 503, "GQGA4 月计划规则或软硬钢字典尚不可用。"
+        else:
+            status, message = 500, "活动求解快照内部不一致。"
+        return (
+            _month_error_response(
+                status,
+                error.code,
+                message,
+                request_id=request_id,
+                expected_active_version_id=(
+                    error.expected_active_version_id or expected_active_version_id
+                ),
+                current_active_version_id=error.current_active_version_id,
+            ),
+            error.code,
+        )
+    if isinstance(error, _HttpRequestError):
+        return (
+            _month_error_response(
+                error.status_code,
+                error.code,
+                str(error),
+                request_id=request_id,
+                expected_active_version_id=expected_active_version_id,
+            ),
+            error.code,
+        )
+    if isinstance(error, (FileNotFoundError, PermissionError, OSError)):
+        return (
+            _month_error_response(
+                503,
+                "rule_store_unavailable",
+                "规则版本存储暂不可用，请稍后重试。",
+                request_id=request_id,
+                expected_active_version_id=expected_active_version_id,
+            ),
+            "rule_store_unavailable",
+        )
+    if isinstance(error, sqlite3.OperationalError) and any(
+        part in str(error).lower() for part in _UNAVAILABLE_SQLITE_MESSAGES
+    ):
+        return (
+            _month_error_response(
+                503,
+                "rule_store_unavailable",
+                "规则版本存储暂不可用，请稍后重试。",
+                request_id=request_id,
+                expected_active_version_id=expected_active_version_id,
+            ),
+            "rule_store_unavailable",
+        )
+    code = (
+        "result_mapping_failed"
+        if isinstance(error, MonthSchedulingMappingError)
+        else "internal_server_error"
+    )
+    return (
+        _month_error_response(
+            500,
+            code,
+            "月计划求解服务发生内部错误。",
+            request_id=request_id,
+            expected_active_version_id=expected_active_version_id,
+        ),
+        code,
+    )
+
+
 def _log_result(
     method: str,
     status_code: int,
@@ -213,7 +371,32 @@ def _log_result(
     )
 
 
-async def _read_request_body(request: Request, *, allow_body: bool) -> bytes:
+def _log_month_solve(
+    status_code: int,
+    *,
+    request_id: str | None,
+    expected_active_version_id: int | None,
+    active_version_id: int | None,
+    result_code: str,
+) -> None:
+    _LOGGER.info(
+        "month_solve request_id=%s expected_active_version_id=%s "
+        "active_version_id=%s result_code=%s status=%s",
+        request_id or "-",
+        expected_active_version_id if expected_active_version_id is not None else "-",
+        active_version_id if active_version_id is not None else "-",
+        result_code,
+        status_code,
+    )
+
+
+async def _read_request_body(
+    request: Request,
+    *,
+    allow_body: bool,
+    max_bytes: int = MAX_REQUEST_BODY_BYTES,
+    too_large_status: int = 400,
+) -> bytes:
     raw_length = request.headers.get("content-length")
     if raw_length is not None:
         try:
@@ -224,18 +407,20 @@ async def _read_request_body(request: Request, *, allow_body: bool) -> bytes:
             ) from error
         if content_length < 0:
             raise _HttpRequestError("invalid_content_length", "Content-Length 必须是非负整数。")
-        if content_length > MAX_REQUEST_BODY_BYTES:
+        if content_length > max_bytes:
             raise _HttpRequestError(
                 "request_too_large",
-                f"请求体不能超过 {MAX_REQUEST_BODY_BYTES} 字节。",
+                f"请求体不能超过 {max_bytes} 字节。",
+                too_large_status,
             )
 
     body = bytearray()
     async for chunk in request.stream():
-        if len(body) + len(chunk) > MAX_REQUEST_BODY_BYTES:
+        if len(body) + len(chunk) > max_bytes:
             raise _HttpRequestError(
                 "request_too_large",
-                f"请求体不能超过 {MAX_REQUEST_BODY_BYTES} 字节。",
+                f"请求体不能超过 {max_bytes} 字节。",
+                too_large_status,
             )
         body.extend(chunk)
     if body and not allow_body:
@@ -248,16 +433,33 @@ def _require_no_query(request: Request) -> None:
         raise _HttpRequestError("unexpected_query_parameters", "该接口不接受查询参数。")
 
 
-def _require_json_content_type(request: Request) -> None:
+def _require_json_content_type(request: Request, *, status_code: int = 400) -> None:
     media_type = request.headers.get("content-type", "").partition(";")[0].strip().lower()
     if media_type != _JSON_MEDIA_TYPE:
         raise _HttpRequestError(
-            "invalid_content_type", "POST 请求的 Content-Type 必须是 application/json。"
+            "invalid_content_type",
+            "POST 请求的 Content-Type 必须是 application/json。",
+            status_code,
         )
 
 
-def create_app(database_path: str | Path, *, timeout_seconds: float = 5.0) -> FastAPI:
-    """Create the two-route adapter without opening or initializing a database."""
+def _consume_background_task(task: asyncio.Task) -> None:
+    try:
+        task.exception()
+    except asyncio.CancelledError:
+        pass
+
+
+def create_app(
+    database_path: str | Path,
+    *,
+    timeout_seconds: float = 5.0,
+    monthly_solve_policy: SolverPolicy | None = None,
+) -> FastAPI:
+    """Create the rule and scheduling adapter without opening a database."""
+
+    if monthly_solve_policy is not None and not isinstance(monthly_solve_policy, SolverPolicy):
+        raise ValueError("monthly_solve_policy must be SolverPolicy or None")
 
     application = FastAPI(
         openapi_url=None,
@@ -265,6 +467,7 @@ def create_app(database_path: str | Path, *, timeout_seconds: float = 5.0) -> Fa
         redoc_url=None,
         redirect_slashes=False,
     )
+    solve_lock = Lock()
 
     @application.get(GET_ACTIVE_RULES_PATH, response_class=Response)
     async def get_active_rules(request: Request) -> Response:
@@ -289,6 +492,106 @@ def create_app(database_path: str | Path, *, timeout_seconds: float = 5.0) -> Fa
             result_code="active_rules_read",
         )
         return _json_response(content)
+
+    @application.post(MONTH_SOLVE_PATH, response_class=Response)
+    async def solve_month_schedule(request: Request) -> Response:
+        parsed = None
+        try:
+            _require_no_query(request)
+            _require_json_content_type(request, status_code=415)
+            if monthly_solve_policy is None:
+                raise _HttpRequestError(
+                    "monthly_solve_not_configured",
+                    "月计划求解策略尚未配置。",
+                    503,
+                )
+            body = await _read_request_body(
+                request,
+                allow_body=True,
+                max_bytes=MAX_MONTH_SOLVE_REQUEST_BODY_BYTES,
+                too_large_status=413,
+            )
+            parsed = await run_in_threadpool(
+                loads_month_solve_request,
+                body,
+                monthly_solve_policy,
+            )
+            if not solve_lock.acquire(blocking=False):
+                raise _HttpRequestError(
+                    "scheduling_busy",
+                    "已有月计划求解正在运行，请稍后重新提交。",
+                    429,
+                )
+
+            cancellation_event = Event()
+            cancellation = SimpleNamespace(is_cancelled=cancellation_event.is_set)
+
+            def solve_in_worker():
+                try:
+                    return solve_gqga4_scheduling_task(
+                        parsed.task_input,
+                        database_path,
+                        timeout_seconds=timeout_seconds,
+                        expected_active_version_id=parsed.expected_active_version_id,
+                        cancellation=cancellation,
+                    )
+                finally:
+                    solve_lock.release()
+
+            try:
+                worker = asyncio.create_task(run_in_threadpool(solve_in_worker))
+            except BaseException:
+                solve_lock.release()
+                raise
+            try:
+                while not worker.done():
+                    await asyncio.wait((worker,), timeout=0.05)
+                    if not worker.done() and await request.is_disconnected():
+                        cancellation_event.set()
+                bound = await worker
+            except asyncio.CancelledError:
+                cancellation_event.set()
+                worker.add_done_callback(_consume_background_task)
+                raise
+            content = await run_in_threadpool(dumps_month_solve_response, parsed, bound)
+            status_code = (
+                422
+                if bound.result.status is SolveStatus.FAILED
+                and bound.result.stop_reason is SearchStopReason.INPUT_INVALID
+                else 200
+            )
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            result, result_code = _mapped_month_error(
+                error,
+                request_id=None if parsed is None else parsed.task_input.request_id,
+                expected_active_version_id=(
+                    None if parsed is None else parsed.expected_active_version_id
+                ),
+            )
+            _log_month_solve(
+                result.status_code,
+                request_id=None if parsed is None else parsed.task_input.request_id,
+                expected_active_version_id=(
+                    None if parsed is None else parsed.expected_active_version_id
+                ),
+                active_version_id=(
+                    error.current_active_version_id
+                    if isinstance(error, RuleManagementServiceError)
+                    else None
+                ),
+                result_code=result_code,
+            )
+            return result
+        _log_month_solve(
+            status_code,
+            request_id=parsed.task_input.request_id,
+            expected_active_version_id=parsed.expected_active_version_id,
+            active_version_id=bound.active_rule_set_version_id,
+            result_code=bound.result.status.value,
+        )
+        return _json_response(content, status_code=status_code)
 
     @application.post(SET_ACTIVE_RULES_PATH, response_class=Response)
     async def set_active_rules(request: Request) -> Response:
@@ -369,12 +672,14 @@ def run_server(
     application = create_app(
         configuration.database_path,
         timeout_seconds=configuration.database_timeout_seconds,
+        monthly_solve_policy=configuration.monthly_solve_policy,
     )
     uvicorn.run(
         application,
         host=configuration.listen_host,
         port=configuration.listen_port,
         access_log=False,
+        workers=1,
     )
 
 
@@ -394,6 +699,8 @@ __all__ = [
     "DEFAULT_LISTEN_PORT",
     "GET_ACTIVE_RULES_PATH",
     "MAX_REQUEST_BODY_BYTES",
+    "MAX_MONTH_SOLVE_REQUEST_BODY_BYTES",
+    "MONTH_SOLVE_PATH",
     "SET_ACTIVE_RULES_PATH",
     "create_app",
     "main",

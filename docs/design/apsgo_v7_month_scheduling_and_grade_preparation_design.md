@@ -4,18 +4,18 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.4 / 2026-09-07 |
-| 状态 | 阶段 0～4 已实施；HTTP、C# 和正式数据库迁移待实施 |
+| 版本 / 日期 | v0.5 / 2026-09-07 |
+| 状态 | 阶段 0～5 已实施；C#、真实数据完整联调和正式数据库迁移待实施 |
 | 用户本轮授权 | 按实施计划持续实施；每阶段独立验证和提交，业务语义需要确认时暂停 |
 | 适用范围 | `GQGA4/default/month`，C# 月计划前端与 V7 独立服务 |
-| 当前 V7 基线 | `codex/rule-setting-api-integration@072a6d0`，写文档前工作树干净 |
+| 专项初始基线 | `codex/rule-setting-api-integration@072a6d0`，写文档前工作树干净 |
 | 配套计划 | [月计划求解接入与软硬钢数据准备实施计划](../implementation/apsgo_v7_month_scheduling_and_grade_preparation_implementation_plan.md) |
 
 目标是让月计划原始订单通过 V7 专属接口完成求解并回写：服务端从已迁移的牌号字典补齐软硬钢分类，绑定同一版本的规则、字典和虚拟原型，再调用已有求解入口。本文中的“求解改造”指输入准备、任务绑定、HTTP 调用、结果转换和前端接入；现有构造、局部搜索、受控拆单、链间宽差精修及七级评分继续使用。
 
 用户已确认：C# 使用 V7 专属配置、API 客户端和求解服务；保留用户将 V7 地址改为读取 `PipelineV7ApiBaseUrl` 的修改；V3 客户端、服务和其他产线路径继续保留。本文不替代原规则设置接口设计的业务语义，仅扩展其数据库快照和 V7 配置使用方式。旧文档中“V7 使用 `BACKEND_ALGORITHM_URL`”及“服务只有两个规则接口”是本次变更前的事实，目标态以本文为准。
 
-阶段 0～4 已按配套计划实现并逐项验证；阶段 4 只完成传输转换，不提前接入 HTTP。后续继续逐项创建中文 `#feat` 或 `#fix` 提交，正式数据库迁移仍留到阶段 9 的明确操作窗口。
+阶段 0～5 已按配套计划实现并逐项验证；月计划传输已接入现有 FastAPI 宿主及 YAML 策略。后续继续逐项创建中文 `#feat` 或 `#fix` 提交，正式数据库迁移仍留到阶段 9 的明确操作窗口。
 
 ## 2. 已核验的现状
 
@@ -26,11 +26,11 @@
 | V3 字典 | 默认 SQLite 的 `aps_gqga4_grade_dictionary`；按产线和启用状态查询 | [SQLite 仓储](/Users/miles/dev/dev-py/apsgo-v3/rules_engine/db/sqlite_repository.py:126) |
 | V3 拼接 | 按订单 `grade` 去空格、转大写精确匹配；补分类、辊型和 IF 标志 | [字典拼接](/Users/miles/dev/dev-py/apsgo-v3/rules_engine/grade_dictionary.py:18) |
 | V3 连接判断 | 普通材同软硬分类可连接；分类缺失时按配置检查相同热轧牌号 | [连接规则](/Users/miles/dev/dev-py/apsgo-v3/rules_engine/dsl/runtime.py:961) |
-| V7 存储 | schema v1，仅规则集、规则版本和规则明细三表，无牌号字典 | [rule_store.py](../../src/apsgo_v7_service/rule_store.py) |
-| V7 绑定 | `bind_gqga4_scheduling_task()` 读取活动规则，订单原样进入请求 | [scheduling.py](../../src/apsgo_v7_service/scheduling.py) |
-| V7 输入 | 标准化已有 `rule_attributes.soft_hard_class`，未从数据库派生 | [input_normalizer.py](../../src/apsgo_scheduler/app/input_normalizer.py) |
+| V7 存储 | 生产代码支持 schema v2 及版本化牌号字典；正式目标库尚保持 schema v1，待阶段 9 迁移 | [rule_store.py](../../src/apsgo_v7_service/rule_store.py) |
+| V7 绑定 | `bind_gqga4_scheduling_task()` 在同一事务读取并核验活动规则、字典和原型，再补齐订单分类 | [scheduling.py](../../src/apsgo_v7_service/scheduling.py) |
+| V7 输入 | 通用标准化器消费已补齐的 `rule_attributes.soft_hard_class`；数据库派生限定在 V7 服务绑定层 | [input_normalizer.py](../../src/apsgo_scheduler/app/input_normalizer.py)、[grade_dictionary.py](../../src/apsgo_v7_service/grade_dictionary.py) |
 | V7 规则 / 缓存 | 已消费软硬分类；边语义声明包含分类、热轧牌号及材料角色 | [concrete.py](../../src/apsgo_scheduler/core/rules/concrete.py)、[compatibility.py](../../src/apsgo_scheduler/core/compatibility.py) |
-| V7 HTTP | 当前提供两个规则设置接口，尚未提供月计划求解 HTTP 接口 | [app.py](../../src/apsgo_v7_service/app.py) |
+| V7 HTTP | 同一宿主现提供两个规则设置接口和一个月计划求解接口；C# 接入与正式部署尚未完成 | [app.py](../../src/apsgo_v7_service/app.py) |
 | 旧完整测试 | 从冻结 `optimization_problem.json` 预填软硬分类，不是原始订单在线拼接 | [输入夹具](../../tests/app/test_input_normalizer.py) |
 
 外部 V3 证据根目录为 `/Users/miles/dev/dev-py/apsgo-v3`，核验提交 `e5bdcdfd3dd1ed880037d28159bfe8b6bef5d15f`。默认源库为该目录下 `data/aps_rule_dsl.sqlite3`，本轮只读核验 SHA-256 为 `2c4e44c4b4c2060cb54890217ea7097164b4c88e25a452796a931883df4cce7e`。这说明当前本地证据，不代表其他部署环境使用同一数据库。
@@ -174,9 +174,9 @@ V3 还填入 `roll_type/is_if_steel`；本期仅保存这些源字段用于追�
 
 ### 7.1 路由与行为
 
-新增 `POST /api/v1/scheduling/GQGA4/default/month/solve`，由当前 V7 服务宿主提供。两个规则 GET/POST 地址保持已确认契约。新路由按 V7 月计划语义命名；V3 的 `/api/v1/planning/rolling-strict-productline` 仍由 V3 原服务处理。
+已新增 `POST /api/v1/scheduling/GQGA4/default/month/solve`，由当前 V7 服务宿主提供。两个规则 GET/POST 地址保持已确认契约。新路由按 V7 月计划语义命名；V3 的 `/api/v1/planning/rolling-strict-productline` 仍由 V3 原服务处理。
 
-首期采用一次同步 HTTP 请求返回完整结果，C# 异步等待。后端线程执行同步求解以避免阻塞事件循环；同一进程最多执行一个求解，忙时返回 `429`，不建立排队任务系统。服务以单 worker 部署，规则查询与保存仍可受理。取消通过请求断开传递给现有 `is_cancelled()` 接口；后台求解真正结束前不能释放执行占用。网络失败不自动重新提交求解，避免重复执行。
+首期采用一次同步 HTTP 请求返回完整结果，C# 异步等待。后端线程执行同步求解以避免阻塞事件循环；每个服务进程使用一个非阻塞占用，同一进程最多执行一个求解，忙时返回 `429`，不建立排队任务系统。规则查询与保存不使用该占用，求解期间仍可受理。取消通过请求断开设置线程安全事件并传给现有 `is_cancelled()` 接口；后台求解真正结束前由工作线程持有占用。网络失败不自动重新提交求解，避免重复执行；部署保持单 worker，否则各 worker 会各自允许一个求解。
 
 ### 7.2 请求字段
 
@@ -263,7 +263,7 @@ V3 还填入 `roll_type/is_if_steel`；本期仅保存这些源字段用于追�
 
 ## 8. 求解预算、配置与缓存
 
-YAML 原四项继续保留，新增 `monthly_solve` 映射，用严格字段校验加载以下生产策略：
+YAML 原四项继续保留，已新增 `monthly_solve` 映射，用严格字段校验加载以下生产策略：
 
 | 项 | 初始值 |
 |---|---:|
@@ -274,7 +274,9 @@ YAML 原四项继续保留，新增 `monthly_solve` 映射，用严格字段校�
 | `whole_chain_pair_scan_slack_weight` | 40 |
 | `maximum_virtual_bridge_nodes` | 2 |
 
-构造排序与数值语义标识复用核心常量。配置在启动时完整冻结，不运行时读取测试文件。现有四键严格校验须在同一实施步骤与 YAML、初始化器测试同步扩展；旧配置缺少新增部分应给出清楚升级说明。
+构造排序与数值语义标识复用核心常量。配置在启动时完整冻结，不运行时读取测试文件。阶段 5 已同步扩展 YAML、加载器和初始化器测试；缺少 `monthly_solve` 的旧配置会在启动前明确报错，须按本节补齐。
+
+加载器要求根级和 `monthly_solve` 六项字段集合精确匹配，拒绝布尔冒充整数/实数、非有限值及非法预算，再由既有 `SolverPolicy` 做统一语义校验。HTTP 层不复制求解策略默认值；直接构造应用但未提供已加载策略时，规则接口可用，求解接口明确返回 `503 monthly_solve_not_configured`。
 
 180 秒是当前公共求解入口预算；新报告另记请求解析、字典绑定、结果编码和总服务耗时，不能把网络等待或准备耗时藏进“求解耗时”。集成验收同时观察外层总耗时是否仍符合既定 180 秒标准，超出应定位准备/传输开销，不自动放宽门槛。客户端建议超时 240 秒以接收最终审计和网络传输，客户端超时不是求解器的新预算。
 
@@ -320,8 +322,8 @@ GQGA4 命令显式设置 `RunInBackground => true`，`ChangesSchedRecords` 在�
 
 ## 11. 决策与后续
 
-本设计采用：独立字典表关联规则版本、显式 SQLite 到 SQLite 的一次性导入、一次性任务绑定、精确匹配、保留单牌号缺失兜底、V7 专属求解路由和 C# 服务、复用现有核心规则与求解器。生产包不保存字典 JSON；运行时只读 V7 数据库。具体新路由、配置键、240 秒客户端超时、8 MiB 请求上限是本次设计值，尚未成为已部署接口。
+本设计采用：独立字典表关联规则版本、显式 SQLite 到 SQLite 的一次性导入、一次性任务绑定、精确匹配、保留单牌号缺失兜底、V7 专属求解路由和 C# 服务、复用现有核心规则与求解器。生产包不保存字典 JSON；运行时只读 V7 数据库。新路由、YAML 配置键和 8 MiB 请求上限已在阶段 5 实现；240 秒客户端超时、C# 接入和正式部署仍待后续阶段完成。
 
 `HC220YD+Z-GL` 暂沿用当前缺失语义，不阻塞实施；其分类补录需要业务依据。首期对正重量已生成虚拟材和重复合同来源明确拒绝；若实际月计划前置步骤必须包含它们，则先记录真实案例并设计来源还原规则，不能静默删除或扩展核心输入材料类型。
 
-后续按配套计划实施；本次文档交付不表示迁移、HTTP 联调、Windows 构建或正式 GQGA4 验收已完成。
+后续按配套计划实施；阶段 5 的临时库 HTTP 回环已经通过，但不表示正式数据库迁移、C#/Windows 联调或正式 GQGA4 完整验收已完成。

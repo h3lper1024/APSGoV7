@@ -203,6 +203,7 @@ def bind_gqga4_scheduling_task(
     database_path: str | Path,
     *,
     timeout_seconds: float = 5.0,
+    expected_active_version_id: int | None = None,
 ) -> BoundSchedulingTask:
     """Read one verified active snapshot and construct the complete solver request."""
 
@@ -221,6 +222,7 @@ def bind_gqga4_scheduling_task(
     active = get_active_gqga4_scheduling_snapshot(
         database_path,
         timeout_seconds=timeout_seconds,
+        expected_active_version_id=expected_active_version_id,
     )
     prepared_orders = prepare_orders_with_grade_dictionary(
         task_input.orders,
@@ -254,6 +256,7 @@ def solve_gqga4_scheduling_task(
     database_path: str | Path,
     *,
     timeout_seconds: float = 5.0,
+    expected_active_version_id: int | None = None,
     cancellation=None,
 ) -> BoundSchedulingResult:
     """Bind once, close the database read, then delegate once to the existing solver entry."""
@@ -262,6 +265,7 @@ def solve_gqga4_scheduling_task(
         task_input,
         database_path,
         timeout_seconds=timeout_seconds,
+        expected_active_version_id=expected_active_version_id,
     )
     result = solve_request(task.request, cancellation)
     return BoundSchedulingResult(

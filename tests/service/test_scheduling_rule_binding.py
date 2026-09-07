@@ -10,6 +10,7 @@ from apsgo_scheduler.api.rule_management import SetActiveRulesRequest
 from apsgo_scheduler.app import solve_request
 from apsgo_scheduler.core.contracts import SolveStatus, fingerprint
 from apsgo_scheduler.core.model import MaterialRole
+from apsgo_v7_service import rule_management as service_module
 from apsgo_v7_service import scheduling
 from apsgo_v7_service.gqga4 import (
     GQGA4_INITIAL_RULES,
@@ -211,6 +212,45 @@ def test_binding_failure_does_not_fall_back_or_start_the_solver(tmp_path, monkey
         scheduling.solve_gqga4_scheduling_task(task_input, tmp_path / "must-not-be-read.sqlite3")
 
     assert caught.value.code == "stored_snapshot_inconsistent"
+    assert solve_calls == []
+
+
+def test_expected_active_version_conflict_stops_before_snapshot_read_and_solver(
+    tmp_path,
+    monkeypatch,
+):
+    database_path = tmp_path / "rules.sqlite3"
+    active = initialize_gqga4_rules(
+        database_path,
+        initial_grade_dictionary=sample_grade_dictionary(),
+    ).active_rules
+    solve_calls = []
+    snapshot_read_calls = []
+
+    monkeypatch.setattr(
+        scheduling,
+        "solve_request",
+        lambda *args: solve_calls.append(args),
+    )
+    original = service_module._read_active_scheduling_snapshot
+
+    def observed_read(store, rule_set, expected_active_version_id=None):
+        snapshot_read_calls.append(expected_active_version_id)
+        return original(store, rule_set, expected_active_version_id)
+
+    monkeypatch.setattr(service_module, "_read_active_scheduling_snapshot", observed_read)
+
+    with pytest.raises(RuleManagementServiceError) as caught:
+        scheduling.solve_gqga4_scheduling_task(
+            _base_task_input(),
+            database_path,
+            expected_active_version_id=active.active_version_id + 1,
+        )
+
+    assert caught.value.code == "active_version_conflict"
+    assert caught.value.expected_active_version_id == active.active_version_id + 1
+    assert caught.value.current_active_version_id == active.active_version_id
+    assert snapshot_read_calls == [active.active_version_id + 1]
     assert solve_calls == []
 
 

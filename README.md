@@ -1,13 +1,15 @@
 # APSGo V7
 
 APSGo V7 包含规则驱动的路径覆盖与确定性局部搜索求解器，以及独立的
-`apsgo_v7_service` 规则管理服务。服务使用 FastAPI、Uvicorn 和独立 SQLite，当前只支持
-`GQGA4/default/month` 规则设置场景，并通过可配置监听地址提供两条规则接口。
+`apsgo_v7_service` 规则管理与月计划求解服务。服务使用 FastAPI、Uvicorn 和独立 SQLite，
+当前只支持 `GQGA4/default/month`，并通过可配置监听地址提供两条规则接口和一条求解接口。
 
 详细设计和实施状态见：
 
 - [月计划规则设置接口详细设计](docs/design/apsgo_v7_rule_setting_api_design.md)
 - [月计划规则设置接口实施计划](docs/implementation/apsgo_v7_rule_setting_api_implementation_plan.md)
+- [月计划求解接入与软硬钢数据准备详细设计](docs/design/apsgo_v7_month_scheduling_and_grade_preparation_design.md)
+- [月计划求解接入与软硬钢数据准备实施计划](docs/implementation/apsgo_v7_month_scheduling_and_grade_preparation_implementation_plan.md)
 - [链间宽差优化实施计划](docs/implementation/apsgo_v7_inter_chain_width_optimization_implementation_plan.md)
 
 ## 服务运行配置
@@ -19,18 +21,25 @@ database_path: ../data/apsgo_v7_rules.sqlite3
 database_timeout_seconds: 5.0
 listen_host: 0.0.0.0
 listen_port: 8001
+monthly_solve:
+  seed: 590531
+  total_time_limit_seconds: 180
+  finalization_reserve_seconds: 10
+  candidate_check_limit: 200000
+  whole_chain_pair_scan_slack_weight: 40
+  maximum_virtual_bridge_nodes: 2
 ```
 
-四项配置必须完整且无未知项。相对 `database_path` 以配置文件所在目录为基准，因此上述值
+根级五项和 `monthly_solve` 内六项配置必须完整且无未知项。相对 `database_path` 以配置文件所在目录为基准，因此上述值
 解析到仓库根 `data/apsgo_v7_rules.sqlite3`，不受启动命令当前目录变化影响。配置文件缺失、
 不可读、不是 UTF-8、YAML 非法、键重复或任一值非法时，命令在数据库操作或服务器启动前失败。
 V7 不再读取 `APSGO_V7_RULE_DB_PATH`。
 
 `listen_host` 允许 `127.0.0.1`（仅本机访问）或 `0.0.0.0`（监听全部 IPv4 网卡）。其他电脑
-访问时，C# 客户端中的 `BACKEND_ALGORITHM_URL` 必须填写服务器实际局域网 IP，例如
+访问时，C# 客户端中的 `PipelineV7ApiBaseUrl` 必须填写服务器实际局域网 IP，例如
 `http://192.168.1.20:8001`；客户端地址不能填写 `0.0.0.0`。
 运行期 SQLite 主文件及 journal/WAL/SHM 文件由 Git 忽略，不得提交。C# 客户端地址继续使用
-`SchedApp/App.config` 中既有的 `BACKEND_ALGORITHM_URL`，不由该 Python 配置文件替代。
+`SchedApp/App.config` 中的 `PipelineV7ApiBaseUrl`，不由该 Python 配置文件替代。
 
 ## 初始化与启动
 

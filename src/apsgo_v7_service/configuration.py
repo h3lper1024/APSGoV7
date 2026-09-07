@@ -3,10 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from math import isfinite
 from pathlib import Path
 
 import yaml
+
+from apsgo_scheduler.core.contracts import (
+    CONSTRUCTION_ORDER_KEY,
+    NUMERIC_SEMANTICS_KEY,
+    SolverPolicy,
+)
 
 DEFAULT_CONFIGURATION_PATH = Path("config/apsgo_v7_service.yaml")
 _EXPECTED_KEYS = frozenset(
@@ -15,6 +22,17 @@ _EXPECTED_KEYS = frozenset(
         "database_timeout_seconds",
         "listen_host",
         "listen_port",
+        "monthly_solve",
+    }
+)
+_EXPECTED_MONTHLY_SOLVE_KEYS = frozenset(
+    {
+        "seed",
+        "total_time_limit_seconds",
+        "finalization_reserve_seconds",
+        "candidate_check_limit",
+        "whole_chain_pair_scan_slack_weight",
+        "maximum_virtual_bridge_nodes",
     }
 )
 _ALLOWED_LISTEN_HOSTS = frozenset({"127.0.0.1", "0.0.0.0"})
@@ -30,6 +48,7 @@ class ServiceConfiguration:
     database_timeout_seconds: float
     listen_host: str
     listen_port: int
+    monthly_solve_policy: SolverPolicy
 
 
 class _UniqueKeySafeLoader(yaml.SafeLoader):
@@ -141,6 +160,50 @@ def _listen_port(value) -> int:
     return value
 
 
+def _monthly_solve_policy(value) -> SolverPolicy:
+    if not isinstance(value, dict):
+        raise ServiceConfigurationError("monthly_solve must be a YAML mapping")
+    keys = frozenset(value)
+    if keys != _EXPECTED_MONTHLY_SOLVE_KEYS:
+        missing = sorted(_EXPECTED_MONTHLY_SOLVE_KEYS - keys)
+        unknown = sorted(keys - _EXPECTED_MONTHLY_SOLVE_KEYS)
+        details = []
+        if missing:
+            details.append(f"missing keys: {', '.join(missing)}")
+        if unknown:
+            details.append(f"unknown keys: {', '.join(unknown)}")
+        raise ServiceConfigurationError(
+            "monthly_solve keys must match exactly; " + "; ".join(details)
+        )
+    for name in ("seed", "candidate_check_limit", "maximum_virtual_bridge_nodes"):
+        if type(value[name]) is not int:
+            raise ServiceConfigurationError(f"monthly_solve.{name} must be an integer")
+    decimals = {}
+    for name in (
+        "total_time_limit_seconds",
+        "finalization_reserve_seconds",
+        "whole_chain_pair_scan_slack_weight",
+    ):
+        if type(value[name]) not in (int, float):
+            raise ServiceConfigurationError(f"monthly_solve.{name} must be a number")
+        decimals[name] = Decimal(str(value[name]))
+    try:
+        return SolverPolicy(
+            seed=value["seed"],
+            total_time_limit_seconds=decimals["total_time_limit_seconds"],
+            finalization_reserve_seconds=decimals["finalization_reserve_seconds"],
+            candidate_check_limit=value["candidate_check_limit"],
+            construction_order_key=CONSTRUCTION_ORDER_KEY,
+            numeric_semantics_key=NUMERIC_SEMANTICS_KEY,
+            whole_chain_pair_scan_slack_weight=decimals[
+                "whole_chain_pair_scan_slack_weight"
+            ],
+            maximum_virtual_bridge_nodes=value["maximum_virtual_bridge_nodes"],
+        )
+    except ValueError as error:
+        raise ServiceConfigurationError(f"monthly_solve is invalid: {error}") from error
+
+
 def load_service_configuration(
     configuration_path: str | Path = DEFAULT_CONFIGURATION_PATH,
 ) -> ServiceConfiguration:
@@ -153,6 +216,7 @@ def load_service_configuration(
         database_timeout_seconds=_database_timeout_seconds(values["database_timeout_seconds"]),
         listen_host=_listen_host(values["listen_host"]),
         listen_port=_listen_port(values["listen_port"]),
+        monthly_solve_policy=_monthly_solve_policy(values["monthly_solve"]),
     )
 
 
