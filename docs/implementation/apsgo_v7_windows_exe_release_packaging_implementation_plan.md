@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.2 / 2026-09-08 |
-| 状态 | 阶段 0“固定发布输入与数据库跟踪边界”已完成；下一项为阶段 1；Windows EXE 尚未生成 |
+| 版本 / 日期 | v0.3 / 2026-09-08 |
+| 状态 | 阶段 0～1 已完成；下一项为阶段 2“建立 Windows 目录式 EXE 构建”；Windows EXE 尚未生成 |
 | 实施基线 | `codex/rule-setting-api-integration@90c78d2f460fd24add0f078508fdbb14cbc486dd` |
 | 权威设计 | [APSGo V7 Windows EXE 发布打包详细设计](../design/apsgo_v7_windows_exe_release_packaging_design.md) |
 | 构建平台 | 64 位 Windows；当前 macOS ARM64 只执行文档和源码侧验证 |
@@ -172,6 +172,22 @@
 - Windows 构建脚本不再用 PowerShell 重写 SQLite/规则检查；
 - 同一验证入口同时服务构建前和发布后；
 - 生产服务代码零修改。
+
+### 9.4 实际结果
+
+- 新增 `release/verify_release.py`，提供 `source --repository-root` 和
+  `package --package-root` 两个命令；退出码 0 表示通过、1 表示稳定验证失败、2 保留给
+  `argparse` 参数错误。
+- 源码模式验证 Git 提交及干净状态、受跟踪 YAML/SQLite、相对数据库路径、SQLite 辅助文件、
+  文件摘要、schema、活动规则、虚拟原型和软硬钢字典身份；输出只使用仓库相对路径。
+- 数据库检查使用 `mode=ro&immutable=1` 和 `query_only` 的冻结连接，在同一连接上复用既有
+  `RuleStore` schema 验证及活动排程快照读取，不调用初始化、迁移、保存、恢复或备份入口。
+- 包模式验证固定目录边界、全部普通文件摘要、配置模板、数据库种子及业务身份；拒绝符号链接、
+  现场 YAML、运行库、SQLite 辅助文件、源码、测试或清单外文件。
+- 新增 21 项专项回归，覆盖干净 detached HEAD、工作树/跟踪/配置边界、三类辅助文件、损坏
+  数据库、错误 schema、活动身份不一致、合法模拟包、摘要篡改、运行库混入、种子损坏和符号链接。
+- 生产服务代码、正式数据库、YAML、规则、求解算法和 HTTP 契约均未修改；详细记录见
+  [阶段 1 证据](evidence/apsgo_v7_windows_exe_release_packaging/stage_01_source_and_database_validator/README.md)。
 
 ## 10. 阶段 2：建立 Windows 目录式 EXE 构建
 
