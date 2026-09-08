@@ -24,6 +24,7 @@ from .rules.base import (
     PlanRuleSubject,
     QualityAggregation,
     QualityDirection,
+    RuleContribution,
     RuleDisposition,
     RuleEvaluationContext,
     RuleViolation,
@@ -105,6 +106,14 @@ class PlanEvaluation:
         )
         object.__setattr__(self, "metrics", _freeze_metrics(self.metrics))
         object.__setattr__(self, "quality_key", quality)
+
+
+@dataclass(frozen=True, slots=True)
+class _ChainEvaluationEntry:
+    chain: Chain
+    contribution: RuleContribution
+    node_contributions: tuple[RuleContribution, ...]
+    evaluation: ChainEvaluation
 
 
 def _validate_inputs(subject, subject_type, rule_set, context):
@@ -241,20 +250,57 @@ def quick_chain_prohibited_profile(
 def evaluate_plan(
     plan: SchedulePlan, rule_set: ProcessRuleSet, context: RuleEvaluationContext
 ) -> PlanEvaluation:
+    """Evaluate without reuse, including when called by the independent final audit."""
+    return _evaluate_plan(plan, rule_set, context)[0]
+
+
+def _evaluate_plan(plan, rule_set, context, previous_entries=None):
+    # None is the uncached path; an empty mapping captures a cold candidate.
     _validate_inputs(plan, SchedulePlan, rule_set, context)
     resources = derive_evaluation_resource_view(plan, context)
     declarations = rule_set.metric_aggregations()
     chain_evaluations, violations, contributions = [], [], []
+    entries = None if previous_entries is None else {}
+    chain_contributions = [] if entries is not None else None
     for chain in plan.chains:
-        result = rule_set.evaluate_complete_chain(ChainRuleSubject(chain.chain_id, chain), context)
-        chain_evaluations.append(_chain_result(chain, result, declarations))
+        entry = None if previous_entries is None else previous_entries.get(chain.chain_id)
+        if entry is not None and entry.chain is chain:
+            result, evaluated = entry.contribution, entry.evaluation
+        else:
+            result = rule_set.evaluate_complete_chain(
+                ChainRuleSubject(chain.chain_id, chain), context
+            )
+            evaluated = _chain_result(chain, result, declarations)
+        chain_evaluations.append(evaluated)
+        if chain_contributions is not None:
+            chain_contributions.append(result)
         violations.extend(result.violations)
         contributions.extend(result.metrics)
-    for chain in plan.chains:
-        for node in chain.nodes:
-            result = rule_set.evaluate_node(NodeRuleSubject(node.node_id, node), context)
+    # Preserve all-chain, then all-node execution and contribution order.
+    for index, chain in enumerate(plan.chains):
+        entry = None if previous_entries is None else previous_entries.get(chain.chain_id)
+        reused = entry is not None and entry.chain is chain
+        node_contributions = [] if entries is not None and not reused else None
+        results = (
+            entry.node_contributions
+            if reused
+            else (
+                rule_set.evaluate_node(NodeRuleSubject(node.node_id, node), context)
+                for node in chain.nodes
+            )
+        )
+        for result in results:
             violations.extend(result.violations)
             contributions.extend(result.metrics)
+            if node_contributions is not None:
+                node_contributions.append(result)
+        if entries is not None:
+            entries[chain.chain_id] = entry if reused else _ChainEvaluationEntry(
+                chain,
+                chain_contributions[index],
+                tuple(node_contributions),
+                chain_evaluations[index],
+            )
     result = rule_set.evaluate_plan(PlanRuleSubject("plan", plan, resources), context)
     violations.extend(result.violations)
     contributions.extend(result.metrics)
@@ -274,9 +320,10 @@ def evaluate_plan(
     grouped["prohibited_violation_count"] = [1 for _ in prohibited]
     grouped["prohibited_violation_severity"] = [v.severity for v in prohibited]
     grouped["chain_count"] = [1 for _ in plan.chains]
-    return PlanEvaluation(
+    evaluation = PlanEvaluation(
         tuple(chain_evaluations),
         tuple(violations),
         metrics,
         _quality_key(rule_set.quality_spec, metrics, grouped, violations),
     )
+    return evaluation, entries

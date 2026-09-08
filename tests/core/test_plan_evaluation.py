@@ -9,6 +9,7 @@ import pytest
 
 from apsgo_scheduler.api.request import QualityCriterionSpec, RuleDefinitionSpec, RuleSetSpec
 from apsgo_scheduler.app.rule_set_loader import load_rule_set
+from apsgo_scheduler.core import evaluation
 from apsgo_scheduler.core.contracts import RuleScope, fingerprint
 from apsgo_scheduler.core.evaluation import (
     ChainEvaluation,
@@ -38,6 +39,7 @@ from apsgo_scheduler.core.rules.concrete import (
     ContinuousNarrowSteelWeightRule,
     HighSurfaceRunCountRule,
     SameSpecContinuousRealWeightRule,
+    SyntheticNodePriorityRule,
     SyntheticWidthLimitRule,
 )
 from apsgo_scheduler.core.rules.rule_set import ProcessRuleSet
@@ -312,3 +314,142 @@ def test_evaluation_rejects_invalid_subjects_and_duplicate_chain_details():
         PlanEvaluation((detail, detail), (), {}, ())
     with pytest.raises(ValueError):
         ChainEvaluation("c", None, (), {})
+
+
+@pytest.mark.parametrize("maximum_increase", (20, 0))
+def test_captured_entries_keep_raw_metrics_and_ordered_node_contributions(maximum_increase):
+    width = SyntheticWidthLimitRule(
+        "width", "width", RuleScope.EDGE, True, "1", {"maximum_increase": D(maximum_increase)}
+    )
+    priority = SyntheticNodePriorityRule(
+        "priority", "priority", RuleScope.NODE, True, "1", {"attribute": "priority"}
+    )
+    active = ruleset((width, priority))
+    active = replace(
+        active,
+        quality_spec=active.quality_spec
+        + tuple(
+            QualityCriterion(
+                aggregation.value,
+                "synthetic_width_increase",
+                QualityDirection.MINIMIZE,
+                aggregation,
+                NumericProjection.EXACT_DECIMAL,
+            )
+            for aggregation in (
+                QualityAggregation.SUM,
+                QualityAggregation.MAXIMUM,
+                QualityAggregation.COUNT,
+            )
+        ),
+    )
+    plan = SchedulePlan(
+        tuple(
+            Chain(
+                f"c-{i}",
+                tuple(
+                    node(f"n-{i}-{j}", width=D(value), rule_attributes={"priority": i * 3 + j})
+                    for j, value in enumerate(widths)
+                ),
+                "first",
+            )
+            for i, widths in enumerate(((1000, 1003, 1008), (1000, 1007, 1018)))
+        )
+    )
+    ctx = context()
+    expected = evaluate_plan(plan, active, ctx)
+    actual, entries = evaluation._evaluate_plan(plan, active, ctx, previous_entries={})
+    assert actual == expected and fingerprint(actual) == fingerprint(expected)
+    assert actual.quality_key[2:] == (D(26), D(11), 4)
+    assert [item.metrics["synthetic_width_increase"] for item in actual.chain_evaluations] == [
+        D(8), D(18)
+    ]
+    assert tuple(entries) == ("c-0", "c-1")
+    assert tuple(
+        violation for entry in entries.values() for violation in entry.contribution.violations
+    ) == actual.violations
+    assert tuple(
+        metric.value for entry in entries.values() for metric in entry.contribution.metrics
+    ) == (D(3), D(5), D(7), D(11))
+    assert tuple(
+        metric.value
+        for entry in entries.values()
+        for contribution in entry.node_contributions
+        for metric in contribution.metrics
+    ) == tuple(range(6))
+    for chain, detail in zip(plan.chains, actual.chain_evaluations):
+        entry = entries[chain.chain_id]
+        assert entry.chain is chain and entry.evaluation is detail
+        assert isinstance(entry.node_contributions, tuple)
+        assert len(entry.node_contributions) == len(chain.nodes)
+        with pytest.raises(FrozenInstanceError):
+            entry.chain = chain
+
+
+def test_uncached_plan_evaluation_does_not_create_reuse_entries(monkeypatch):
+    plan = SchedulePlan((Chain("c", (node("a"),), "first"),))
+    active, ctx = ruleset(), context()
+    expected = evaluate_plan(plan, active, ctx)
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("public uncached evaluation must not allocate candidate entries")
+
+    monkeypatch.setattr(evaluation, "_ChainEvaluationEntry", forbidden)
+    assert evaluate_plan(plan, active, ctx) == expected
+    actual, entries = evaluation._evaluate_plan(plan, active, ctx)
+    assert actual == expected and entries is None
+
+
+@pytest.mark.parametrize("capture", (False, True))
+@pytest.mark.parametrize("failure", (None, ("chain", "b"), ("node", "a1")))
+def test_shared_evaluation_preserves_all_chain_then_all_node_execution_order(
+    monkeypatch, capture, failure
+):
+    plan = SchedulePlan(
+        (Chain("a", (node("a1"), node("a2")), "first"), Chain("b", (node("b1"),), "first"))
+    )
+    active, ctx = ruleset(), context()
+    expected = evaluate_plan(plan, active, ctx)
+    seen = []
+    error = RuntimeError("ordered rule execution failure")
+    original_resources = evaluation.derive_evaluation_resource_view
+
+    def resources(*args):
+        seen.append(("resources", "plan"))
+        return original_resources(*args)
+
+    monkeypatch.setattr(evaluation, "derive_evaluation_resource_view", resources)
+    for name, method in (
+        ("chain", "evaluate_complete_chain"),
+        ("node", "evaluate_node"),
+        ("plan", "evaluate_plan"),
+    ):
+        original = getattr(ProcessRuleSet, method)
+
+        def observe(self, subject, context, name=name, original=original):
+            event = (name, subject.subject_id)
+            seen.append(event)
+            if event == failure:
+                raise error
+            return original(self, subject, context)
+
+        monkeypatch.setattr(ProcessRuleSet, method, observe)
+
+    def run():
+        if capture:
+            return evaluation._evaluate_plan(plan, active, ctx, previous_entries={})[0]
+        return evaluate_plan(plan, active, ctx)
+
+    events = [
+        ("resources", "plan"), ("chain", "a"), ("chain", "b"),
+        ("node", "a1"), ("node", "a2"), ("node", "b1"), ("plan", "plan"),
+    ]
+    if failure is None:
+        actual = run()
+        assert actual == expected and fingerprint(actual) == fingerprint(expected)
+        assert seen == events
+    else:
+        with pytest.raises(RuntimeError) as raised:
+            run()
+        assert raised.value is error
+        assert seen == events[: events.index(failure) + 1]
