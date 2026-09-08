@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.1 / 2026-09-08 |
-| 状态 | 设计草案，待确认；本轮仅文档，未安装依赖或实施代码 |
+| 版本 / 日期 | v0.2 / 2026-09-08 |
+| 状态 | 用户已授权持续实施；阶段0基线和依赖探针已实测，最终验证见阶段提交；生产尚未接线 |
 | 仓库 / 分支 | `APSGOV7` / `codex/solver-performance-optimization` |
 | 编写前提交 | `d55dadbcc2610b0cd8ef29362084f40ff3929706`，工作树干净 |
 | 本机 / 目标 | macOS ARM64，Conda `aps_3.10.18`；目标 Windows x64 EXE |
@@ -15,7 +15,7 @@
 
 本文“快路径”指这段可加速的数值执行；“回退”指仍用当前 Python 代码计算。Numba 的 JIT（即时编译）是在首次使用时把数值函数编译成机器码；`nopython` 签名是已生成无需 Python 对象解释执行的编译版本记录。它能证明使用了编译版本，但不能单独证明业务等价或性能收益。
 
-本专项接续已提交的桥接节点复用和未变链评价复用，不撤销二者。旧性能文档仍是历史事实；本轮只同步本文、实施计划和 `AGENTS.md`，不批量重写其他文档。
+本专项接续已提交的桥接节点复用和未变链评价复用，不撤销二者。旧性能文档仍是历史事实；只同步本文、实施计划、`AGENTS.md`和本项证据，不批量重写其他文档。
 
 不做：初始规格图/匹配加速、宽差候选批量预筛、全局评分数值化、拆单隔离材选择加速、多进程、并行候选、GPU、SciPy/CSR、跨请求业务缓存、规则库/HTTP/YAML 变更、现场部署或合并主分支。原来的“核心仅标准库”将在获得代码授权后增加一个精确模块例外，不全局放开依赖。
 
@@ -176,7 +176,7 @@ EXE 冒烟同时核验预期桥接输出与对应 `ready` 证据，不能只看�
 
 NumPy/Numba 作为本项运行依赖声明；`llvmlite` 是 Numba 使用的编译运行组件，记录实际版本，不直接从业务模块导入。只有 `_bridge_numeric.py` 可以直接导入这两个库，其他核心和服务层仍按现架构约束。
 
-本机目前 NumPy 2.2.6 已安装，Numba/llvmlite/PyInstaller 未安装。文档不等于依赖验证。阶段 0 以 Python 3.10.18 和当前 NumPy 为候选，按官方兼容表核对可取得的 macOS ARM64、Windows x64 二进制分发，并在冒烟后锁定确切版本；不得使用无上界 latest 或静默更换 Conda 环境。
+文档v0.1编写时只有NumPy 2.2.6已安装。阶段0已保留该版本，在指定Conda中安装并验证Numba **0.65.1**、llvmlite **0.47.0**；Python仍为3.10.18。固定平台wheel已核验，未来构建锁定hooks **2026.6**，PyInstaller/hooks尚未安装或实包验证。[阶段0证据](../implementation/evidence/apsgo_v7_numpy_numba_virtual_bridge/stage_00_baseline/README.md)记录两次独立进程探针与版本来源；小探针通过不等于正式桥接/Windows通过。不得使用无上界latest或静默更换Conda环境。
 
 第一版采用**首次确实需要数值桥接时编译，进程内复用机器码，`cache=False` 不写磁盘编译缓存**。不在模块导入、EXE `--help` 或规则查询时编译；数据参数明确传入，不能借闭包固化活动规则。编译时间属于该次请求真实成本及现有搜索时限，编译返回后先检查预算；不能停钟、重新设置起点或补发额度。首次编译本身不能按64组合分块，取消要等待其返回，这是必须测量和公开的限制。
 
@@ -210,10 +210,10 @@ Numba 测试必须确认产生 nopython 编译签名且确实调用内核，禁�
 - [NumPy 广播](https://numpy.org/doc/stable/user/basics.broadcasting.html)及 [vectorize说明](https://numpy.org/doc/stable/reference/generated/numpy.vectorize.html)：使用真正数值数组，不用包裹 Python 对象函数的 `np.vectorize` 冒充编译加速。
 - [PyInstaller numba hook](https://github.com/pyinstaller/pyinstaller-hooks-contrib/blob/master/_pyinstaller_hooks_contrib/stdhooks/hook-numba.py)与 [llvmlite hook](https://github.com/pyinstaller/pyinstaller-hooks-contrib/blob/master/_pyinstaller_hooks_contrib/stdhooks/hook-llvmlite.py)：已有收集支持，最终仍需锁定实际 hooks 版本并做 Windows 实包核验。
 
-## 11. 实施前待确认决策
+## 11. 已确认实施决策
 
 1. **局部数值快路径**：只在桥接私有模块增加 NumPy/Numba 依赖；先支持表中四种边规则的单实例组合，其他情况沿用现 Python。不是放弃多产线，也不改规则接口。
 2. **停止与统计口径**：接受64组合分块前后检查取消/时限，允许内部轮询位置及边缓存真实统计改变；固定工作量下业务结果、候选计数、接受轨迹和审计仍必须一致，不伪造旧统计。
 3. **首次编译口径**：首版在首次实际使用时编译且计入原搜索时间，进程内复用但不写磁盘缓存、不增加启动预热；真实冷启动和Windows都单独验证，出现不可接受阻塞时暂停讨论。
 
-用户当前只要求先创建设计与计划，上述细节尚未视为已确认，所有代码阶段待授权。
+用户在文档提交 `7fff997` 后明确要求按实施计划持续推进，上述三项作为本次执行依据。每阶段独立验证与中文提交；只有新增决策、范围变化或平台条件不足时暂停，不在小步骤之间重复询问。
