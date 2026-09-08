@@ -20,7 +20,6 @@ from uuid import UUID
 
 from apsgo_scheduler.api.json_codec import dumps_exact_json
 
-
 request_context: ContextVar[RunDiagnostics | None] = ContextVar(
     "apsgo_diagnostic_request", default=None
 )

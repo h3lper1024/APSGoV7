@@ -1,5 +1,6 @@
 """Complete-candidate acceptance and reference-ordered local neighborhoods."""
 
+import logging
 from dataclasses import dataclass, replace
 from decimal import Decimal
 from fractions import Fraction
@@ -24,6 +25,7 @@ from .contracts import (
 )
 from .evaluation import evaluate_plan, quick_chain_prohibited_profile
 from .model import Chain, MaterialRole, SchedulePlan, SearchState, SplitLineage, VirtualPurpose
+from .process_logging import emit
 from .resource_facts import derive_evaluation_resource_view
 from .rules.base import (
     ChainRuleSubject,
@@ -34,6 +36,8 @@ from .rules.base import (
 )
 from .rules.concrete import WEIGHT_EPSILON, ChainWeightRangeRule, VirtualOutputRatioRule
 from .virtual_material import VirtualFactory
+
+logger = logging.getLogger(__name__)
 
 
 def _identities(values, name):
@@ -571,6 +575,17 @@ def try_complete_candidate(
         split_mode=None if split_decision is None else split_decision.mode,
     )
     context.accepted_move_traces = traces
+    emit(
+        logger,
+        "solver_move_accepted",
+        sequence=trace.sequence,
+        action_name=trace.action_name,
+        affected_chain_ids=trace.affected_chain_ids,
+        affected_source_order_ids=trace.affected_source_order_ids,
+        quality_before=trace.quality_before,
+        quality_after=trace.quality_after,
+        candidate_check_count=trace.candidate_check_count,
+    )
     return True
 
 

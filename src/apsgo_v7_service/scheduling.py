@@ -23,8 +23,8 @@ from apsgo_scheduler.core.contracts import (
     require_text,
 )
 
-from .gqga4 import GQGA4_RULE_SET_TEMPLATE
 from .diagnostics import request_context
+from .gqga4 import GQGA4_RULE_SET_TEMPLATE
 from .grade_dictionary import (
     GradePreparationReport,
     prepare_orders_with_grade_dictionary,

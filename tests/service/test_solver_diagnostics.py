@@ -1,5 +1,5 @@
-import io
 import csv
+import io
 import json
 import logging
 import os
@@ -20,9 +20,9 @@ from apsgo_v7_service.diagnostics import (
     DiagnosticStreamHandler,
     RunDiagnostics,
     TimestampFormatter,
-    request_context,
     _candidate_csv,
     _json_values,
+    request_context,
 )
 from apsgo_v7_service.rule_management import initialize_gqga4_rules
 from tests.service.grade_dictionary_support import sample_grade_dictionary
@@ -238,7 +238,13 @@ def test_diagnostic_failures_do_not_replace_business_response(diagnostic_databas
 
 
 def test_csv_keeps_order_lineage_and_blocks_spreadsheet_formulas():
-    from apsgo_scheduler.core.model import Chain, SchedulePlan, MaterialRole, VirtualLineage, VirtualPurpose
+    from apsgo_scheduler.core.model import (
+        Chain,
+        MaterialRole,
+        SchedulePlan,
+        VirtualLineage,
+        VirtualPurpose,
+    )
     from tests.service.test_month_scheduling import real_node, split_piece
 
     virtual = real_node("virtual", None, None, material_role=MaterialRole.GENERATED_VIRTUAL,
