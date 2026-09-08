@@ -2,6 +2,7 @@ import asyncio
 import csv
 import json
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
@@ -13,6 +14,7 @@ from fastapi.testclient import TestClient
 
 from apsgo_scheduler.api.json_codec import dumps_exact_json
 from apsgo_v7_service import app as http_module
+from apsgo_v7_service import diagnostics as diagnostic_module
 from apsgo_v7_service import scheduling as scheduling_module
 from apsgo_v7_service.diagnostics import request_context
 from apsgo_v7_service.month_scheduling import MonthSchedulingMappingError
@@ -31,6 +33,21 @@ def diagnostic_app(tmp_path):
     ), directory
 
 
+@pytest.fixture
+def cpu_clock(monkeypatch):
+    clock = {"elapsed": 100.0, "cpu": 10.0, "cpu_count_calls": 0}
+
+    def cpu_count():
+        clock["cpu_count_calls"] += 1
+        return 8
+
+    monkeypatch.setattr(http_module, "perf_counter", lambda: clock["elapsed"])
+    monkeypatch.setattr(diagnostic_module, "perf_counter", lambda: clock["elapsed"])
+    monkeypatch.setattr(diagnostic_module, "process_time", lambda: clock["cpu"])
+    monkeypatch.setattr(diagnostic_module.os, "cpu_count", cpu_count)
+    return clock
+
+
 def _post(client, body=None):
     return client.post(
         http_module.MONTH_SOLVE_PATH,
@@ -45,6 +62,25 @@ def _runs(directory):
 
 def _read(path):
     return json.loads(path.read_text(encoding="utf-8"), parse_float=Decimal)
+
+
+def _log_timing(line):
+    return {
+        key: None if value == "-" else Decimal(value)
+        for key, value in re.findall(
+            r"\b(elapsed_seconds|process_cpu_seconds|cpu_core_equivalent|cpu_count|"
+            r"machine_cpu_percent_estimate)=(-|[0-9]+(?:\.[0-9]+)?)(?=\s|$)", line,
+        )
+    }
+
+
+def _assert_summary_timing(summary, *, elapsed, cpu, cores, machine_percent):
+    assert summary["schema_version"] == 1
+    assert summary["elapsed_seconds"] == Decimal(str(elapsed))
+    assert summary["process_cpu_seconds"] == Decimal(str(cpu))
+    assert summary["cpu_core_equivalent"] == Decimal(str(cores))
+    assert summary["cpu_count"] == 8
+    assert summary["machine_cpu_percent_estimate"] == Decimal(str(machine_percent))
 
 
 def _handlers():
@@ -62,7 +98,7 @@ async def _wait_until(predicate):
 
 
 def test_cancelled_asgi_coroutine_keeps_worker_artifacts_and_cleans_up(
-    diagnostic_app, monkeypatch, caplog,
+    diagnostic_app, cpu_clock, monkeypatch, caplog,
 ):
     application, directory = diagnostic_app
     entered, cancellation_seen, release = Event(), Event(), Event()
@@ -100,6 +136,7 @@ def test_cancelled_asgi_coroutine_keeps_worker_artifacts_and_cleans_up(
             active = asyncio.create_task(_post(client))
             try:
                 await _wait_until(entered.is_set)
+                cpu_clock.update(elapsed=108.0, cpu=14.0)
                 active.cancel()
                 with pytest.raises(asyncio.CancelledError):
                     await active
@@ -112,6 +149,7 @@ def test_cancelled_asgi_coroutine_keeps_worker_artifacts_and_cleans_up(
                 assert busy.status_code == 429
                 assert _runs(directory) == (first_run,)
             finally:
+                cpu_clock.update(elapsed=116.0, cpu=22.0)
                 release.set()
                 if not active.done():
                     active.cancel()
@@ -122,6 +160,7 @@ def test_cancelled_asgi_coroutine_keeps_worker_artifacts_and_cleans_up(
 
             assert _handlers() == previous_handlers
             summary = _read(first_run / "diagnostic_summary.json")
+            _assert_summary_timing(summary, elapsed=16, cpu=12, cores="0.75", machine_percent="9.375")
             result = summary["bound_result"]["result"]
             assert summary["client_disconnected"] is True
             assert result["status"] == "cancelled"
@@ -132,24 +171,30 @@ def test_cancelled_asgi_coroutine_keeps_worker_artifacts_and_cleans_up(
             log = (first_run / "solve.log").read_text(encoding="utf-8")
             assert "month_solve_client_disconnected" in log
             assert "month_solve_finished" in log
+            disconnected = next(line for line in log.splitlines() if "month_solve_client_disconnected" in line)
+            assert _log_timing(disconnected)["process_cpu_seconds"] == 4
+            assert "month_solve_worker_finished" not in log
             retry = await _post(client)
             assert retry.status_code == 200 and retry.json()["status"] == "success"
             assert len(_runs(directory)) == 2
             assert _handlers() == previous_handlers
             assert request_context.get() is None
+            assert cpu_clock["cpu_count_calls"] == 3
 
     with caplog.at_level(logging.INFO):
         asyncio.run(exercise())
 
 
 def test_same_request_id_creates_independent_files_and_log_contexts(
-    diagnostic_app, monkeypatch, caplog,
+    diagnostic_app, cpu_clock, monkeypatch, caplog,
 ):
     application, directory = diagnostic_app
     original_solve = scheduling_module.solve_request
     previous_handlers = _handlers()
 
     def marked_solve(request, cancellation=None):
+        cpu_clock["elapsed"] += 8.0
+        cpu_clock["cpu"] += 4.0
         logging.getLogger("apsgo_scheduler.lifecycle_test").info(
             "run_marker=%s", request.orders[0].source_order_id,
         )
@@ -176,11 +221,17 @@ def test_same_request_id_creates_independent_files_and_log_contexts(
         assert f"run_marker={other}" not in log
         assert _read(run / "prepared_request.json")["request"]["orders"][0]["source_order_id"] == marker
         assert _read(run / "response.json")["rows"][0]["source_order_id"] == marker
+        _assert_summary_timing(
+            _read(run / "diagnostic_summary.json"), elapsed=8, cpu=4, cores="0.5", machine_percent="6.25",
+        )
+        marker_line = next(line for line in log.splitlines() if f"run_marker={marker}" in line)
+        assert _log_timing(marker_line)["process_cpu_seconds"] == 4
+    assert cpu_clock["cpu_count_calls"] == 2
     assert request_context.get() is None
 
 
 def test_rule_get_and_rejected_busy_request_do_not_enter_active_run(
-    diagnostic_app, monkeypatch, caplog,
+    diagnostic_app, cpu_clock, monkeypatch, caplog,
 ):
     application, directory = diagnostic_app
     entered, release = Event(), Event()
@@ -188,6 +239,7 @@ def test_rule_get_and_rejected_busy_request_do_not_enter_active_run(
     previous_handlers = _handlers()
 
     def paused_solve(request, cancellation=None):
+        cpu_clock.update(elapsed=108.0, cpu=14.0)
         entered.set()
         assert release.wait(10)
         return original_solve(request, cancellation)
@@ -222,16 +274,23 @@ def test_rule_get_and_rejected_busy_request_do_not_enter_active_run(
     assert "scheduling_busy" not in log
     assert "00000000-0000-4000-8000-000000000999" not in log
     assert "rule_management method=GET" in caplog.text
+    rule_line = next(record.getMessage() for record in caplog.records if "rule_management method=GET" in record.getMessage())
+    assert "process_cpu_seconds=" not in rule_line
+    busy_line = next(record.getMessage() for record in caplog.records if "result_code=scheduling_busy" in record.getMessage())
+    assert _log_timing(busy_line)["process_cpu_seconds"] == 0
+    assert "cpu_count=8" in busy_line
+    assert cpu_clock["cpu_count_calls"] == 2
     assert _handlers() == previous_handlers
 
 
 def test_response_serialization_failure_keeps_http_error_and_bound_candidate(
-    diagnostic_app, monkeypatch, caplog,
+    diagnostic_app, cpu_clock, monkeypatch, caplog,
 ):
     application, directory = diagnostic_app
     previous_handlers = _handlers()
 
     def fail_mapping(*args):
+        cpu_clock.update(elapsed=108.0, cpu=14.0)
         raise MonthSchedulingMappingError("private response serialization detail")
 
     monkeypatch.setattr(http_module, "dumps_month_solve_response", fail_mapping)
@@ -244,6 +303,7 @@ def test_response_serialization_failure_keeps_http_error_and_bound_candidate(
     run, = _runs(directory)
     assert (run / "response.json").read_bytes() == response.content
     summary = _read(run / "diagnostic_summary.json")
+    _assert_summary_timing(summary, elapsed=8, cpu=4, cores="0.5", machine_percent="6.25")
     assert summary["http_status"] == 500
     assert summary["exception"]["type"] == "MonthSchedulingMappingError"
     result = summary["bound_result"]["result"]
@@ -255,5 +315,140 @@ def test_response_serialization_failure_keeps_http_error_and_bound_candidate(
         rows = list(csv.DictReader(stream))
     assert [row["source_order_id"] for row in rows] == ["order-1", "order-2"]
     assert all(row["artifact_kind"] == "diagnostic_candidate" for row in rows)
+    assert _handlers() == previous_handlers
+    assert request_context.get() is None
+
+
+def test_cpu_timing_includes_body_parsing_and_samples_summary_before_worker_finish(
+    diagnostic_app, cpu_clock, monkeypatch, caplog,
+):
+    application, directory = diagnostic_app
+    events = []
+    original_read = http_module._read_request_body
+    original_parse = http_module.loads_month_solve_request
+    original_close = diagnostic_module.DiagnosticFileHandler.close
+    original_write = diagnostic_module.RunDiagnostics.write
+
+    async def read_body(*args, **kwargs):
+        assert cpu_clock["cpu_count_calls"] == 1
+        events.append("body")
+        body = await original_read(*args, **kwargs)
+        cpu_clock.update(elapsed=104.0, cpu=12.0)
+        return body
+
+    def parse_body(*args, **kwargs):
+        events.append("parse")
+        parsed = original_parse(*args, **kwargs)
+        cpu_clock.update(elapsed=108.0, cpu=14.0)
+        return parsed
+
+    def close_log(handler):
+        original_close(handler)
+        events.append("log_closed")
+        cpu_clock.update(elapsed=112.0, cpu=16.0)
+
+    def write_file(diagnostic, filename, render):
+        if filename == "diagnostic_summary.json":
+            assert diagnostic.handler._closed
+            events.append("summary")
+        original_write(diagnostic, filename, render)
+        if filename == "diagnostic_summary.json":
+            events.append("summary_written")
+            cpu_clock.update(elapsed=116.0, cpu=18.0)
+
+    monkeypatch.setattr(http_module, "_read_request_body", read_body)
+    monkeypatch.setattr(http_module, "loads_month_solve_request", parse_body)
+    monkeypatch.setattr(diagnostic_module.DiagnosticFileHandler, "close", close_log)
+    monkeypatch.setattr(diagnostic_module.RunDiagnostics, "write", write_file)
+    previous_formatter = caplog.handler.formatter
+    caplog.handler.setFormatter(diagnostic_module.TimestampFormatter())
+    try:
+        with caplog.at_level(logging.INFO), TestClient(application) as client:
+            response = _post(client)
+        log = caplog.text
+    finally:
+        caplog.handler.setFormatter(previous_formatter)
+
+    assert response.status_code == 200 and response.json()["status"] == "success"
+    assert events == ["body", "parse", "log_closed", "summary", "summary_written"]
+    run, = _runs(directory)
+    summary = _read(run / "diagnostic_summary.json")
+    _assert_summary_timing(summary, elapsed=12, cpu=6, cores="0.5", machine_percent="6.25")
+    finished = next(line for line in log.splitlines() if "month_solve_worker_finished" in line)
+    assert _log_timing(finished) == {
+        "elapsed_seconds": Decimal(16),
+        "process_cpu_seconds": Decimal(8),
+        "cpu_core_equivalent": Decimal("0.5"),
+        "cpu_count": Decimal(8),
+        "machine_cpu_percent_estimate": Decimal("6.25"),
+    }
+    run_log = (run / "solve.log").read_text(encoding="utf-8")
+    assert "month_solve_worker_finished" not in run_log
+    assert cpu_clock["cpu_count_calls"] == 1
+    assert request_context.get() is None
+
+
+@pytest.mark.parametrize(
+    ("case", "status", "error_code"),
+    [
+        ("invalid_json", 400, "invalid_request"),
+        ("contract_input", 422, "scheduling_input_invalid"),
+        ("media_type", 415, "invalid_content_type"),
+        ("body_size", 413, "request_too_large"),
+        ("unconfigured", 503, "monthly_solve_not_configured"),
+        ("body_read_error", 500, "internal_server_error"),
+    ],
+)
+def test_pre_worker_errors_log_cpu_without_creating_run_files(
+    diagnostic_app, cpu_clock, monkeypatch, caplog, case, status, error_code,
+):
+    application, directory = diagnostic_app
+    original_check = http_module._require_no_query
+
+    def check_request(request):
+        original_check(request)
+        cpu_clock.update(elapsed=108.0, cpu=14.0)
+
+    async def fail_body_read(*args, **kwargs):
+        raise RuntimeError("private body read detail")
+
+    monkeypatch.setattr(http_module, "_require_no_query", check_request)
+    body = dumps_exact_json(request_data())
+    headers = {"content-type": "application/json"}
+    if case == "invalid_json":
+        body = "{"
+    elif case == "contract_input":
+        body = dumps_exact_json(request_data(orders=[]))
+    elif case == "media_type":
+        headers["content-type"] = "text/plain"
+    elif case == "body_size":
+        headers["content-length"] = str(http_module.MAX_MONTH_SOLVE_REQUEST_BODY_BYTES + 1)
+    elif case == "unconfigured":
+        application = http_module.create_app(
+            directory.parent / "rules.sqlite3", diagnostics_directory=directory,
+        )
+    elif case == "body_read_error":
+        monkeypatch.setattr(http_module, "_read_request_body", fail_body_read)
+
+    previous_handlers = _handlers()
+    with caplog.at_level(logging.INFO), TestClient(application) as client:
+        response = client.post(http_module.MONTH_SOLVE_PATH, content=body, headers=headers)
+
+    assert response.status_code == status
+    assert response.json()["error"]["code"] == error_code
+    assert "private body read detail" not in response.text
+    assert not directory.exists()
+    logs = [record.getMessage() for record in caplog.records if record.getMessage().startswith("month_solve")]
+    assert logs and all("process_cpu_seconds=4.000000" in line for line in logs)
+    assert _log_timing(logs[0]) == {
+        "elapsed_seconds": Decimal(8),
+        "process_cpu_seconds": Decimal(4),
+        "cpu_core_equivalent": Decimal("0.5"),
+        "cpu_count": Decimal(8),
+        "machine_cpu_percent_estimate": Decimal("6.25"),
+    }
+    assert "month_solve_started" not in caplog.text
+    assert "month_solve_worker_finished" not in caplog.text
+    assert cpu_clock["cpu_count_calls"] == 1
     assert _handlers() == previous_handlers
     assert request_context.get() is None

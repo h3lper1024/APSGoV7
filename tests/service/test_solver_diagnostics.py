@@ -15,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from apsgo_scheduler.api.json_codec import dumps_exact_json
+from apsgo_v7_service import diagnostics as diagnostic_module
 from apsgo_v7_service.app import MONTH_SOLVE_PATH, create_app
 from apsgo_v7_service.diagnostics import (
     DiagnosticStreamHandler,
@@ -23,6 +24,8 @@ from apsgo_v7_service.diagnostics import (
     _candidate_csv,
     _json_values,
     request_context,
+    start_cpu_timing,
+    timing_metrics,
 )
 from apsgo_v7_service.rule_management import initialize_gqga4_rules
 from tests.service.grade_dictionary_support import sample_grade_dictionary
@@ -37,7 +40,11 @@ def test_timestamp_every_exception_line_and_escaped_external_controls():
     handler.setFormatter(TimestampFormatter())
     logger = logging.Logger("isolated", logging.INFO)
     logger.addHandler(handler)
-    token = request_context.set(RunDiagnostics(None, "request-one", perf_counter()))
+    started = perf_counter()
+    cpu_started, cpu_count = start_cpu_timing()
+    token = request_context.set(RunDiagnostics(
+        None, "request-one", started, cpu_started=cpu_started, cpu_count=cpu_count,
+    ))
     try:
         try:
             raise ValueError("test failure")
@@ -49,6 +56,7 @@ def test_timestamp_every_exception_line_and_escaped_external_controls():
     assert len(lines) > 2 and all(re.match(PREFIX, line) for line in lines)
     assert "external=line\\nfake\\r\\x1b[31m" in lines[0]
     assert "request_id=request-one" in lines[0] and "elapsed_seconds=" in lines[0]
+    assert "process_cpu_seconds=" in lines[0]
     assert "ValueError: test failure" in lines[-1]
     assert request_context.get() is None
 
@@ -82,7 +90,7 @@ assert (directory / 'service.log.3').is_file()
     assert all(re.match(PREFIX, line) for line in (tmp_path / "service.log").read_text().splitlines())
 
 
-def test_file_or_formatter_failure_does_not_escape_logging(capsys):
+def test_file_or_formatter_failure_does_not_escape_logging(capsys, monkeypatch):
     class BrokenStream:
         def write(self, value):
             raise OSError("disk full")
@@ -91,7 +99,17 @@ def test_file_or_formatter_failure_does_not_escape_logging(capsys):
     handler.setFormatter(TimestampFormatter())
     logger = logging.Logger("isolated", logging.INFO)
     logger.addHandler(handler)
-    logger.info("keep scheduling")
+    def broken_clock():
+        raise OSError("CPU clock failure")
+
+    monkeypatch.setattr(diagnostic_module, "process_time", broken_clock)
+    token = request_context.set(RunDiagnostics(
+        None, "failed-logging", perf_counter(), cpu_started=0, cpu_count=8,
+    ))
+    try:
+        logger.info("keep scheduling")
+    finally:
+        request_context.reset(token)
     warning = capsys.readouterr().err
     assert re.match(PREFIX, warning) and "diagnostic_write_failed" in warning
 
@@ -163,6 +181,15 @@ def test_real_artifacts_preserve_candidate_audits_and_exact_response(diagnostic_
     summary = read_json(folder / "diagnostic_summary.json")
     assert summary["write_failures"] == []
     assert summary["http_status"] == response.status_code
+    assert summary["process_cpu_seconds"] >= 0
+    assert summary["cpu_core_equivalent"] >= 0
+    assert summary["cpu_count"] is None or summary["cpu_count"] > 0
+    if summary["cpu_count"] is not None:
+        assert summary["machine_cpu_percent_estimate"] >= 0
+    else:
+        assert summary["machine_cpu_percent_estimate"] is None
+    assert not {"process_cpu_seconds", "cpu_core_equivalent", "cpu_count",
+                "machine_cpu_percent_estimate"}.intersection(response.json())
     assert set(summary["written_files"]) == {path.name for path in folder.iterdir()}
     if case == "binding_conflict":
         assert response.status_code == 409 and summary["bound_result"] is None
@@ -194,6 +221,7 @@ def test_real_artifacts_preserve_candidate_audits_and_exact_response(diagnostic_
     lines = (folder / "solve.log").read_text().splitlines()
     assert lines and all(re.match(PREFIX, line) for line in lines)
     assert "month_solve_finished" in lines[-1]
+    assert "process_cpu_seconds=" in lines[-1] and "cpu_core_equivalent=" in lines[-1]
     assert request_context.get() is None
 
 
@@ -281,3 +309,161 @@ def test_throwing_external_handler_does_not_change_http_result(diagnostic_databa
     response = client.post(MONTH_SOLVE_PATH, content=dumps_exact_json(request_data()),
                            headers={"content-type": "application/json"})
     assert response.status_code == 200 and response.json()["publishable"]
+
+
+@pytest.mark.parametrize("elapsed,cpu,count,cores,percent", [
+    (10.0, 2.0, 8, 0.2, 2.5),
+    (10.0, 10.0, 8, 1.0, 12.5),
+    (10.0, 25.0, 8, 2.5, 31.25),
+    (0.0, 2.0, 8, None, None),
+    (10.0, 2.0, None, 0.2, None),
+    (0.0000001, 0.0000004, 8, 4.0, 50.0),
+])
+def test_cpu_timing_uses_unrounded_paired_deltas(monkeypatch, elapsed, cpu, count, cores, percent):
+    monkeypatch.setattr(diagnostic_module, "perf_counter", lambda: elapsed)
+    monkeypatch.setattr(diagnostic_module, "process_time", lambda: cpu)
+    assert timing_metrics(0.0, 0.0, count) == {
+        "elapsed_seconds": elapsed,
+        "process_cpu_seconds": round(cpu, 6),
+        "cpu_core_equivalent": cores,
+        "cpu_count": count,
+        "machine_cpu_percent_estimate": percent,
+    }
+
+
+@pytest.mark.parametrize("count", [8, None, 0, -1, True, "8", OSError("unavailable")])
+def test_cpu_count_is_sampled_once_and_unknown_is_not_one(monkeypatch, count):
+    calls = []
+
+    def cpu_count():
+        calls.append("count")
+        if isinstance(count, Exception):
+            raise count
+        return count
+
+    monkeypatch.setattr(diagnostic_module.os, "cpu_count", cpu_count)
+    monkeypatch.setattr(diagnostic_module, "process_time", lambda: 7.0)
+    monkeypatch.setattr(diagnostic_module, "perf_counter", lambda: 10.0)
+    cpu_started, sampled_count = start_cpu_timing()
+    assert cpu_started == 7.0
+    assert sampled_count == (8 if count == 8 else None)
+    for _ in range(3):
+        assert timing_metrics(0.0, cpu_started, sampled_count)["cpu_count"] == sampled_count
+    assert calls == ["count"]
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), -1.0, OSError("clock unavailable")])
+def test_failed_cpu_sample_is_missing_not_zero(monkeypatch, value):
+    def sample():
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    monkeypatch.setattr(diagnostic_module, "process_time", sample)
+    monkeypatch.setattr(diagnostic_module, "perf_counter", lambda: 20.0)
+    assert start_cpu_timing()[0] is None
+    metrics = timing_metrics(10.0, 2.0, 8)
+    assert metrics["elapsed_seconds"] == 10.0
+    assert all(metrics[key] is None for key in (
+        "process_cpu_seconds", "cpu_core_equivalent", "machine_cpu_percent_estimate",
+    ))
+
+
+def test_cpu_clock_regression_and_non_finite_ratio_are_missing(monkeypatch):
+    monkeypatch.setattr(diagnostic_module, "perf_counter", lambda: 1e-310)
+    monkeypatch.setattr(diagnostic_module, "process_time", lambda: 1.0)
+    assert timing_metrics(0.0, 2.0, 8)["process_cpu_seconds"] is None
+    metrics = timing_metrics(0.0, 0.0, 8)
+    assert metrics["process_cpu_seconds"] == 1.0
+    assert metrics["cpu_core_equivalent"] is None
+    assert metrics["machine_cpu_percent_estimate"] is None
+
+
+def test_formatter_preserves_explicit_pair_and_unscoped_logs(monkeypatch):
+    def unexpected():
+        raise AssertionError("must not resample explicit or unrelated log")
+
+    monkeypatch.setattr(diagnostic_module, "perf_counter", unexpected)
+    record = logging.LogRecord("isolated", logging.INFO, __file__, 0,
+                               "month_solve elapsed_seconds=10.000000 process_cpu_seconds=2.000000", (), None)
+    original = (record.msg, record.args)
+    token = request_context.set(RunDiagnostics(None, "request-one", 0, cpu_started=0, cpu_count=8))
+    try:
+        text = TimestampFormatter().format(record)
+    finally:
+        request_context.reset(token)
+    assert text.count("elapsed_seconds=") == text.count("process_cpu_seconds=") == 1
+    assert (record.msg, record.args) == original
+    record.msg = "rule_management result_code=active_rules_read"
+    assert "process_cpu_seconds" not in TimestampFormatter().format(record)
+
+
+@pytest.mark.parametrize("failure_at", ["start", "later"])
+def test_cpu_sampling_failure_preserves_response_and_final_logs(
+    diagnostic_database, tmp_path, monkeypatch, failure_at, caplog,
+):
+    expected = solve_with_files(diagnostic_database, None).json()
+    samples = iter([] if failure_at == "start" else [1.0])
+    monkeypatch.setattr(diagnostic_module, "process_time", lambda: next(samples))
+    root = tmp_path / "failed_cpu"
+    with caplog.at_level(logging.INFO):
+        response = solve_with_files(diagnostic_database, root).json()
+    for result in (expected, response):
+        result["run_manifest"].pop("stage_duration_seconds")
+    assert response == expected
+    summary = read_json(next(root.glob("runs/*/*/diagnostic_summary.json")))
+    assert summary["write_failures"] == []
+    assert summary["process_cpu_seconds"] is None
+    assert summary["cpu_core_equivalent"] is None
+    assert summary["machine_cpu_percent_estimate"] is None
+    text = next(root.glob("runs/*/*/solve.log")).read_text()
+    assert "month_solve_finished" in text and "process_cpu_seconds=-" in text
+    assert "month_solve_worker_finished" in caplog.text
+
+
+def test_missing_start_cannot_be_rebuilt_from_later_cpu_sample(monkeypatch):
+    samples = iter([float("nan"), 100.0])
+    monkeypatch.setattr(diagnostic_module, "process_time", lambda: next(samples))
+    monkeypatch.setattr(diagnostic_module, "perf_counter", lambda: 10.0)
+    cpu_started, count = start_cpu_timing()
+    assert cpu_started is None
+    assert timing_metrics(0.0, cpu_started, count)["process_cpu_seconds"] is None
+    assert next(samples) == 100.0
+
+
+def test_two_formatters_sample_pairs_without_mutating_shared_record(monkeypatch):
+    wall, cpu = iter([20.0, 30.0]), iter([5.0, 8.0])
+    monkeypatch.setattr(diagnostic_module, "perf_counter", lambda: next(wall))
+    monkeypatch.setattr(diagnostic_module, "process_time", lambda: next(cpu))
+    record = logging.LogRecord("isolated", logging.INFO, __file__, 0,
+                               "solver_stage_finished stage=%s", ("local_search",), None)
+    token = request_context.set(RunDiagnostics(None, "one", 10.0, cpu_started=2.0, cpu_count=8))
+    try:
+        first, second = TimestampFormatter().format(record), TimestampFormatter().format(record)
+    finally:
+        request_context.reset(token)
+    assert "elapsed_seconds=10.000000 process_cpu_seconds=3.000000" in first
+    assert "elapsed_seconds=20.000000 process_cpu_seconds=6.000000" in second
+    assert record.msg == "solver_stage_finished stage=%s" and record.args == ("local_search",)
+
+
+@pytest.mark.parametrize("configured", [True, False])
+def test_throwing_handler_preserves_early_http_error(diagnostic_database, monkeypatch, capsys, configured):
+    from apsgo_v7_service import app as module
+
+    class Broken(logging.Handler):
+        def emit(self, record):
+            raise OSError("external handler failure")
+
+    monkeypatch.setattr(module._LOGGER, "handlers", [Broken()])
+    monkeypatch.setattr(module._LOGGER, "level", logging.INFO)
+    client = TestClient(create_app(diagnostic_database,
+                                  monthly_solve_policy=policy() if configured else None))
+    response = client.post(MONTH_SOLVE_PATH, content="{", headers={"content-type": "application/json"})
+    assert response.status_code == (400 if configured else 503)
+    text = capsys.readouterr().err
+    assert "month_solve request_id=" in text and "process_cpu_seconds=" in text
+    assert all(re.match(PREFIX, line) for line in text.splitlines())
+    if not configured:
+        assert "month_solve_error" in text and "monthly_solve_not_configured" in text
+        assert "月计划求解策略尚未配置" in text

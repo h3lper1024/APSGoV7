@@ -33,9 +33,13 @@ from .diagnostics import (
     DiagnosticStreamHandler,
     RunDiagnostics,
     TimestampFormatter,
+    format_timing,
     log_bound_result,
     log_configuration,
+    log_safely,
     request_context,
+    start_cpu_timing,
+    timing_metrics,
 )
 from .gqga4 import GQGA4_RULE_SET_TEMPLATE
 from .grade_dictionary import GradePreparationError
@@ -388,16 +392,18 @@ def _log_month_solve(
     active_version_id: int | None,
     result_code: str,
     started: float,
+    cpu_started: float | None,
+    cpu_count: int | None,
 ) -> None:
-    _LOGGER.info(
+    log_safely(_LOGGER, logging.INFO,
         "month_solve request_id=%s expected_active_version_id=%s "
-        "active_version_id=%s result_code=%s status=%s elapsed_seconds=%.6f",
+        "active_version_id=%s result_code=%s status=%s %s",
         request_id or "-",
         expected_active_version_id if expected_active_version_id is not None else "-",
         active_version_id if active_version_id is not None else "-",
         result_code,
         status_code,
-        perf_counter() - started,
+        format_timing(timing_metrics(started, cpu_started, cpu_count)),
     )
 
 
@@ -516,6 +522,7 @@ def create_app(
     @application.post(MONTH_SOLVE_PATH, response_class=Response)
     async def solve_month_schedule(request: Request) -> Response:
         started = perf_counter()
+        cpu_started, cpu_count = start_cpu_timing()
         parsed = None
         try:
             _require_no_query(request)
@@ -546,7 +553,10 @@ def create_app(
 
             cancellation_event = Event()
             cancellation = SimpleNamespace(is_cancelled=cancellation_event.is_set)
-            diagnostic = RunDiagnostics(diagnostics_directory, parsed.task_input.request_id, started)
+            diagnostic = RunDiagnostics(
+                diagnostics_directory, parsed.task_input.request_id, started,
+                cpu_started=cpu_started, cpu_count=cpu_count,
+            )
 
             def mark_disconnected():
                 if not cancellation_event.is_set():
@@ -567,11 +577,12 @@ def create_app(
                     diagnostic.observe(_LOGGER.info,
                         "month_solve_started order_count=%s period_count=%s "
                         "expected_active_version_id=%s seed=%s candidate_check_limit=%s "
-                        "total_time_limit_seconds=%s diagnostic_directory=%s",
+                        "total_time_limit_seconds=%s diagnostic_directory=%s cpu_count=%s",
                         len(parsed.task_input.orders), len(parsed.task_input.periods),
                         parsed.expected_active_version_id, monthly_solve_policy.seed,
                         monthly_solve_policy.candidate_check_limit,
                         monthly_solve_policy.total_time_limit_seconds, diagnostic.directory or "-",
+                        cpu_count if cpu_count is not None else "-",
                     )
                     try:
                         bound = solve_gqga4_scheduling_task(
@@ -615,6 +626,7 @@ def create_app(
                             getattr(failure, "current_active_version_id", None)
                         ),
                         result_code=result_code, started=started,
+                        cpu_started=cpu_started, cpu_count=cpu_count,
                     )
                     diagnostic.observe(_LOGGER.info,
                         "month_solve_finished diagnostic_directory=%s diagnostic_failure_count=%s "
@@ -672,12 +684,14 @@ def create_app(
                 ),
                 result_code=result_code,
                 started=started,
+                cpu_started=cpu_started, cpu_count=cpu_count,
             )
             if result.status_code >= 500:
-                _LOGGER.exception(
-                    "month_solve_error request_id=%s elapsed_seconds=%.6f",
+                log_safely(_LOGGER, logging.ERROR,
+                    "month_solve_error request_id=%s %s",
                     None if parsed is None else parsed.task_input.request_id,
-                    perf_counter() - started,
+                    format_timing(timing_metrics(started, cpu_started, cpu_count)),
+                    exc_info=True,
                 )
             return result
     @application.post(SET_ACTIVE_RULES_PATH, response_class=Response)

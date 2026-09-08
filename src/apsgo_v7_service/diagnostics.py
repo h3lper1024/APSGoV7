@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 import logging
+import os
 import sys
 from collections.abc import Mapping
 from contextvars import ContextVar
@@ -13,9 +14,10 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from logging.handlers import RotatingFileHandler
+from math import isfinite
 from pathlib import Path
 from tempfile import NamedTemporaryFile, mkdtemp
-from time import perf_counter
+from time import perf_counter, process_time
 from uuid import UUID
 
 from apsgo_scheduler.api.json_codec import dumps_exact_json
@@ -32,6 +34,53 @@ def _safe_text(value: str) -> str:
     )
 
 
+def read_process_cpu_time():
+    """A failed observation must not replace a business result or recurse via logging."""
+    try:
+        value = process_time()
+        return value if isfinite(value) and value >= 0 else None
+    except Exception:
+        return None
+
+
+def start_cpu_timing():
+    cpu_started = read_process_cpu_time()
+    try:
+        count = os.cpu_count()
+        if type(count) is not int or count <= 0:
+            count = None
+    except Exception:
+        count = None
+    return cpu_started, count
+
+
+def timing_metrics(started, cpu_started, cpu_count):
+    """Pair wall/CPU deltas; process CPU includes all threads, not only this request."""
+    elapsed = perf_counter() - started
+    cpu_now = read_process_cpu_time() if cpu_started is not None else None
+    cpu = None if cpu_now is None or cpu_now < cpu_started else cpu_now - cpu_started
+    cores = cpu / elapsed if cpu is not None and elapsed > 0 else None
+    percent = cores / cpu_count * 100 if cores is not None and cpu_count else None
+    metrics = {
+        "elapsed_seconds": elapsed,
+        "process_cpu_seconds": cpu,
+        "cpu_core_equivalent": cores,
+        "cpu_count": cpu_count,
+        "machine_cpu_percent_estimate": percent,
+    }
+    for key in ("process_cpu_seconds", "cpu_core_equivalent", "machine_cpu_percent_estimate"):
+        value = metrics[key]
+        metrics[key] = round(value, 6) if value is not None and isfinite(value) else None
+    return metrics
+
+
+def format_timing(metrics):
+    return " ".join(
+        f"{key}=" + ("-" if value is None else str(value) if key == "cpu_count" else f"{value:.6f}")
+        for key, value in metrics.items()
+    )
+
+
 class TimestampFormatter(logging.Formatter):
     """Prefix every physical line, including exception continuations."""
 
@@ -41,17 +90,35 @@ class TimestampFormatter(logging.Formatter):
         message = _safe_text(record.getMessage())
         context = request_context.get()
         if context is not None:
-            request_id, started = context.request_id, context.started
+            request_id = context.request_id
             if "request_id=" not in message:
                 message += f" request_id={_safe_text(request_id)}"
-            if "elapsed_seconds=" not in message:
-                message += f" elapsed_seconds={perf_counter() - started:.6f}"
+            if "process_cpu_seconds=" not in message:
+                metrics = timing_metrics(context.started, context.cpu_started, context.cpu_count)
+                if not message.startswith(("month_solve_finished ", "month_solve_worker_finished ")):
+                    metrics = {key: metrics[key] for key in ("elapsed_seconds", "process_cpu_seconds")}
+                missing = {key: value for key, value in metrics.items() if f"{key}=" not in message}
+                message += " " + format_timing(missing)
         lines = [message]
         if record.exc_info:
             lines.extend(self.formatException(record.exc_info).splitlines())
         if record.stack_info:
             lines.extend(record.stack_info.splitlines())
         return "\n".join(prefix + _safe_text(line) for line in lines)
+
+
+def log_safely(logger, level, message, *args, exc_info=False):
+    """Early request failures have no RunDiagnostics.observe boundary yet."""
+    exception = sys.exc_info() if exc_info else None
+    try:
+        logger.log(level, message, *args, exc_info=exception)
+    except Exception:
+        # Bypass a throwing external handler, retaining the original error and traceback.
+        try:
+            record = logging.LogRecord(logger.name, level, __file__, 0, message, args, exception)
+            sys.stderr.write(TimestampFormatter().format(record) + "\n")
+        except Exception:
+            pass
 
 
 def _report_log_failure(record, target):
@@ -203,10 +270,12 @@ def _candidate_csv(plan, publishable):
 class RunDiagnostics:
     """One worker's files; all serialization and I/O failures stay observational."""
 
-    def __init__(self, root, request_id, started):
+    def __init__(self, root, request_id, started, *, cpu_started, cpu_count):
         self.root = root
         self.request_id = request_id
         self.started = started
+        self.cpu_started = cpu_started
+        self.cpu_count = cpu_count
         self.directory = None
         self.handler = None
         self.written = []
@@ -292,13 +361,15 @@ class RunDiagnostics:
             self.write("candidate_rows.csv", lambda: _candidate_csv(candidate.plan, result.release is not None))
 
         def summary():
+            timing = timing_metrics(self.started, self.cpu_started, self.cpu_count)
             return dumps_exact_json(_json_values({
                 "schema_version": 1,
                 "artifact_kind": "diagnostic_only_not_for_writeback",
                 "request_id": self.request_id,
                 "http_status": None if response is None else response.status_code,
                 "client_disconnected": disconnected(),
-                "elapsed_seconds": Decimal(str(perf_counter() - self.started)),
+                **{key: Decimal(str(value)) if isinstance(value, float) else value
+                   for key, value in timing.items()},
                 "publishable": result is not None and result.release is not None,
                 "candidate_evaluation_kind": "search_evaluation_not_independent_audit",
                 "bound_result": bound,
