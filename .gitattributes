@@ -2,3 +2,5 @@
 tests/baselines/gqga4/** -text
 # CR belongs to this immutable CSV's CRLF line ending, not trailing whitespace.
 tests/baselines/gqga4/inputs/input_orders.csv whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+# Keep the captured diagnostic CSV identical to the real run and recorded byte sizes.
+docs/implementation/evidence/apsgo_v7_solver_diagnostics/stage_04_local_pair/**/candidate_rows.csv -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol

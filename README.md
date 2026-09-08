@@ -11,6 +11,7 @@ APSGo V7 包含规则驱动的路径覆盖与确定性局部搜索求解器，�
 - [月计划求解接入与软硬钢数据准备详细设计](docs/design/apsgo_v7_month_scheduling_and_grade_preparation_design.md)
 - [月计划求解接入与软硬钢数据准备实施计划](docs/implementation/apsgo_v7_month_scheduling_and_grade_preparation_implementation_plan.md)
 - [链间宽差优化实施计划](docs/implementation/apsgo_v7_inter_chain_width_optimization_implementation_plan.md)
+- [求解日志与诊断数据落盘实施计划](docs/implementation/apsgo_v7_solver_diagnostics_implementation_plan.md)
 
 ## 服务运行配置
 
@@ -28,14 +29,43 @@ monthly_solve:
   candidate_check_limit: 200000
   whole_chain_pair_scan_slack_weight: 40
   maximum_virtual_bridge_nodes: 2
+diagnostics:
+  enabled: true
+  output_directory: ../diagnostics
 ```
 
-根级五项和 `monthly_solve` 内六项配置必须完整且无未知项。相对 `database_path` 以配置文件所在目录为基准，因此上述值
+根级原五项和 `monthly_solve` 内六项配置必须完整且无未知项；`diagnostics` 是可选块。
+相对 `database_path` 以配置文件所在目录为基准，因此上述值
 解析到仓库根 `data/apsgo_v7_rules.sqlite3`，不受启动命令当前目录变化影响。配置文件缺失、
 不可读、不是 UTF-8、YAML 非法、键重复或任一值非法时，命令在数据库操作或服务器启动前失败。
 V7 不再读取 `APSGO_V7_RULE_DB_PATH`。
 
 当前总时限 310 秒由 **300 秒搜索时间 + 10 秒收尾预留**组成；候选检查上限仍为 200000 次，先到达任一上限即停止搜索。
+
+## 求解日志与人工诊断
+
+每行日志有本机日期、时间、毫秒和时区；求解日志另有 `elapsed_seconds`（请求累计秒数）、
+阶段结束时的 `stage_seconds`（该阶段秒数）。构图、初始方案、搜索、拆单、宽差优化和审计实时输出，
+仅记录正式采纳的动作，不逐条打印候选检查。核心求解总耗时包含其内部阶段，不应把阶段字典简单相加。
+
+上述配置会在仓库根 `diagnostics/` 下保存共享轮转 `service.log`（10 MiB、3 个历史文件）及
+`runs/<request_id>/<运行时间_唯一后缀>/`。目录相对 YAML 所在位置，不相对启动目录。
+同请求重试会新建目录，现有内容不覆盖。旧 YAML 缺少诊断块或 `enabled: false` 时关闭文件输出，控制台时间日志保留。
+
+发生“不可发布”时，按本次日志中的 `diagnostic_directory` 定位：
+
+1. 看 `diagnostic_summary.json` 的 `bound_result.result`：`stop_reason`、`issues`、`core_audit`、`audit_report`。
+2. 看 `diagnostic_candidate.search_evaluation` 的违规及质量；这是搜索评价，不冒充最终独立审计。`release` 才是正式发布结果。
+3. 用 `candidate_rows.csv` 定位链、订单、宽厚、重量和拆单来源。Excel 通过“数据导入”按 UTF-8 打开，订单号列选择文本。
+4. 对照 `prepared_request.json` 中实际交给算法的规则、软硬钢、计划期顺序及策略，查看 `solve.log` 的阶段与采纳过程。
+
+`request.json` 是实际请求，`response.json` 是实际生成的响应。不可发布时响应 `rows` 仍为空，诊断 CSV 不得用来回写。
+输入失败或早期取消可能没有候选，此时不生成 CSV；绑定失败也不会伪造准备输入。
+客户端断开后工作线程仍按取消机制完成收尾；强杀进程可能留下不完整目录。
+摘要的 `written_files`、`write_failures` 反映落盘结果，摘要本身写失败时看控制台的 `diagnostic_write_failed`。
+
+文件仅本地保存，包含完整业务订单；不自动上传或随发布包分发，按需人工归档清理。
+关闭诊断后重启不会删除旧证据。Windows 升级与回退见 [发布说明](release/README.md)。
 
 `listen_host` 允许 `127.0.0.1`（仅本机访问）或 `0.0.0.0`（监听全部 IPv4 网卡）。其他电脑
 访问时，C# 客户端中的 `PipelineV7ApiBaseUrl` 必须填写服务器实际局域网 IP，例如
