@@ -2,22 +2,40 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
 import shutil
 import sqlite3
 import subprocess
+from copy import deepcopy
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
+from apsgo_scheduler.api.json_codec import dumps_exact_json
+from apsgo_v7_service import app as http_module
 from apsgo_v7_service.migrate_gqga4_grade_dictionary import backup_sqlite_database
+from release import smoke_release as smoke_module
+from release import verify_release as release_module
+from release.smoke_release import (
+    SmokeError,
+    _assert_business_content_preserved,
+    _assert_initial_identity,
+    _assert_runtime_identity,
+    _request_from_active,
+    _stop,
+    _write_smoke_configuration,
+)
 from release.verify_release import (
     MANIFEST_PATH,
     PACKAGE_CONFIGURATION_PATH,
     PACKAGE_DATABASE_PATH,
     ReleaseValidationError,
     _sha256,
+    generate_manifest,
     main,
     verify_package,
     verify_seed,
@@ -57,6 +75,7 @@ def source_repository(tmp_path: Path) -> Path:
         PROJECT_ROOT / "data/apsgo_v7_rules.sqlite3",
         root / "data/apsgo_v7_rules.sqlite3",
     )
+    shutil.copy2(PROJECT_ROOT / "pyproject.toml", root / "pyproject.toml")
     _git(root, "init", "-q")
     _git(root, "config", "user.name", "APSGo Test")
     _git(root, "config", "user.email", "apsgo-test@example.invalid")
@@ -97,13 +116,16 @@ def _clear_active_version(database: Path) -> None:
         connection.execute(trigger_sql)
 
 
-def _database_manifest(source: dict, seed_path: Path) -> dict:
+def _database_manifest(source: dict, seed_path: Path, source_database: Path) -> dict:
     database = source["database"]
+    seed = verify_seed(source_database, seed_path)
     return {
         "source_path": "data/apsgo_v7_rules.sqlite3",
         "source_sha256": database["sha256"],
+        "source_content_sha256": seed["source"]["content_sha256"],
         "seed_path": PACKAGE_DATABASE_PATH.as_posix(),
         "seed_sha256": _sha256(seed_path),
+        "seed_content_sha256": seed["seed"]["content_sha256"],
         **{
             key: database[key]
             for key in (
@@ -121,21 +143,72 @@ def _database_manifest(source: dict, seed_path: Path) -> dict:
     }
 
 
-def _write_manifest(package: Path, database: dict) -> None:
+def _write_manifest(
+    package: Path,
+    database: dict,
+    source_repository: Path,
+    *,
+    smoke_status: str = "pass",
+) -> None:
     files = {
         path.relative_to(package).as_posix(): _sha256(path)
         for path in package.rglob("*")
         if path.is_file() and path.name != MANIFEST_PATH.name
     }
     (package / MANIFEST_PATH).write_text(
-        json.dumps(
-            {"manifest_version": 1, "files": files, "database": database},
-            ensure_ascii=True,
-            sort_keys=True,
-            separators=(",", ":"),
+        dumps_exact_json(
+            {
+                "manifest_version": 1,
+                "application": {
+                    "name": "APSGoV7Service",
+                    "package_name": "APSGoV7",
+                    "project_name": "apsgo-scheduler",
+                    "project_version": "0.1.0.dev0",
+                },
+                "source": {
+                    "git_commit": _git(source_repository, "rev-parse", "HEAD"),
+                    "git_branch": None,
+                    "configuration_path": "config/apsgo_v7_service.yaml",
+                    "configuration_sha256": _sha256(
+                        source_repository / "config/apsgo_v7_service.yaml"
+                    ),
+                },
+                "build": {
+                    "built_at_utc": "2026-09-08T00:00:00Z",
+                    "operating_system": "Windows",
+                    "architecture": "AMD64",
+                    "conda_environment": "aps_3.10.18",
+                    "python_version": "3.10.18",
+                    "pyinstaller_version": "6.22.2",
+                    "fastapi_version": "0.128.8",
+                    "uvicorn_version": "0.40.0",
+                    "pyyaml_version": "6.0.3",
+                    "mode": "onedir",
+                    "console": True,
+                    "upx": False,
+                    "entry": "release/apsgo_v7_service_entry.py",
+                    "service_entry": "apsgo_v7_service.app:main",
+                    "worker_count": 1,
+                },
+                "database": database,
+                "validation": {
+                    "build": "pass",
+                    "source": "pass",
+                    "seed": "pass",
+                    "package_static": "pass",
+                    "smoke": smoke_status,
+                },
+                "files": files,
+            }
         )
         + "\n",
         encoding="utf-8",
+    )
+
+
+def _rewrite_manifest(package: Path, manifest: dict) -> None:
+    (package / MANIFEST_PATH).write_text(
+        dumps_exact_json(manifest) + "\n", encoding="utf-8"
     )
 
 
@@ -156,8 +229,14 @@ def release_package(tmp_path: Path, source_repository: Path) -> Path:
         package / PACKAGE_CONFIGURATION_PATH,
     )
     seed = package / PACKAGE_DATABASE_PATH
-    shutil.copy2(source_repository / "data/apsgo_v7_rules.sqlite3", seed)
-    _write_manifest(package, _database_manifest(source, seed))
+    backup_sqlite_database(source_repository / "data/apsgo_v7_rules.sqlite3", seed)
+    _write_manifest(
+        package,
+        _database_manifest(
+            source, seed, source_repository / "data/apsgo_v7_rules.sqlite3"
+        ),
+        source_repository,
+    )
     return package
 
 
@@ -325,10 +404,7 @@ def test_package_mode_rejects_database_identity_mismatch(release_package: Path):
     manifest_path = release_package / MANIFEST_PATH
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["database"]["active_version_id"] += 1
-    manifest_path.write_text(
-        json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-    )
+    _rewrite_manifest(release_package, manifest)
     with pytest.raises(ReleaseValidationError) as raised:
         verify_package(release_package)
     assert raised.value.code == "package_database_identity_mismatch"
@@ -341,10 +417,7 @@ def test_package_mode_rejects_corrupt_seed_after_digest_check(release_package: P
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["files"][PACKAGE_DATABASE_PATH.as_posix()] = _sha256(seed)
     manifest["database"]["seed_sha256"] = _sha256(seed)
-    manifest_path.write_text(
-        json.dumps(manifest, sort_keys=True, separators=(",", ":")) + "\n",
-        encoding="utf-8",
-    )
+    _rewrite_manifest(release_package, manifest)
     with pytest.raises(ReleaseValidationError) as raised:
         verify_package(release_package)
     assert raised.value.code == "database_integrity_invalid"
@@ -359,6 +432,206 @@ def test_package_mode_rejects_symlink(release_package: Path):
     with pytest.raises(ReleaseValidationError) as raised:
         verify_package(release_package)
     assert raised.value.code == "package_layout_invalid"
+
+
+def _windows_build_environment() -> dict:
+    return {
+        "operating_system": "Windows",
+        "architecture": "AMD64",
+        "conda_environment": "aps_3.10.18",
+        "python_version": "3.10.18",
+        "pyinstaller_version": "6.22.2",
+        "fastapi_version": "0.128.8",
+        "uvicorn_version": "0.40.0",
+        "pyyaml_version": "6.0.3",
+    }
+
+
+def test_manifest_generation_is_canonical_complete_and_deterministic(
+    release_package: Path, source_repository: Path, monkeypatch
+):
+    monkeypatch.setattr(release_module, "_build_environment", _windows_build_environment)
+    first = generate_manifest(
+        source_repository,
+        release_package,
+        built_at_utc="2026-09-08T01:02:03Z",
+        smoke_status="pending",
+    )
+    second = generate_manifest(
+        source_repository,
+        release_package,
+        built_at_utc="2026-09-08T01:02:03Z",
+        smoke_status="pending",
+    )
+    assert first == second
+    assert first["application"] == {
+        "name": "APSGoV7Service",
+        "package_name": "APSGoV7",
+        "project_name": "apsgo-scheduler",
+        "project_version": "0.1.0.dev0",
+    }
+    assert first["source"]["git_branch"] is None
+    assert first["build"] == _windows_build_environment() | {
+        "built_at_utc": "2026-09-08T01:02:03Z",
+        "mode": "onedir",
+        "console": True,
+        "upx": False,
+        "entry": "release/apsgo_v7_service_entry.py",
+        "service_entry": "apsgo_v7_service.app:main",
+        "worker_count": 1,
+    }
+    assert first["validation"]["smoke"] == "pending"
+    assert MANIFEST_PATH.as_posix() not in first["files"]
+    assert set(first["files"]) == {
+        path.relative_to(release_package).as_posix()
+        for path in release_package.rglob("*")
+        if path.is_file() and path != release_package / MANIFEST_PATH
+    }
+    assert (
+        first["database"]["source_content_sha256"]
+        == first["database"]["seed_content_sha256"]
+    )
+    encoded = (dumps_exact_json(first) + "\n").encode("utf-8")
+    assert not encoded.startswith(b"\xef\xbb\xbf")
+    assert str(source_repository).encode("utf-8") not in encoded
+    assert str(release_package).encode("utf-8") not in encoded
+
+
+def test_package_mode_requires_completed_smoke_by_default(release_package: Path):
+    manifest = json.loads((release_package / MANIFEST_PATH).read_text(encoding="utf-8"))
+    manifest["validation"]["smoke"] = "pending"
+    _rewrite_manifest(release_package, manifest)
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_package(release_package)
+    assert raised.value.code == "manifest_invalid"
+    assert verify_package(release_package, allow_pending_smoke=True)["smoke_status"] == "pending"
+
+
+def test_package_mode_rejects_noncanonical_or_unknown_manifest_fields(
+    release_package: Path,
+):
+    manifest_path = release_package / MANIFEST_PATH
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["unexpected"] = True
+    _rewrite_manifest(release_package, manifest)
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_package(release_package)
+    assert raised.value.code == "manifest_invalid"
+
+    del manifest["unexpected"]
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_package(release_package)
+    assert raised.value.code == "manifest_invalid"
+
+
+@pytest.mark.parametrize(
+    "relative",
+    ("_internal/apsgo_v7_service/app.py", "_internal/__pycache__/app.pyc", "_internal/tests/data.bin"),
+)
+def test_package_mode_rejects_source_test_and_cache_residue(
+    release_package: Path, relative: str
+):
+    path = release_package / relative
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(b"residue")
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_package(release_package)
+    assert raised.value.code == "package_layout_invalid"
+
+
+def _response_json(response) -> dict:
+    return json.loads(response.content.decode("utf-8"), parse_float=Decimal)
+
+
+def test_disposable_runtime_get_save_restart_get_preserves_formal_inputs(
+    tmp_path: Path, release_package: Path, source_repository: Path
+):
+    formal_seed = release_package / PACKAGE_DATABASE_PATH
+    source_database = source_repository / "data/apsgo_v7_rules.sqlite3"
+    seed_before = _sha256(formal_seed)
+    source_before = _sha256(source_database)
+    runtime = tmp_path / "runtime"
+    shutil.copytree(release_package, runtime)
+    shutil.copy2(
+        runtime / PACKAGE_CONFIGURATION_PATH,
+        runtime / "config/apsgo_v7_service.yaml",
+    )
+    runtime_database = runtime / "data/apsgo_v7_rules.sqlite3"
+    shutil.copy2(runtime / PACKAGE_DATABASE_PATH, runtime_database)
+
+    get_path = "/api/v1/rule-sets/GQGA4/default/month/getActiveRules"
+    post_path = "/api/v1/rule-sets/GQGA4/default/month/setActiveRules"
+    operation_id = "00000000-0000-4000-8000-000000000904"
+    with TestClient(
+        http_module.create_app(runtime_database), raise_server_exceptions=False
+    ) as client:
+        first_response = client.get(get_path)
+        assert first_response.status_code == 200
+        first = _response_json(first_response)
+        manifest = json.loads(
+            (release_package / MANIFEST_PATH).read_text(encoding="utf-8")
+        )
+        _assert_initial_identity(first, manifest)
+        request = _request_from_active(first, operation_id)
+        saved_response = client.post(
+            post_path,
+            content=dumps_exact_json(request).encode("utf-8"),
+            headers={"Content-Type": "application/json; charset=utf-8"},
+        )
+        assert saved_response.status_code == 200
+        saved = _response_json(saved_response)
+        active = _response_json(client.get(get_path))
+        assert saved["previous_active_version_id"] == first["active_version_id"]
+        assert saved["saved_version_id"] == active["active_version_id"]
+        assert saved["saved_version_is_active"] is True
+        assert saved["idempotent_replay"] is False
+        _assert_business_content_preserved(first, active)
+
+        for key in (
+            "product_line_code",
+            "process_code",
+            "scenario",
+            "rules",
+            "quality_spec",
+            "allowed_final_deviation_codes",
+            "virtual_prototypes",
+        ):
+            changed = deepcopy(active)
+            changed[key] = None
+            with pytest.raises(SmokeError, match=key):
+                _assert_business_content_preserved(first, changed)
+
+        missing_initial = deepcopy(first)
+        missing_active = deepcopy(active)
+        del missing_initial["quality_spec"]
+        del missing_active["quality_spec"]
+        with pytest.raises(SmokeError, match="missing quality_spec"):
+            _assert_business_content_preserved(missing_initial, missing_active)
+
+    with TestClient(
+        http_module.create_app(runtime_database), raise_server_exceptions=False
+    ) as restarted_client:
+        restarted = _response_json(restarted_client.get(get_path))
+    assert restarted == active
+    runtime_identity = release_module._read_database(
+        runtime_database, timeout_seconds=5.0
+    )
+    _assert_runtime_identity(runtime_identity, first, active, manifest)
+    for key in (
+        "rule_count",
+        "enabled_rule_count",
+        "virtual_prototype_count",
+        "grade_dictionary_entry_count",
+        "grade_dictionary_fingerprint",
+    ):
+        changed = dict(runtime_identity)
+        changed[key] = None
+        with pytest.raises(SmokeError, match=key):
+            _assert_runtime_identity(changed, first, active, manifest)
+    assert _sha256(formal_seed) == seed_before
+    assert _sha256(source_database) == source_before
+    assert verify_package(release_package)["status"] == "pass"
 
 
 def _database_seed(tmp_path: Path, source_repository: Path) -> Path:
@@ -615,3 +888,136 @@ def test_check_only_precedes_all_build_output_mutations():
         "$BuiltDirectory = Join-Path $PyInstallerDistDirectory $ApplicationName"
         in source
     )
+
+
+def test_build_generates_pending_manifest_smokes_copy_then_seals_final_manifest():
+    source = (RELEASE_ROOT / "build_exe.ps1").read_text(encoding="utf-8")
+    pending = source.index('Write-ReleaseManifest -SmokeStatus "pending"')
+    precheck = source.index("--allow-pending-smoke", pending)
+    smoke = source.index("$SmokeRunner", precheck)
+    passed = source.index('Write-ReleaseManifest -SmokeStatus "pass"', smoke)
+    final_check = source.index("$FinalPackageValidationJson", passed)
+    completed = source.index("onedir build completed", final_check)
+    assert pending < precheck < smoke < passed < final_check < completed
+    assert "[IO.File]::WriteAllText" in source
+    assert "System.Text.UTF8Encoding($false)" in source
+    assert "Copy-Item -LiteralPath $ReleaseReadme -Destination $PackageReadme" in source
+    assert "release_manifest.json" in source
+
+
+def test_windows_smoke_uses_unmodified_disposable_package_and_exact_rule_roundtrip():
+    source = (RELEASE_ROOT / "smoke_release.py").read_text(encoding="utf-8")
+    for expected in (
+        "shutil.copytree(package, smoke_package)",
+        'prefix="APSGo V7 smoke "',
+        '"APSGoV7Service.exe"), "--help"',
+        '"start_apsgo_v7_service.bat"',
+        '"stop_apsgo_v7_service.bat"',
+        "GET_ACTIVE_RULES_PATH",
+        "SET_ACTIVE_RULES_PATH",
+        '"expected_active_version_id": active["active_version_id"]',
+        '"virtual_prototypes": deepcopy(active["virtual_prototypes"])',
+        "parse_float=Decimal",
+        "_reject_database_sidecars",
+        "_read_database",
+        "ProxyHandler({})",
+        "_available_loopback_port()",
+        '"listen_host: 127.0.0.1"',
+        'Path(system_root) / "System32" / "taskkill.exe"',
+        '"/PID", str(process.pid), "/T", "/F"',
+    ):
+        assert expected in source
+    assert "safe_dump" not in source
+    assert "MONTH_SOLVE_PATH" not in source
+
+
+def test_smoke_runtime_configuration_is_loopback_only_and_keeps_template_unchanged(
+    tmp_path: Path,
+):
+    template = tmp_path / "config" / "apsgo_v7_service.example.yaml"
+    runtime = tmp_path / "config" / "apsgo_v7_service.yaml"
+    template.parent.mkdir()
+    shutil.copy2(PROJECT_ROOT / "config/apsgo_v7_service.yaml", template)
+    before = template.read_bytes()
+
+    configuration = _write_smoke_configuration(template, runtime, 49123)
+
+    assert configuration.listen_host == "127.0.0.1"
+    assert configuration.listen_port == 49123
+    assert template.read_bytes() == before
+
+
+@pytest.mark.parametrize("stop_failure", ("nonzero", "timeout"))
+def test_smoke_stop_uses_exact_spawned_process_tree_fallback(
+    tmp_path: Path, monkeypatch, stop_failure: str
+):
+    class Process:
+        pid = 904
+        returncode = None
+
+        def poll(self):
+            return self.returncode
+
+        def wait(self, timeout):
+            self.returncode = 0
+            return 0
+
+    process = Process()
+    calls = []
+
+    def run(arguments, **kwargs):
+        calls.append(arguments)
+        if len(calls) == 1:
+            if stop_failure == "timeout":
+                raise subprocess.TimeoutExpired(arguments, kwargs["timeout"])
+            return subprocess.CompletedProcess(arguments, 1, b"", b"stop failed")
+        return subprocess.CompletedProcess(arguments, 0, b"", b"")
+
+    monkeypatch.setenv("SystemRoot", "C:\\Windows")
+    monkeypatch.setattr(smoke_module.subprocess, "run", run)
+    log = io.BytesIO()
+
+    _stop(tmp_path, process, log)
+
+    assert calls[1][1:] == ["/PID", "904", "/T", "/F"]
+    assert process.poll() == 0
+    assert log.closed
+
+
+def test_smoke_stop_accepts_process_already_exited_race(tmp_path: Path, monkeypatch):
+    class ExitedProcess:
+        pid = 905
+
+        @staticmethod
+        def poll():
+            return 0
+
+    calls = []
+
+    def run(arguments, **kwargs):
+        calls.append(arguments)
+        return subprocess.CompletedProcess(arguments, 1, b"", b"already stopped")
+
+    monkeypatch.setattr(smoke_module.subprocess, "run", run)
+    log = io.BytesIO()
+
+    _stop(tmp_path, ExitedProcess(), log)
+
+    assert len(calls) == 1
+    assert log.closed
+
+
+def test_release_readme_explains_runtime_files_network_and_manifest_boundary():
+    source = (RELEASE_ROOT / "README.md").read_text(encoding="utf-8")
+    for expected in (
+        "start_apsgo_v7_service.bat",
+        "stop_apsgo_v7_service.bat",
+        "apsgo_v7_service.example.yaml",
+        "apsgo_v7_service.yaml",
+        "apsgo_v7_rules_seed.sqlite3",
+        "apsgo_v7_rules.sqlite3",
+        "0.0.0.0",
+        "没有登录鉴权",
+        "不是数字签名",
+    ):
+        assert expected in source

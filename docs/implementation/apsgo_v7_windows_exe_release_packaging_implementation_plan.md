@@ -4,10 +4,11 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.5 / 2026-09-08 |
-| 状态 | 阶段 0～1 已完成；阶段 2～3 源码实现已完成，Windows x64 实包门禁均待关闭 |
+| 版本 / 日期 | v0.6 / 2026-09-08 |
+| 状态 | 阶段 0～1 已完成；阶段 2～4 源码实现已完成，Windows x64 实包门禁均待关闭 |
 | 实施基线 | `codex/rule-setting-api-integration@90c78d2f460fd24add0f078508fdbb14cbc486dd` |
 | 阶段 3 实施前提交 | `d2d4f9d47eca4a7b88c71175f4f88e6c0f416a52` |
+| 阶段 4 实施前提交 | `b2f683b0d569154f44892b29070e09b43199f295` |
 | 权威设计 | [APSGo V7 Windows EXE 发布打包详细设计](../design/apsgo_v7_windows_exe_release_packaging_design.md) |
 | 构建平台 | 64 位 Windows；当前 macOS ARM64 只执行文档和源码侧验证 |
 | Python 环境 | Conda `aps_3.10.18`，Python 3.10.18 |
@@ -75,6 +76,7 @@
 | `release/build_exe.ps1` | 唯一构建编排：只读检查、干净构建、PyInstaller、配置模板、种子、脚本和清单组装 |
 | `release/apsgo_v7_service_entry.py` | 极小冻结入口，只调用现有 `apsgo_v7_service.app:main` |
 | `release/verify_release.py` | 共用发布验证：源输入、SQLite 身份、种子、目录和清单；不复制业务规则校验 |
+| `release/smoke_release.py` | 只运行发布包临时副本：规则读写重启、数据库身份和失败进程清理 |
 | `release/requirements-build.txt` | 固定 Windows 试构建的 PyInstaller 精确候选版本；实包通过后才能称已验证 |
 | `release/start_apsgo_v7_service.bat` | 受跟踪启动模板；原子初始化现场 YAML/运行库并前台启动当前 EXE |
 | `release/stop_apsgo_v7_service.bat` | 受跟踪停止模板；只停止与当前发布目录 EXE 绝对路径匹配的实例 |
@@ -307,9 +309,9 @@ release\dist\APSGoV7\APSGoV7Service.exe --help
 ### 12.2 冒烟流程
 
 1. 把完整发布包复制到新的临时验收目录，正式构建输出保持不运行。
-2. 在临时副本首次生成现场配置和运行库并启动服务，使用现有活动规则 GET 作为就绪检查；当前没有健康接口，不新增虚假探针。
-3. 执行 GET → POST 保存并启用 → GET → 停止 → 重启 → GET，确认身份和持久化。
-4. 停止服务后执行 SQLite `quick_check`、外键检查和活动快照加载。
+2. 完整校验临时副本后，只为该副本生成 `127.0.0.1 + 动态空闲端口` 的现场 YAML；正式配置模板保持字节不变。运行库仍保持缺失，由启动脚本从种子初始化。这样避免占用正式 `0.0.0.0:8001`、避免并行构建冲突，也不把无鉴权规则写入接口暴露到局域网。
+3. 使用显式禁用系统代理的回环客户端执行 GET → POST 保存并启用 → GET → 停止 → 重启 → GET。保存后除版本、来源版本、备注、激活信息和随版本变化的规则指纹外，产线、工序、场景、规则定义与参数、七级评分、允许偏差及虚拟原型必须和首次 GET 完全一致。
+4. 正常停止优先使用包内停止脚本；失败或超时时，只对本次启动 PID 的进程树执行应急清理。清理失败不得静默忽略，必须使构建失败并保留临时证据。停止服务后执行 SQLite `quick_check`、外键检查和活动快照加载，并核对来源版本、规则总数、启用数、原型数、字典数及两个指纹。
 5. 比较临时运行前后的种子 SHA，必须不变；仓库源库 SHA 也必须不变。
 6. 验证正式交付目录中没有冒烟生成的现场 YAML、`apsgo_v7_rules.sqlite3` 和 sidecar，只保留配置模板与种子。
 7. 运行阶段 1 的 `package` 模式核对目录白名单及清单摘要。
@@ -320,6 +322,15 @@ release\dist\APSGoV7\APSGoV7Service.exe --help
 - 重启后规则版本保持；
 - 正式包没有测试运行库、日志、缓存、源代码或本机路径；
 - 清单与发布目录逐文件一致，任意受控文件改变都会失败。
+
+### 12.4 源码实现结果
+
+- `release/verify_release.py` 在既有源、种子和包验证入口上增加规范发布清单生成与严格校验。清单固定应用、构建、源提交、数据库、验证状态及逐文件摘要字段，拒绝未知字段、非规范 UTF-8 JSON、符号链接、Windows reparse point、现场 YAML/运行库、SQLite sidecar、源码、测试、缓存、日志和清单外文件。
+- `release/build_exe.ps1` 先生成 `smoke=pending` 清单并执行允许待冒烟状态的包校验；临时副本冒烟成功后才重建 `smoke=pass` 清单，再执行默认严格包校验。发布说明作为受控文件复制并纳入摘要。
+- `release/smoke_release.py` 仅运行临时副本。它先确认正式配置、源库和种子摘要，使用回环动态端口执行规则 GET、同内容 POST 保存并启用、再次 GET、停止、重启及最终 GET；保存前后逐项闭合稳定业务字段，停服后从运行库核对完整规则、原型和软硬钢字典身份。正式构建目录和仓库输入不运行、不写入。
+- 冒烟 HTTP 显式禁用系统代理。停止脚本异常时的应急路径只终止本次 `Popen` 的精确 PID 进程树；不把这一构建期兜底放入交付停止脚本，也不扩大为同名进程清理。
+- macOS ARM64 源码侧发布专项 51 项通过，累计 `tests/architecture tests/api tests/app tests/core tests/service tests/release` 3349 项通过；本阶段未生成或运行 Windows EXE。精确暂存树的干净导出仍按共同门禁执行，最终结果记录在本阶段提交正文。
+- “配置模板自动生成现场 YAML”、BAT/PowerShell 真实执行、带空格目录、Windows 进程树应急清理及 EXE 规则读写重启仍须 Windows x64 实包验证。本节只能称阶段 4 源码实现完成，不能称发布包验收完成。
 
 ## 13. 阶段 5：完成 Windows 真实业务与局域网验收
 

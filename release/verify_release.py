@@ -5,12 +5,16 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib.metadata
 import json
 import os
+import platform
+import re
 import sqlite3
 import stat
 import subprocess
 import sys
+from datetime import datetime
 from decimal import Decimal
 from math import isfinite
 from pathlib import Path, PurePosixPath, PureWindowsPath
@@ -28,7 +32,7 @@ from apsgo_v7_service.rule_management import (
     _find_rule_set,
     _read_active_scheduling_snapshot,
 )
-from apsgo_v7_service.rule_store import RuleStore, RuleStoreSchemaError, SCHEMA_VERSION
+from apsgo_v7_service.rule_store import SCHEMA_VERSION, RuleStore, RuleStoreSchemaError
 
 CONFIGURATION_PATH = Path("config/apsgo_v7_service.yaml")
 SOURCE_DATABASE_PATH = Path("data/apsgo_v7_rules.sqlite3")
@@ -37,7 +41,13 @@ PACKAGE_DATABASE_PATH = Path("data/apsgo_v7_rules_seed.sqlite3")
 RUNTIME_CONFIGURATION_PATH = Path("config/apsgo_v7_service.yaml")
 RUNTIME_DATABASE_PATH = Path("data/apsgo_v7_rules.sqlite3")
 MANIFEST_PATH = Path("release_manifest.json")
+PROJECT_METADATA_PATH = Path("pyproject.toml")
 SIDECAR_SUFFIXES = ("-journal", "-shm", "-wal")
+EXPECTED_CONDA_ENVIRONMENT = "aps_3.10.18"
+EXPECTED_PYTHON_VERSION = "3.10.18"
+EXPECTED_PYINSTALLER_VERSION = "6.22.2"
+_UTC_BUILD_TIME_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
+_SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _REQUIRED_PACKAGE_FILES = frozenset(
     {
         "APSGoV7Service.exe",
@@ -116,6 +126,52 @@ def _repository_metadata(root: Path) -> dict:
     branch_result = _run_git(root, "symbolic-ref", "--short", "-q", "HEAD", check=False)
     branch = branch_result.stdout.strip() if branch_result.returncode == 0 else None
     return {"commit": commit, "branch": branch}
+
+
+def _project_version(root: Path) -> str:
+    metadata_path = _require_regular_file(
+        root, PROJECT_METADATA_PATH, missing_code="project_metadata_invalid"
+    )
+    _require_tracked(root, PROJECT_METADATA_PATH)
+    try:
+        text = metadata_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise ReleaseValidationError(
+            "project_metadata_invalid", "pyproject.toml 不是合法的 UTF-8 文本。"
+        ) from error
+    section = re.search(r"(?ms)^\[project\]\s*$\n(?P<body>.*?)(?=^\[|\Z)", text)
+    version_match = (
+        None
+        if section is None
+        else re.search(r'(?m)^version\s*=\s*"(?P<version>[^"]+)"\s*$', section["body"])
+    )
+    if version_match is None or not version_match["version"].strip():
+        raise ReleaseValidationError(
+            "project_metadata_invalid", "pyproject.toml 缺少 [project].version。"
+        )
+    return version_match["version"]
+
+
+def _installed_version(distribution: str) -> str:
+    try:
+        return importlib.metadata.version(distribution)
+    except importlib.metadata.PackageNotFoundError as error:
+        raise ReleaseValidationError(
+            "build_environment_invalid", f"构建环境缺少 {distribution}。"
+        ) from error
+
+
+def _build_environment() -> dict:
+    return {
+        "operating_system": platform.system(),
+        "architecture": platform.machine(),
+        "conda_environment": EXPECTED_CONDA_ENVIRONMENT,
+        "python_version": ".".join(str(part) for part in sys.version_info[:3]),
+        "pyinstaller_version": _installed_version("pyinstaller"),
+        "fastapi_version": _installed_version("fastapi"),
+        "uvicorn_version": _installed_version("uvicorn"),
+        "pyyaml_version": _installed_version("PyYAML"),
+    }
 
 
 def _git_status(root: Path) -> str:
@@ -482,7 +538,209 @@ def verify_seed(
     }
 
 
-def _load_manifest(manifest_path: Path) -> dict:
+_MANIFEST_ROOT_KEYS = frozenset(
+    ("manifest_version", "application", "source", "build", "database", "validation", "files")
+)
+_APPLICATION_KEYS = frozenset(("name", "package_name", "project_name", "project_version"))
+_SOURCE_KEYS = frozenset(
+    ("git_commit", "git_branch", "configuration_path", "configuration_sha256")
+)
+_BUILD_KEYS = frozenset(
+    (
+        "built_at_utc",
+        "operating_system",
+        "architecture",
+        "conda_environment",
+        "python_version",
+        "pyinstaller_version",
+        "fastapi_version",
+        "uvicorn_version",
+        "pyyaml_version",
+        "mode",
+        "console",
+        "upx",
+        "entry",
+        "service_entry",
+        "worker_count",
+    )
+)
+_DATABASE_KEYS = frozenset(
+    (
+        "source_path",
+        "source_sha256",
+        "source_content_sha256",
+        "seed_path",
+        "seed_sha256",
+        "seed_content_sha256",
+        "schema_version",
+        "active_version_id",
+        "based_on_version_id",
+        "rule_count",
+        "enabled_rule_count",
+        "virtual_prototype_count",
+        "grade_dictionary_entry_count",
+        "rule_set_fingerprint",
+        "grade_dictionary_fingerprint",
+    )
+)
+_VALIDATION_KEYS = frozenset(("build", "source", "seed", "package_static", "smoke"))
+
+
+def _require_exact_keys(value, expected: frozenset[str], subject: str) -> None:
+    if not isinstance(value, dict) or set(value) != expected:
+        raise ReleaseValidationError(
+            "manifest_invalid", f"发布清单 {subject} 字段集合无效。"
+        )
+
+
+def _require_text(value, subject: str) -> str:
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise ReleaseValidationError(
+            "manifest_invalid", f"发布清单 {subject} 必须是非空文本。"
+        )
+    if any(ord(character) < 32 for character in value):
+        raise ReleaseValidationError(
+            "manifest_invalid", f"发布清单 {subject} 包含控制字符。"
+        )
+    return value
+
+
+def _require_sha256(value, subject: str) -> str:
+    if not isinstance(value, str) or _SHA256_PATTERN.fullmatch(value) is None:
+        raise ReleaseValidationError(
+            "manifest_invalid", f"发布清单 {subject} 不是规范 SHA-256。"
+        )
+    return value
+
+
+def _require_positive_int(value, subject: str, *, allow_zero: bool = False) -> int:
+    minimum = 0 if allow_zero else 1
+    if type(value) is not int or value < minimum:
+        raise ReleaseValidationError(
+            "manifest_invalid", f"发布清单 {subject} 必须是不小于 {minimum} 的整数。"
+        )
+    return value
+
+
+def _validate_build_time(value) -> str:
+    text = _require_text(value, "build.built_at_utc")
+    if _UTC_BUILD_TIME_PATTERN.fullmatch(text) is None:
+        raise ReleaseValidationError(
+            "manifest_invalid", "发布清单构建时间必须是 UTC 秒级时间。"
+        )
+    try:
+        datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError as error:
+        raise ReleaseValidationError(
+            "manifest_invalid", "发布清单构建时间不是有效日期。"
+        ) from error
+    return text
+
+
+def _validate_manifest_schema(manifest: dict, *, allow_pending_smoke: bool) -> None:
+    _require_exact_keys(manifest, _MANIFEST_ROOT_KEYS, "根对象")
+    if type(manifest["manifest_version"]) is not int or manifest["manifest_version"] != 1:
+        raise ReleaseValidationError("manifest_invalid", "发布清单版本不受支持。")
+
+    application = manifest["application"]
+    _require_exact_keys(application, _APPLICATION_KEYS, "application")
+    if (
+        application["name"] != "APSGoV7Service"
+        or application["package_name"] != "APSGoV7"
+        or application["project_name"] != "apsgo-scheduler"
+    ):
+        raise ReleaseValidationError("manifest_invalid", "发布清单应用身份无效。")
+    project_version = _require_text(
+        application["project_version"], "application.project_version"
+    )
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_-]*", project_version) is None:
+        raise ReleaseValidationError("manifest_invalid", "发布清单项目版本无效。")
+
+    source = manifest["source"]
+    _require_exact_keys(source, _SOURCE_KEYS, "source")
+    commit = _require_text(source["git_commit"], "source.git_commit")
+    if re.fullmatch(r"[0-9a-f]{40}", commit) is None or source["git_branch"] is not None:
+        raise ReleaseValidationError("manifest_invalid", "发布清单 Git 身份无效。")
+    if source["configuration_path"] != CONFIGURATION_PATH.as_posix():
+        raise ReleaseValidationError("manifest_invalid", "发布清单配置路径无效。")
+    _require_sha256(source["configuration_sha256"], "source.configuration_sha256")
+
+    build = manifest["build"]
+    _require_exact_keys(build, _BUILD_KEYS, "build")
+    _validate_build_time(build["built_at_utc"])
+    if (
+        build["operating_system"] != "Windows"
+        or build["architecture"] not in {"AMD64", "x86_64"}
+        or build["conda_environment"] != EXPECTED_CONDA_ENVIRONMENT
+        or build["python_version"] != EXPECTED_PYTHON_VERSION
+        or build["pyinstaller_version"] != EXPECTED_PYINSTALLER_VERSION
+        or build["mode"] != "onedir"
+        or build["console"] is not True
+        or build["upx"] is not False
+        or build["entry"] != "release/apsgo_v7_service_entry.py"
+        or build["service_entry"] != "apsgo_v7_service.app:main"
+        or type(build["worker_count"]) is not int
+        or build["worker_count"] != 1
+    ):
+        raise ReleaseValidationError("manifest_invalid", "发布清单构建契约无效。")
+    for key in ("fastapi_version", "uvicorn_version", "pyyaml_version"):
+        version = _require_text(build[key], f"build.{key}")
+        if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9.+_-]*", version) is None:
+            raise ReleaseValidationError(
+                "manifest_invalid", f"发布清单 build.{key} 版本无效。"
+            )
+
+    database = manifest["database"]
+    _require_exact_keys(database, _DATABASE_KEYS, "database")
+    if (
+        database["source_path"] != SOURCE_DATABASE_PATH.as_posix()
+        or database["seed_path"] != PACKAGE_DATABASE_PATH.as_posix()
+    ):
+        raise ReleaseValidationError("manifest_invalid", "发布清单数据库路径无效。")
+    for key in (
+        "source_sha256",
+        "source_content_sha256",
+        "seed_sha256",
+        "seed_content_sha256",
+        "rule_set_fingerprint",
+        "grade_dictionary_fingerprint",
+    ):
+        _require_sha256(database[key], f"database.{key}")
+    _require_positive_int(database["schema_version"], "database.schema_version")
+    _require_positive_int(database["active_version_id"], "database.active_version_id")
+    based_on = database["based_on_version_id"]
+    if based_on is not None:
+        _require_positive_int(based_on, "database.based_on_version_id")
+    rule_count = _require_positive_int(database["rule_count"], "database.rule_count")
+    enabled_count = _require_positive_int(
+        database["enabled_rule_count"], "database.enabled_rule_count", allow_zero=True
+    )
+    if enabled_count > rule_count:
+        raise ReleaseValidationError("manifest_invalid", "发布清单启用规则数量无效。")
+    _require_positive_int(
+        database["virtual_prototype_count"],
+        "database.virtual_prototype_count",
+        allow_zero=True,
+    )
+    _require_positive_int(
+        database["grade_dictionary_entry_count"],
+        "database.grade_dictionary_entry_count",
+        allow_zero=True,
+    )
+
+    validation = manifest["validation"]
+    _require_exact_keys(validation, _VALIDATION_KEYS, "validation")
+    for key in ("build", "source", "seed", "package_static"):
+        if validation[key] != "pass":
+            raise ReleaseValidationError("manifest_invalid", "发布清单验证状态无效。")
+    allowed_smoke = {"pass", "pending"} if allow_pending_smoke else {"pass"}
+    if validation["smoke"] not in allowed_smoke:
+        raise ReleaseValidationError("manifest_invalid", "发布清单冒烟状态无效。")
+    if not isinstance(manifest["files"], dict) or not manifest["files"]:
+        raise ReleaseValidationError("manifest_invalid", "发布清单文件集合无效。")
+
+
+def _load_manifest(manifest_path: Path, *, allow_pending_smoke: bool) -> dict:
     def unique_object(pairs):
         result = {}
         for key, value in pairs:
@@ -495,24 +753,25 @@ def _load_manifest(manifest_path: Path) -> dict:
         raise ValueError(f"invalid JSON constant: {value}")
 
     try:
+        raw = manifest_path.read_bytes()
+        text = raw.decode("utf-8")
         value = json.loads(
-            manifest_path.read_text(encoding="utf-8"),
+            text,
             object_pairs_hook=unique_object,
+            parse_float=Decimal,
             parse_constant=reject_constant,
         )
+        _validate_manifest_schema(value, allow_pending_smoke=allow_pending_smoke)
+        canonical = f"{dumps_exact_json(value)}\n".encode("utf-8")
+    except ReleaseValidationError:
+        raise
     except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
         raise ReleaseValidationError(
-            "manifest_invalid", "发布清单不是合法的 UTF-8 JSON。"
+            "manifest_invalid", "发布清单不是合法的规范 UTF-8 JSON。"
         ) from error
-    if not isinstance(value, dict) or type(value.get("manifest_version")) is not int:
-        raise ReleaseValidationError("manifest_invalid", "发布清单根结构无效。")
-    if value["manifest_version"] != 1:
-        raise ReleaseValidationError("manifest_invalid", "发布清单版本不受支持。")
-    if not isinstance(value.get("files"), dict) or not isinstance(
-        value.get("database"), dict
-    ):
+    if raw != canonical:
         raise ReleaseValidationError(
-            "manifest_invalid", "发布清单缺少文件或数据库身份。"
+            "manifest_invalid", "发布清单必须使用固定键序、UTF-8 无 BOM 和单个 LF 结尾。"
         )
     return value
 
@@ -529,21 +788,29 @@ def _manifest_relative_path(value) -> str:
 
 
 def _package_files(root: Path) -> dict[str, Path]:
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
     files: dict[str, Path] = {}
     for directory, names, filenames in os.walk(root, followlinks=False):
         directory_path = Path(directory)
         for name in names:
             path = directory_path / name
-            if path.is_symlink():
+            attributes = getattr(path.lstat(), "st_file_attributes", 0)
+            if path.is_symlink() or (reparse_flag and attributes & reparse_flag):
                 raise ReleaseValidationError(
                     "package_layout_invalid",
-                    "发布包不能包含符号链接。",
+                    "发布包不能包含符号链接或 Windows reparse point。",
                     path=path.relative_to(root).as_posix(),
                 )
         for name in filenames:
             path = directory_path / name
             relative = path.relative_to(root).as_posix()
-            if path.is_symlink() or not stat.S_ISREG(path.stat().st_mode):
+            file_state = path.lstat()
+            attributes = getattr(file_state, "st_file_attributes", 0)
+            if (
+                path.is_symlink()
+                or (reparse_flag and attributes & reparse_flag)
+                or not stat.S_ISREG(file_state.st_mode)
+            ):
                 raise ReleaseValidationError(
                     "package_layout_invalid",
                     "发布包只能包含普通文件。",
@@ -553,8 +820,9 @@ def _package_files(root: Path) -> dict[str, Path]:
     return files
 
 
-def _validate_package_layout(files: dict[str, Path]) -> None:
-    required = _REQUIRED_PACKAGE_FILES | {MANIFEST_PATH.as_posix()}
+def _validate_package_layout(files: dict[str, Path], *, require_manifest: bool) -> None:
+    manifest_path = MANIFEST_PATH.as_posix()
+    required = _REQUIRED_PACKAGE_FILES | ({manifest_path} if require_manifest else set())
     missing = sorted(required - files.keys())
     if missing:
         raise ReleaseValidationError(
@@ -580,9 +848,20 @@ def _validate_package_layout(files: dict[str, Path]) -> None:
                 "正式发布包不能包含现场配置或运行数据库。",
                 path=relative,
             )
-        allowed = (
-            relative in required
-            or relative.startswith("_internal/")
+        parts = PurePosixPath(relative).parts
+        if (
+            "__pycache__" in parts
+            or ".pytest_cache" in parts
+            or "tests" in parts
+            or relative.endswith((".py", ".pyi", ".spec", ".log", ".DS_Store"))
+        ):
+            raise ReleaseValidationError(
+                "package_layout_invalid",
+                "正式发布包不能包含源码、测试、缓存或日志。",
+                path=relative,
+            )
+        allowed = relative in (_REQUIRED_PACKAGE_FILES | {manifest_path}) or relative.startswith(
+            "_internal/"
         )
         if not allowed:
             raise ReleaseValidationError(
@@ -622,36 +901,10 @@ def _validate_manifest_files(root: Path, files: dict[str, Path], manifest: dict)
 
 def _validate_package_database_identity(manifest: dict, database: dict) -> None:
     declared = manifest["database"]
-    required = {
-        "source_path",
-        "source_sha256",
-        "seed_path",
-        "seed_sha256",
-        "schema_version",
-        "active_version_id",
-        "based_on_version_id",
-        "rule_count",
-        "enabled_rule_count",
-        "virtual_prototype_count",
-        "grade_dictionary_entry_count",
-        "rule_set_fingerprint",
-        "grade_dictionary_fingerprint",
-    }
-    if not required.issubset(declared):
-        raise ReleaseValidationError(
-            "manifest_invalid", "发布清单数据库身份字段不完整。"
-        )
-    source_sha256 = declared["source_sha256"]
-    if (
-        declared["source_path"] != SOURCE_DATABASE_PATH.as_posix()
-        or not isinstance(source_sha256, str)
-        or len(source_sha256) != 64
-        or any(character not in "0123456789abcdef" for character in source_sha256)
-    ):
-        raise ReleaseValidationError("manifest_invalid", "发布清单源数据库身份无效。")
     expected = {
         "seed_path": PACKAGE_DATABASE_PATH.as_posix(),
         "seed_sha256": database["sha256"],
+        "seed_content_sha256": database["content_sha256"],
         **{
             key: database[key]
             for key in (
@@ -674,27 +927,29 @@ def _validate_package_database_identity(manifest: dict, database: dict) -> None:
                 "发布种子数据库身份与清单不一致。",
                 path=PACKAGE_DATABASE_PATH.as_posix(),
             )
+    if declared["source_content_sha256"] != declared["seed_content_sha256"]:
+        raise ReleaseValidationError(
+            "package_database_identity_mismatch",
+            "发布种子与源数据库的逻辑摘要不一致。",
+            path=PACKAGE_DATABASE_PATH.as_posix(),
+        )
 
 
-def verify_package(package_root: str | Path) -> dict:
-    """Validate one assembled portable-directory package without changing it."""
-
+def _package_root(value: str | Path) -> Path:
     try:
-        root = Path(package_root).resolve(strict=True)
+        root = Path(value).resolve(strict=True)
     except (OSError, RuntimeError, ValueError) as error:
         raise ReleaseValidationError(
             "package_layout_invalid", "发布包目录不存在或无法解析。"
         ) from error
     if not root.is_dir():
-        raise ReleaseValidationError(
-            "package_layout_invalid", "发布包路径必须是文件夹。"
-        )
+        raise ReleaseValidationError("package_layout_invalid", "发布包路径必须是文件夹。")
+    return root
 
+
+def _inspect_package(root: Path, *, require_manifest: bool) -> tuple[dict[str, Path], dict]:
     files = _package_files(root)
-    _validate_package_layout(files)
-    manifest = _load_manifest(files[MANIFEST_PATH.as_posix()])
-    _validate_manifest_files(root, files, manifest)
-
+    _validate_package_layout(files, require_manifest=require_manifest)
     configuration_path = files[PACKAGE_CONFIGURATION_PATH.as_posix()]
     _raw_database_path(configuration_path)
     try:
@@ -707,29 +962,151 @@ def verify_package(package_root: str | Path) -> dict:
             "配置模板没有指向发布目录中的运行数据库。",
             path=PACKAGE_CONFIGURATION_PATH.as_posix(),
         )
-
     database_path = files[PACKAGE_DATABASE_PATH.as_posix()]
     database_before = _file_state(database_path)
     database = _read_database(
-        database_path,
-        timeout_seconds=configuration.database_timeout_seconds,
+        database_path, timeout_seconds=configuration.database_timeout_seconds
+    )
+    content_sha256 = _database_content_sha256(
+        database_path, timeout_seconds=configuration.database_timeout_seconds
     )
     database_after = _file_state(database_path)
     if database_before != database_after:
         raise ReleaseValidationError(
-            "database_changed_during_verification",
-            "发布种子数据库在验证期间发生变化。",
+            "database_changed_during_verification", "发布种子数据库在验证期间发生变化。"
         )
     database.update(
         {
             "path": PACKAGE_DATABASE_PATH.as_posix(),
             "sha256": database_before[2],
+            "content_sha256": content_sha256,
+            "database_timeout_seconds": Decimal(
+                str(configuration.database_timeout_seconds)
+            ),
         }
     )
+    return files, database
+
+
+def generate_manifest(
+    repository_root: str | Path,
+    package_root: str | Path,
+    *,
+    built_at_utc: str,
+    smoke_status: str,
+) -> dict:
+    """Generate one canonical manifest value without writing package files."""
+
+    source = verify_source(repository_root)
+    if source["git"]["branch"] is not None:
+        raise ReleaseValidationError(
+            "source_branch_invalid", "正式发布清单必须来自 detached Git 工作树。"
+        )
+    root = _package_root(package_root)
+    files, package_database = _inspect_package(root, require_manifest=False)
+    seed = verify_seed(
+        Path(repository_root).resolve() / SOURCE_DATABASE_PATH,
+        root / PACKAGE_DATABASE_PATH,
+        timeout_seconds=float(source["configuration"]["database_timeout_seconds"]),
+    )
+    if _sha256(root / PACKAGE_CONFIGURATION_PATH) != source["configuration"]["sha256"]:
+        raise ReleaseValidationError(
+            "configuration_database_mismatch",
+            "包内配置模板与本次构建源配置不一致。",
+            path=PACKAGE_CONFIGURATION_PATH.as_posix(),
+        )
+
+    build = _build_environment()
+    build.update(
+        {
+            "built_at_utc": built_at_utc,
+            "mode": "onedir",
+            "console": True,
+            "upx": False,
+            "entry": "release/apsgo_v7_service_entry.py",
+            "service_entry": "apsgo_v7_service.app:main",
+            "worker_count": 1,
+        }
+    )
+    database = {
+        "source_path": SOURCE_DATABASE_PATH.as_posix(),
+        "source_sha256": seed["source"]["sha256"],
+        "source_content_sha256": seed["source"]["content_sha256"],
+        "seed_path": PACKAGE_DATABASE_PATH.as_posix(),
+        "seed_sha256": seed["seed"]["sha256"],
+        "seed_content_sha256": seed["seed"]["content_sha256"],
+        **{
+            key: package_database[key]
+            for key in (
+                "schema_version",
+                "active_version_id",
+                "based_on_version_id",
+                "rule_count",
+                "enabled_rule_count",
+                "virtual_prototype_count",
+                "grade_dictionary_entry_count",
+                "rule_set_fingerprint",
+                "grade_dictionary_fingerprint",
+            )
+        },
+    }
+    manifest = {
+        "manifest_version": 1,
+        "application": {
+            "name": "APSGoV7Service",
+            "package_name": "APSGoV7",
+            "project_name": "apsgo-scheduler",
+            "project_version": _project_version(Path(repository_root).resolve()),
+        },
+        "source": {
+            "git_commit": source["git"]["commit"],
+            "git_branch": source["git"]["branch"],
+            "configuration_path": CONFIGURATION_PATH.as_posix(),
+            "configuration_sha256": source["configuration"]["sha256"],
+        },
+        "build": build,
+        "database": database,
+        "validation": {
+            "build": "pass",
+            "source": "pass",
+            "seed": "pass",
+            "package_static": "pass",
+            "smoke": smoke_status,
+        },
+        "files": {
+            relative: _sha256(path)
+            for relative, path in files.items()
+            if relative != MANIFEST_PATH.as_posix()
+        },
+    }
+    _validate_manifest_schema(manifest, allow_pending_smoke=True)
+    return manifest
+
+
+def verify_package(
+    package_root: str | Path, *, allow_pending_smoke: bool = False
+) -> dict:
+    """Validate one assembled portable-directory package without changing it."""
+
+    root = _package_root(package_root)
+    files, database = _inspect_package(root, require_manifest=True)
+    manifest = _load_manifest(
+        files[MANIFEST_PATH.as_posix()], allow_pending_smoke=allow_pending_smoke
+    )
+    _validate_manifest_files(root, files, manifest)
     _validate_package_database_identity(manifest, database)
+    if (
+        manifest["source"]["configuration_sha256"]
+        != _sha256(root / PACKAGE_CONFIGURATION_PATH)
+    ):
+        raise ReleaseValidationError(
+            "manifest_digest_mismatch",
+            "配置模板摘要与发布清单源身份不一致。",
+            path=PACKAGE_CONFIGURATION_PATH.as_posix(),
+        )
 
     final_files = _package_files(root)
-    _validate_package_layout(final_files)
+    _validate_package_layout(final_files, require_manifest=True)
     _validate_manifest_files(root, final_files, manifest)
     if set(files) != set(final_files):
         raise ReleaseValidationError(
@@ -740,6 +1117,7 @@ def verify_package(package_root: str | Path) -> dict:
         "mode": "package",
         "manifest_version": manifest["manifest_version"],
         "file_count": len(final_files) - 1,
+        "smoke_status": manifest["validation"]["smoke"],
         "database": database,
     }
 
@@ -753,8 +1131,14 @@ def _parser() -> argparse.ArgumentParser:
     seed.add_argument("--source-database", required=True)
     seed.add_argument("--seed-database", required=True)
     seed.add_argument("--timeout-seconds", type=float, default=5.0)
+    manifest = subparsers.add_parser("manifest", help="generate one release manifest")
+    manifest.add_argument("--repository-root", required=True)
+    manifest.add_argument("--package-root", required=True)
+    manifest.add_argument("--built-at-utc", required=True)
+    manifest.add_argument("--smoke-status", choices=("pending", "pass"), required=True)
     package = subparsers.add_parser("package", help="validate one assembled release package")
     package.add_argument("--package-root", required=True)
+    package.add_argument("--allow-pending-smoke", action="store_true")
     return parser
 
 
@@ -769,8 +1153,18 @@ def main(argv: list[str] | None = None) -> int:
                 arguments.seed_database,
                 timeout_seconds=arguments.timeout_seconds,
             )
+        elif arguments.mode == "manifest":
+            result = generate_manifest(
+                arguments.repository_root,
+                arguments.package_root,
+                built_at_utc=arguments.built_at_utc,
+                smoke_status=arguments.smoke_status,
+            )
         else:
-            result = verify_package(arguments.package_root)
+            result = verify_package(
+                arguments.package_root,
+                allow_pending_smoke=arguments.allow_pending_smoke,
+            )
     except ReleaseValidationError as error:
         payload = {
             "status": "fail",

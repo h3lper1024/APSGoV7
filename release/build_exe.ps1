@@ -16,6 +16,8 @@ $ProjectRoot = Split-Path -Parent $ReleaseDirectory
 $SourceDirectory = Join-Path $ProjectRoot "src"
 $EntryScript = Join-Path $ReleaseDirectory "apsgo_v7_service_entry.py"
 $Verifier = Join-Path $ReleaseDirectory "verify_release.py"
+$SmokeRunner = Join-Path $ReleaseDirectory "smoke_release.py"
+$ReleaseReadme = Join-Path $ReleaseDirectory "README.md"
 $Requirements = Join-Path $ReleaseDirectory "requirements-build.txt"
 $StartScriptTemplate = Join-Path $ReleaseDirectory "start_apsgo_v7_service.bat"
 $StopScriptTemplate = Join-Path $ReleaseDirectory "stop_apsgo_v7_service.bat"
@@ -38,6 +40,8 @@ $PackageConfigurationTemplate = Join-Path `
 $PackageSeedDatabase = Join-Path $PackageDataDirectory "apsgo_v7_rules_seed.sqlite3"
 $PackageStartScript = Join-Path $PackageDirectory "start_apsgo_v7_service.bat"
 $PackageStopScript = Join-Path $PackageDirectory "stop_apsgo_v7_service.bat"
+$PackageReadme = Join-Path $PackageDirectory "README.md"
+$PackageManifest = Join-Path $PackageDirectory "release_manifest.json"
 
 $env:PYTHONDONTWRITEBYTECODE = "1"
 $env:PYTHONUTF8 = "1"
@@ -57,6 +61,8 @@ foreach ($path in @(
     $SourceDirectory,
     $EntryScript,
     $Verifier,
+    $SmokeRunner,
+    $ReleaseReadme,
     $Requirements,
     $StartScriptTemplate,
     $StopScriptTemplate,
@@ -266,6 +272,7 @@ Copy-Item -LiteralPath $SourceConfiguration -Destination $PackageConfigurationTe
 Move-Item -LiteralPath $StagedSeedDatabase -Destination $PackageSeedDatabase
 Copy-Item -LiteralPath $StartScriptTemplate -Destination $PackageStartScript
 Copy-Item -LiteralPath $StopScriptTemplate -Destination $PackageStopScript
+Copy-Item -LiteralPath $ReleaseReadme -Destination $PackageReadme
 
 $FinalSourceValidationJson = & $CondaPython $Verifier source --repository-root $ProjectRoot
 $FinalSourceValidationExitCode = $LASTEXITCODE
@@ -292,13 +299,68 @@ if ($PackagedSeedValidationExitCode -ne 0) {
     throw "Packaged APSGo V7 database seed validation failed."
 }
 
+$BuiltAtUtc = [DateTime]::UtcNow.ToString(
+    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+    [Globalization.CultureInfo]::InvariantCulture
+)
+$Utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
+
+function Write-ReleaseManifest {
+    param([Parameter(Mandatory = $true)][string]$SmokeStatus)
+
+    $ManifestOutput = @(& $CondaPython $Verifier manifest `
+        --repository-root $ProjectRoot `
+        --package-root $PackageDirectory `
+        --built-at-utc $BuiltAtUtc `
+        --smoke-status $SmokeStatus)
+    $ManifestExitCode = $LASTEXITCODE
+    if ($ManifestExitCode -ne 0 -or $ManifestOutput.Count -ne 1) {
+        throw "APSGo V7 release manifest generation failed."
+    }
+    [IO.File]::WriteAllText(
+        $PackageManifest,
+        $ManifestOutput[0] + "`n",
+        $Utf8WithoutBom
+    )
+}
+
+Write-ReleaseManifest -SmokeStatus "pending"
+$PendingPackageValidationJson = & $CondaPython $Verifier package `
+    --package-root $PackageDirectory `
+    --allow-pending-smoke
+$PendingPackageValidationExitCode = $LASTEXITCODE
+Write-Output $PendingPackageValidationJson
+if ($PendingPackageValidationExitCode -ne 0) {
+    throw "APSGo V7 pre-smoke package validation failed."
+}
+
+$SmokeJson = & $CondaPython $SmokeRunner `
+    --repository-root $ProjectRoot `
+    --package-root $PackageDirectory
+$SmokeExitCode = $LASTEXITCODE
+Write-Output $SmokeJson
+if ($SmokeExitCode -ne 0) {
+    throw "APSGo V7 package smoke failed."
+}
+
+Write-ReleaseManifest -SmokeStatus "pass"
+$FinalPackageValidationJson = & $CondaPython $Verifier package `
+    --package-root $PackageDirectory
+$FinalPackageValidationExitCode = $LASTEXITCODE
+Write-Output $FinalPackageValidationJson
+if ($FinalPackageValidationExitCode -ne 0) {
+    throw "APSGo V7 final package validation failed."
+}
+
 $PackagedExecutable = Join-Path $PackageDirectory "$ApplicationName.exe"
 foreach ($path in @(
     $PackagedExecutable,
     $PackageConfigurationTemplate,
     $PackageSeedDatabase,
     $PackageStartScript,
-    $PackageStopScript
+    $PackageStopScript,
+    $PackageReadme,
+    $PackageManifest
 )) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "The packaged release input was not found: $path"
