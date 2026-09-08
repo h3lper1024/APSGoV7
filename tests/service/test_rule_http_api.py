@@ -719,7 +719,8 @@ def test_run_server_loads_one_configuration_and_uses_the_confirmed_endpoint(tmp_
     calls = []
     applications = []
 
-    def create_app(database_path, *, timeout_seconds, monthly_solve_policy):
+    def create_app(database_path, *, timeout_seconds, monthly_solve_policy, diagnostics_directory):
+        assert diagnostics_directory is None
         applications.append((database_path, timeout_seconds, monthly_solve_policy))
         return object()
 
@@ -740,6 +741,7 @@ def test_run_server_loads_one_configuration_and_uses_the_confirmed_endpoint(tmp_
     assert kwargs.get("port", args[2] if len(args) > 2 else None) == 8123
     assert kwargs["access_log"] is False
     assert kwargs["workers"] == 1
+    assert "apsgo_scheduler" in kwargs["log_config"]["loggers"]
 
 
 def test_run_server_rejects_missing_configuration_before_start(tmp_path, monkeypatch):

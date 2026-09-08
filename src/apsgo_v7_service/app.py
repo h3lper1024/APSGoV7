@@ -9,6 +9,7 @@ import sqlite3
 from collections.abc import Sequence
 from pathlib import Path
 from threading import Event, Lock
+from time import perf_counter
 from types import SimpleNamespace
 
 import uvicorn
@@ -28,6 +29,13 @@ from apsgo_scheduler.app.rule_set_loader import RuleSetLoadError
 from apsgo_scheduler.core.contracts import SearchStopReason, SolverPolicy, SolveStatus
 
 from .configuration import DEFAULT_CONFIGURATION_PATH, load_service_configuration
+from .diagnostics import (
+    DiagnosticStreamHandler,
+    TimestampFormatter,
+    log_bound_result,
+    log_configuration,
+    request_context,
+)
 from .gqga4 import GQGA4_RULE_SET_TEMPLATE
 from .grade_dictionary import GradePreparationError
 from .month_scheduling import (
@@ -378,15 +386,17 @@ def _log_month_solve(
     expected_active_version_id: int | None,
     active_version_id: int | None,
     result_code: str,
+    started: float,
 ) -> None:
     _LOGGER.info(
         "month_solve request_id=%s expected_active_version_id=%s "
-        "active_version_id=%s result_code=%s status=%s",
+        "active_version_id=%s result_code=%s status=%s elapsed_seconds=%.6f",
         request_id or "-",
         expected_active_version_id if expected_active_version_id is not None else "-",
         active_version_id if active_version_id is not None else "-",
         result_code,
         status_code,
+        perf_counter() - started,
     )
 
 
@@ -455,6 +465,7 @@ def create_app(
     *,
     timeout_seconds: float = 5.0,
     monthly_solve_policy: SolverPolicy | None = None,
+    diagnostics_directory: Path | None = None,
 ) -> FastAPI:
     """Create the rule and scheduling adapter without opening a database."""
 
@@ -468,6 +479,14 @@ def create_app(
         redirect_slashes=False,
     )
     solve_lock = Lock()
+
+    async def log_startup():
+        _LOGGER.info(
+            "service_started diagnostics_enabled=%s diagnostic_directory=%s",
+            diagnostics_directory is not None, diagnostics_directory or "-",
+        )
+
+    application.add_event_handler("startup", log_startup)
 
     @application.get(GET_ACTIVE_RULES_PATH, response_class=Response)
     async def get_active_rules(request: Request) -> Response:
@@ -495,6 +514,7 @@ def create_app(
 
     @application.post(MONTH_SOLVE_PATH, response_class=Response)
     async def solve_month_schedule(request: Request) -> Response:
+        started = perf_counter()
         parsed = None
         try:
             _require_no_query(request)
@@ -525,8 +545,18 @@ def create_app(
 
             cancellation_event = Event()
             cancellation = SimpleNamespace(is_cancelled=cancellation_event.is_set)
+            _LOGGER.info(
+                "month_solve_started request_id=%s order_count=%s period_count=%s "
+                "expected_active_version_id=%s seed=%s candidate_check_limit=%s "
+                "total_time_limit_seconds=%s elapsed_seconds=%.6f",
+                parsed.task_input.request_id, len(parsed.task_input.orders),
+                len(parsed.task_input.periods), parsed.expected_active_version_id,
+                monthly_solve_policy.seed, monthly_solve_policy.candidate_check_limit,
+                monthly_solve_policy.total_time_limit_seconds, perf_counter() - started,
+            )
 
             def solve_in_worker():
+                token = request_context.set((parsed.task_input.request_id, started))
                 try:
                     return solve_gqga4_scheduling_task(
                         parsed.task_input,
@@ -536,6 +566,7 @@ def create_app(
                         cancellation=cancellation,
                     )
                 finally:
+                    request_context.reset(token)
                     solve_lock.release()
 
             try:
@@ -582,14 +613,27 @@ def create_app(
                     else None
                 ),
                 result_code=result_code,
+                started=started,
             )
+            if result.status_code >= 500:
+                _LOGGER.exception(
+                    "month_solve_error request_id=%s elapsed_seconds=%.6f",
+                    None if parsed is None else parsed.task_input.request_id,
+                    perf_counter() - started,
+                )
             return result
+        token = request_context.set((parsed.task_input.request_id, started))
+        try:
+            log_bound_result(_LOGGER, bound)
+        finally:
+            request_context.reset(token)
         _log_month_solve(
             status_code,
             request_id=parsed.task_input.request_id,
             expected_active_version_id=parsed.expected_active_version_id,
             active_version_id=bound.active_rule_set_version_id,
             result_code=bound.result.status.value,
+            started=started,
         )
         return _json_response(content, status_code=status_code)
 
@@ -669,10 +713,12 @@ def run_server(
     """Run the local service from one fully validated configuration."""
 
     configuration = load_service_configuration(configuration_path)
+    log_config = log_configuration(configuration.diagnostics_directory)
     application = create_app(
         configuration.database_path,
         timeout_seconds=configuration.database_timeout_seconds,
         monthly_solve_policy=configuration.monthly_solve_policy,
+        diagnostics_directory=configuration.diagnostics_directory,
     )
     uvicorn.run(
         application,
@@ -680,6 +726,7 @@ def run_server(
         port=configuration.listen_port,
         access_log=False,
         workers=1,
+        log_config=log_config,
     )
 
 
@@ -687,7 +734,16 @@ def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Run the local APSGo V7 rule service.")
     parser.add_argument("--config", default=DEFAULT_CONFIGURATION_PATH, type=Path)
     arguments = parser.parse_args(argv)
-    run_server(arguments.config)
+    try:
+        run_server(arguments.config)
+    except Exception:
+        handler = DiagnosticStreamHandler()
+        handler.setFormatter(TimestampFormatter())
+        startup_logger = logging.Logger("apsgo_v7_service.startup")
+        startup_logger.addHandler(handler)
+        startup_logger.exception("service_start_failed")
+        handler.close()
+        raise SystemExit(1) from None
 
 
 if __name__ == "__main__":

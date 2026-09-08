@@ -35,6 +35,8 @@ _EXPECTED_MONTHLY_SOLVE_KEYS = frozenset(
         "maximum_virtual_bridge_nodes",
     }
 )
+_OPTIONAL_KEYS = frozenset({"diagnostics"})
+_EXPECTED_DIAGNOSTICS_KEYS = frozenset({"enabled", "output_directory"})
 _ALLOWED_LISTEN_HOSTS = frozenset({"127.0.0.1", "0.0.0.0"})
 
 
@@ -49,6 +51,7 @@ class ServiceConfiguration:
     listen_host: str
     listen_port: int
     monthly_solve_policy: SolverPolicy
+    diagnostics_directory: Path | None = None
 
 
 class _UniqueKeySafeLoader(yaml.SafeLoader):
@@ -100,9 +103,9 @@ def _load_yaml(path: Path) -> dict:
     if not isinstance(value, dict):
         raise ServiceConfigurationError("configuration root must be a YAML mapping")
     keys = frozenset(value)
-    if keys != _EXPECTED_KEYS:
+    if keys - _OPTIONAL_KEYS != _EXPECTED_KEYS:
         missing = sorted(_EXPECTED_KEYS - keys)
-        unknown = sorted(keys - _EXPECTED_KEYS)
+        unknown = sorted(keys - _EXPECTED_KEYS - _OPTIONAL_KEYS)
         details = []
         if missing:
             details.append(f"missing keys: {', '.join(missing)}")
@@ -158,6 +161,46 @@ def _listen_port(value) -> int:
     if type(value) is not int or not 1 <= value <= 65_535:
         raise ServiceConfigurationError("listen_port must be an integer from 1 through 65535")
     return value
+
+
+def _diagnostics_directory(value, configuration_directory: Path) -> Path | None:
+    if not isinstance(value, dict):
+        raise ServiceConfigurationError("diagnostics must be a YAML mapping")
+    keys = frozenset(value)
+    if keys != _EXPECTED_DIAGNOSTICS_KEYS:
+        missing = sorted(_EXPECTED_DIAGNOSTICS_KEYS - keys)
+        unknown = sorted(keys - _EXPECTED_DIAGNOSTICS_KEYS)
+        details = []
+        if missing:
+            details.append(f"missing keys: {', '.join(missing)}")
+        if unknown:
+            details.append(f"unknown keys: {', '.join(unknown)}")
+        raise ServiceConfigurationError(
+            "diagnostics keys must match exactly; " + "; ".join(details)
+        )
+    if type(value["enabled"]) is not bool:
+        raise ServiceConfigurationError("diagnostics.enabled must be a boolean")
+    directory = value["output_directory"]
+    if not isinstance(directory, str) or not directory.strip():
+        raise ServiceConfigurationError(
+            "diagnostics.output_directory must be nonempty text"
+        )
+    try:
+        path = Path(directory.strip())
+        if not path.is_absolute():
+            path = configuration_directory / path
+        resolved = path.resolve()
+        if resolved.exists() and not resolved.is_dir():
+            raise ServiceConfigurationError(
+                "diagnostics.output_directory must identify a directory"
+            )
+    except ServiceConfigurationError:
+        raise
+    except (OSError, RuntimeError, ValueError) as error:
+        raise ServiceConfigurationError(
+            "diagnostics.output_directory is invalid"
+        ) from error
+    return resolved if value["enabled"] else None
 
 
 def _monthly_solve_policy(value) -> SolverPolicy:
@@ -217,6 +260,11 @@ def load_service_configuration(
         listen_host=_listen_host(values["listen_host"]),
         listen_port=_listen_port(values["listen_port"]),
         monthly_solve_policy=_monthly_solve_policy(values["monthly_solve"]),
+        diagnostics_directory=(
+            _diagnostics_directory(values["diagnostics"], path.parent)
+            if "diagnostics" in values
+            else None
+        ),
     )
 
 

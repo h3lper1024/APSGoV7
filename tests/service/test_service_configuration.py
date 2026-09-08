@@ -55,6 +55,7 @@ def test_tracked_default_configuration_points_to_the_v7_database():
     assert result.database_timeout_seconds == 5.0
     assert result.listen_host == "0.0.0.0"
     assert result.listen_port == 8001
+    assert result.diagnostics_directory == ROOT / "diagnostics"
     assert result.monthly_solve_policy.seed == 590531
     assert result.monthly_solve_policy.total_time_limit_seconds == Decimal("310")
     assert result.monthly_solve_policy.finalization_reserve_seconds == Decimal("10")
@@ -84,6 +85,7 @@ def test_configuration_resolves_database_relative_to_its_own_file(tmp_path, monk
     assert first.database_timeout_seconds == 5.0
     assert first.listen_host == "127.0.0.1"
     assert first.listen_port == 8001
+    assert first.diagnostics_directory is None
     with pytest.raises(FrozenInstanceError):
         first.listen_port = 9000
     with pytest.raises(FrozenInstanceError):
@@ -100,6 +102,122 @@ def test_configuration_preserves_an_absolute_database_target(tmp_path):
     result = load_service_configuration(configuration_path)
 
     assert result.database_path == database_path.resolve()
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_diagnostics_resolves_its_directory_without_creating_it(
+    tmp_path, monkeypatch, enabled
+):
+    configuration_path = _write(
+        tmp_path / "deployment" / "config" / "service.yaml",
+        _values(
+            diagnostics={
+                "enabled": enabled,
+                "output_directory": " ../诊断 数据 ",
+            }
+        ),
+    )
+    expected = tmp_path / "deployment" / "诊断 数据"
+
+    monkeypatch.chdir(tmp_path)
+    first = load_service_configuration(configuration_path)
+    monkeypatch.chdir(tmp_path / "deployment")
+    second = load_service_configuration(configuration_path)
+
+    assert first == second
+    assert first.diagnostics_directory == (expected if enabled else None)
+    assert not expected.exists()
+
+
+@pytest.mark.parametrize("exists", [True, False])
+def test_diagnostics_preserves_an_absolute_directory(tmp_path, exists):
+    directory = tmp_path / "诊断 数据"
+    if exists:
+        directory.mkdir()
+    configuration_path = _write(
+        tmp_path / "config.yaml",
+        _values(diagnostics={"enabled": True, "output_directory": str(directory)}),
+    )
+
+    result = load_service_configuration(configuration_path)
+
+    assert result.diagnostics_directory == directory
+    assert directory.exists() is exists
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+@pytest.mark.parametrize("directory", [None, True, 42, [], {}, "", " ", "bad\x00path"])
+def test_diagnostics_rejects_invalid_directories_when_enabled_or_disabled(
+    tmp_path, enabled, directory
+):
+    configuration_path = _write(
+        tmp_path / "config.yaml",
+        _values(diagnostics={"enabled": enabled, "output_directory": directory}),
+    )
+
+    with pytest.raises(ServiceConfigurationError, match="diagnostics.output_directory"):
+        load_service_configuration(configuration_path)
+
+
+@pytest.mark.parametrize(
+    ("diagnostics", "message"),
+    [
+        (None, "diagnostics must be a YAML mapping"),
+        ([], "diagnostics must be a YAML mapping"),
+        ({}, "missing keys: enabled, output_directory"),
+        ({"enabled": False}, "missing keys: output_directory"),
+        ({"output_directory": "logs"}, "missing keys: enabled"),
+        (
+            {"enabled": False, "output_directory": "logs", "extra": True},
+            "unknown keys: extra",
+        ),
+        ({"enabled": "true", "output_directory": "logs"}, "must be a boolean"),
+        ({"enabled": 1, "output_directory": "logs"}, "must be a boolean"),
+        ({"enabled": None, "output_directory": "logs"}, "must be a boolean"),
+    ],
+)
+def test_configuration_rejects_invalid_diagnostics(tmp_path, diagnostics, message):
+    configuration_path = _write(
+        tmp_path / "config.yaml", _values(diagnostics=diagnostics)
+    )
+
+    with pytest.raises(ServiceConfigurationError, match=message):
+        load_service_configuration(configuration_path)
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_diagnostics_rejects_an_existing_file(tmp_path, enabled):
+    directory = tmp_path / "occupied"
+    directory.write_text("existing data", encoding="utf-8")
+    configuration_path = _write(
+        tmp_path / "config.yaml",
+        _values(diagnostics={"enabled": enabled, "output_directory": str(directory)}),
+    )
+
+    with pytest.raises(ServiceConfigurationError, match="must identify a directory"):
+        load_service_configuration(configuration_path)
+    assert directory.read_text(encoding="utf-8") == "existing data"
+
+
+@pytest.mark.parametrize("operation", ["resolve", "exists", "is_dir"])
+def test_diagnostics_wraps_filesystem_errors(tmp_path, monkeypatch, operation):
+    directory = tmp_path / "diagnostics"
+    directory.mkdir()
+    configuration_path = _write(
+        tmp_path / "config.yaml",
+        _values(diagnostics={"enabled": True, "output_directory": str(directory)}),
+    )
+    original = getattr(Path, operation)
+
+    def failing_operation(path, *args, **kwargs):
+        if path == directory:
+            raise OSError("test directory access failure")
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, operation, failing_operation)
+
+    with pytest.raises(ServiceConfigurationError, match="output_directory is invalid"):
+        load_service_configuration(configuration_path)
 
 
 def test_configuration_loads_valid_monthly_solve_values(tmp_path):
