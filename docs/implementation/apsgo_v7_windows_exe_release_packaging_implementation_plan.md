@@ -4,9 +4,9 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.1 / 2026-09-08 |
-| 状态 | 待实施；本文件只规定执行顺序，不代表 Windows EXE 已生成 |
-| 实施基线 | `codex/rule-setting-api-integration@c8c26dff96c6bd290c41afba0d0d7405d6b2d337` |
+| 版本 / 日期 | v0.2 / 2026-09-08 |
+| 状态 | 阶段 0“固定发布输入与数据库跟踪边界”已完成；下一项为阶段 1；Windows EXE 尚未生成 |
+| 实施基线 | `codex/rule-setting-api-integration@90c78d2f460fd24add0f078508fdbb14cbc486dd` |
 | 权威设计 | [APSGo V7 Windows EXE 发布打包详细设计](../design/apsgo_v7_windows_exe_release_packaging_design.md) |
 | 构建平台 | 64 位 Windows；当前 macOS ARM64 只执行文档和源码侧验证 |
 | Python 环境 | Conda `aps_3.10.18`，Python 3.10.18 |
@@ -51,7 +51,7 @@
 
 | 项目 | 当前值 |
 |---|---|
-| Git 分支 / 提交 | `codex/rule-setting-api-integration@c8c26dff96c6bd290c41afba0d0d7405d6b2d337` |
+| Git 分支 / 提交 | `codex/rule-setting-api-integration@90c78d2f460fd24add0f078508fdbb14cbc486dd` |
 | 数据库受跟踪路径 | `data/apsgo_v7_rules.sqlite3` |
 | 数据库 SHA-256 | `8ed693ac2a1c2be5866c7b3ba8596eab58cbd9db6619a4be61c6c6af175b5288` |
 | SQLite schema | `2` |
@@ -63,7 +63,8 @@
 | 字典指纹 | `d292d5efb53ee541f4d3900b2295ababfecffb1912fd0bafe4cb8bbb7b90ec14` |
 | 服务配置 | `0.0.0.0:8001`；310 秒总时限、10 秒收尾、200000 次候选检查 |
 
-现有 `README.md` 仍有“SQLite 主文件由 Git 忽略”的旧说明，现有部分历史文档仍记录活动版本 3。这些旧文字不改变当前事实，阶段 6 统一收口，不能在本轮文档提交中顺带扩散修改。
+当前 `README.md` 已在阶段 0 修正为“主数据库受 Git 跟踪、三类运行时辅助文件继续忽略”。
+历史证据中记录的活动版本 3 保留当时事实，不批量改写；阶段 6 只补最终发布说明与历史证据链接。
 
 ## 5. 最小文件规划
 
@@ -129,6 +130,22 @@
 - 仓库中没有数据库 sidecar；
 - 既有累计测试通过；
 - 本阶段不创建 EXE 或发布目录。
+
+### 8.4 实际结果
+
+- 实施前提交为 `90c78d2f460fd24add0f078508fdbb14cbc486dd`；只纳入用户已确认的
+  `.gitignore` 修改、当前 README 口径、计划状态、项目约定和阶段证据。
+- `data/apsgo_v7_rules.sqlite3` 已受 Git 跟踪，工作树内容与 HEAD 一致，SHA-256 为
+  `8ed693ac2a1c2be5866c7b3ba8596eab58cbd9db6619a4be61c6c6af175b5288`；检查前后未变化。
+- SQLite `quick_check=ok`、外键违规为 0、schema 为 2；生产加载器读取活动版本 5（基于版本 4）、
+  17 条规则（16 条启用）、27 个虚拟原型和 230 条字典。
+- 当前规则指纹为 `841c7c61895ddda0f2fb25ccc1f18fe7e3843e14da472bb816f4253d09a33028`，
+  字典指纹为 `d292d5efb53ee541f4d3900b2295ababfecffb1912fd0bafe4cb8bbb7b90ec14`。
+- 从仓库外目录加载 YAML 仍解析到受跟踪基准库；`release/build/`、`release/dist/` 和三类
+  SQLite 辅助文件的忽略规则均经 `git check-ignore` 实测生效，仓库中无辅助文件。
+- 本阶段没有修改数据库、YAML、生产代码或业务契约，也没有创建 EXE 或发布目录。
+- 详细命令和首轮诊断修正见[阶段 0 证据](evidence/apsgo_v7_windows_exe_release_packaging/stage_00_release_input_baseline/README.md)；
+  最终精确暂存树测试结果记录在本阶段 Git 提交正文中。
 
 ## 9. 阶段 1：建立发布输入与数据库验证
 

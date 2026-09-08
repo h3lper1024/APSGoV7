@@ -40,12 +40,13 @@ V7 不再读取 `APSGO_V7_RULE_DB_PATH`。
 `listen_host` 允许 `127.0.0.1`（仅本机访问）或 `0.0.0.0`（监听全部 IPv4 网卡）。其他电脑
 访问时，C# 客户端中的 `PipelineV7ApiBaseUrl` 必须填写服务器实际局域网 IP，例如
 `http://192.168.1.20:8001`；客户端地址不能填写 `0.0.0.0`。
-运行期 SQLite 主文件及 journal/WAL/SHM 文件由 Git 忽略，不得提交。C# 客户端地址继续使用
+仓库基准库 `data/apsgo_v7_rules.sqlite3` 由 Git 跟踪；运行时产生的
+`-journal`、`-wal`、`-shm` 辅助文件继续忽略，不得提交或带入发布包。C# 客户端地址继续使用
 `SchedApp/App.config` 中的 `PipelineV7ApiBaseUrl`，不由该 Python 配置文件替代。
 
-当前本地正式库已于 2026-09-07 完成 schema v1→v2 迁移，活动版本为 3：版本 2 引入
-230 条 GQGA4 软硬钢字典，版本 3 只给 27 个既有虚拟原型补齐 `hot_roll_grade=SPHC`。
-迁移前备份、哈希、恢复演练和服务冒烟结果见[阶段 9 证据](docs/implementation/evidence/apsgo_v7_month_scheduling_and_grade_preparation/stage_09_production_database_migration/README.md)。
+当前仓库基准库为 schema v2、活动版本 5（基于版本 4），包含 17 条规则（16 条启用）、
+27 个虚拟原型和 230 条 GQGA4 软硬钢字典。2026-09-07 的 schema v1→v2 迁移及活动版本 3
+是历史实施节点；其备份、恢复演练和服务冒烟结果见[阶段 9 证据](docs/implementation/evidence/apsgo_v7_month_scheduling_and_grade_preparation/stage_09_production_database_migration/README.md)。
 
 ## 初始化与启动
 
