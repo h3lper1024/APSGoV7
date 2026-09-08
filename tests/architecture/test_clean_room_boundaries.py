@@ -59,7 +59,13 @@ def check_source(source, path, package):
             targets = import_targets(node, module, path.name == "__init__.py")
             for target in targets:
                 top = target.partition(".")[0]
-                assert top in sys.stdlib_module_names or top == "apsgo_scheduler", (
+                numeric_dependency = (
+                    module == "apsgo_scheduler.core._bridge_numeric"
+                    and top in {"numpy", "numba"}
+                )
+                assert top in sys.stdlib_module_names or top == "apsgo_scheduler" or (
+                    numeric_dependency
+                ), (
                     f"External production dependency: {target} in {path}"
                 )
                 assert top not in {"importlib", "runpy", "ctypes"}, (
@@ -179,6 +185,7 @@ def test_tracked_source_contains_only_new_package():
     "source",
     [
         "import numpy",
+        "import numba",
         "import sqlite3",
         "import apsgo.rules",
         "class ResourceLedger: pass",
@@ -218,6 +225,23 @@ def test_source_guard_accepts_standard_library():
     )
 
 
+@pytest.mark.parametrize("source", ("import numpy as np", "from numba import njit"))
+def test_numeric_dependency_exception_is_only_the_private_bridge_module(source):
+    check_source(source, PACKAGE / "core" / "_bridge_numeric.py", PACKAGE)
+    for relative in (
+        "core/example.py", "core/_bridge_numeric_extra.py",
+        "api/_bridge_numeric.py", "app/_bridge_numeric.py",
+    ):
+        with pytest.raises(AssertionError, match="External production dependency"):
+            check_source(source, PACKAGE / relative, PACKAGE)
+
+
+@pytest.mark.parametrize("source", ("import scipy", "import llvmlite", "import sqlite3"))
+def test_numeric_dependency_exception_does_not_relax_other_boundaries(source):
+    with pytest.raises(AssertionError):
+        check_source(source, PACKAGE / "core" / "_bridge_numeric.py", PACKAGE)
+
+
 @pytest.mark.parametrize(
     "source",
     (
@@ -226,6 +250,7 @@ def test_source_guard_accepts_standard_library():
         "source = '/Users/example/private.json'",
         "source = 'C:\\\\private\\\\config.json'",
         "import numpy",
+        "import numba",
     ),
 )
 def test_service_source_guard_rejects_test_local_and_external_dependencies(source):
