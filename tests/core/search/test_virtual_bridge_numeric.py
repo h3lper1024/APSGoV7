@@ -22,7 +22,7 @@ from apsgo_scheduler.core.rules.concrete import (
     WidthTransitionRule,
 )
 from apsgo_scheduler.core.rules.rule_set import ProcessRuleSet
-from apsgo_scheduler.core.virtual_material import VirtualFactory
+from apsgo_scheduler.core.virtual_material import VirtualFactory, virtual_smoothness
 from tests.app.test_input_normalizer import gqga4_request, gqga4_spec
 from tests.core.graph.test_bipartite_matching import budget
 from tests.core.graph.test_construction_order import node
@@ -469,3 +469,424 @@ def test_stage_one_does_not_connect_the_numeric_preparer_to_production_bridge(mo
     selected = factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=5)
     assert len(selected) == 1 and selected[0].virtual_lineage.prototype_id == "a"
     assert factory.cache.miss_count > 0 and factory.budget.candidate_check_count == 0
+
+
+def prepared(factory):
+    catalog = numeric.prepare_catalog(factory)
+    assert catalog is not None
+    arrays = numeric.prepare_bridge(catalog, *factory.cache.problem.nodes, factory.budget)
+    assert arrays is not None
+    return catalog, *arrays
+
+
+def selected_nodes(factory, indices):
+    if indices is None:
+        return None
+    return tuple(
+        factory.materialize(
+            factory.cache.problem.virtual_prototypes[index], *factory.cache.problem.nodes,
+            purpose=VirtualPurpose.EDGE_BRIDGE, sequence=7 + position,
+        )
+        for position, index in enumerate(indices)
+    )
+
+
+def public_scan_oracle(factory, length):
+    """Small exhaustive comparison using public object rules and the original score."""
+    left, right = factory.cache.problem.nodes
+    valid = []
+    for indices in product(range(len(factory.cache.problem.virtual_prototypes)), repeat=length):
+        middle = selected_nodes(factory, indices)
+        path = (left, *middle, right)
+        if all(factory.cache.allows(a, b) for a, b in zip(path, path[1:])):
+            score = sum(virtual_smoothness(*path[index:index + 3]) for index in range(length))
+            valid.append((score, indices))
+    return min(valid, key=lambda item: item[0])[1] if valid else None
+
+
+def native_rule_args(catalog):
+    return (catalog.rule_kinds, catalog.parameters, catalog.switches,
+            catalog.bands, catalog.band_flags)
+
+
+@pytest.mark.parametrize("enabled", tuple(product((False, True), repeat=4)))
+def test_native_scans_match_all_builtin_subsets_and_original_complete_bridge(enabled):
+    kinds = (WidthTransitionRule, ThicknessTransitionRule, TemperatureOverlapRule, SoftHardConnectionRule)
+    factory = make_factory(
+        tuple(prototype(str(index), width=str(width))
+              for index, width in enumerate((1100, 1300, 1150, 1250))),
+        nodes=(node("left", width="1000"), node("right", width="1400")),
+        rule_items=tuple(rule(kind, enabled=active) for kind, active in zip(kinds, enabled)),
+    )
+    catalog, values, missing = prepared(factory)
+    left, right = factory.cache.problem.nodes
+    results = []
+    for length, scan in ((1, numeric.scan_single), (2, numeric.scan_double)):
+        safe, indices = scan(catalog, values, missing, factory.budget)
+        assert safe is True
+        assert indices == public_scan_oracle(factory, length)
+        results.append(indices)
+    chosen = () if factory.cache.allows(left, right) else (
+        results[0] if results[0] is not None else results[1]
+    )
+    assert selected_nodes(factory, chosen) == factory.bridge(
+        left, right, max_nodes=2, first_sequence=7,
+    )
+    assert numeric._scan_block.nopython_signatures
+    assert factory.budget.candidate_check_count == 0
+
+
+@pytest.mark.parametrize("gap,expected", (("0.0000000005", (0,)), ("0.0000000015", None)))
+@pytest.mark.parametrize("kind", (WidthTransitionRule, ThicknessTransitionRule, TemperatureOverlapRule))
+def test_native_rule_epsilon_matches_public_edge_decision(kind, gap, expected):
+    left, right = node("left"), node("right")
+    item = prototype("p")
+    config = rule(kind)
+    if kind is WidthTransitionRule:
+        item = replace(item, width=D(1200) + D(gap))
+    elif kind is ThicknessTransitionRule:
+        item = replace(item, thickness=D("1.125") + D(gap))
+    else:
+        left = replace(left, max_temperature=D(710) - D(gap))
+        config = rule(kind, virtual_temperature_adaptive=False)
+    factory = make_factory((item,), nodes=(left, right), rule_items=(config,))
+    catalog, values, missing = prepared(factory)
+    assert numeric.scan_single(catalog, values, missing, factory.budget) == (True, expected)
+    assert public_scan_oracle(factory, 1) == expected
+    virtual = selected_nodes(factory, (0,))[0]
+    assert numeric._edge(0, 2, values, missing, *native_rule_args(catalog)) == int(
+        factory.cache.allows(left, virtual)
+    )
+
+
+@pytest.mark.parametrize("basis", ("thinner", "thicker"))
+@pytest.mark.parametrize("include_lower,include_upper", tuple(product((False, True), repeat=2)))
+@pytest.mark.parametrize("mode", ("absolute", "relative"))
+def test_native_thickness_preserves_first_matching_order_and_exact_range_boundaries(
+    basis, include_lower, include_upper, mode,
+):
+    boundary = D(1) if basis == "thinner" else D(2)
+    bands = (
+        {"min": boundary, "max": boundary, "include_min": include_lower,
+         "include_max": include_upper, "tolerance": D("0.6"), "calculation_mode": mode},
+        {"min": None, "max": None, "include_min": True, "include_max": True,
+         "tolerance": D("1.25"), "calculation_mode": "absolute"},
+    )
+    factory = make_factory((prototype("p", thickness="2"),), rule_items=(
+        rule(ThicknessTransitionRule, basis=basis, ranges=bands, fallback_tolerance=D(0)),
+    ))
+    catalog, values, missing = prepared(factory)
+    safe, selected = numeric.scan_single(catalog, values, missing, factory.budget)
+    assert safe and selected == public_scan_oracle(factory, 1)
+    first_matches = include_lower and include_upper
+    first_allows = mode == "relative" and basis == "thicker"
+    assert selected == ((0,) if not first_matches or first_allows else None)
+
+
+@pytest.mark.parametrize("kind", (WidthTransitionRule, ThicknessTransitionRule, TemperatureOverlapRule))
+def test_native_missing_values_follow_rule_specific_behavior(kind):
+    item = prototype("p")
+    left, right = node("left"), node("right")
+    if kind is WidthTransitionRule:
+        item = replace(item, width=None)
+    elif kind is ThicknessTransitionRule:
+        item = replace(item, thickness=None)
+    else:
+        left = replace(left, min_temperature=None)
+    factory = make_factory((item,), nodes=(left, right), rule_items=(
+        rule(kind, **({"virtual_temperature_adaptive": False} if kind is TemperatureOverlapRule else {})),
+    ))
+    catalog, values, missing = prepared(factory)
+    assert numeric.scan_single(catalog, values, missing, factory.budget) == (
+        True, None if kind is WidthTransitionRule else (0,),
+    )
+    assert public_scan_oracle(factory, 1) == (None if kind is WidthTransitionRule else (0,))
+
+
+def test_double_bridge_counts_middle_edge_twice_and_preserves_complete_nodes():
+    factory = make_factory(
+        tuple(prototype(str(index), width=str(width))
+              for index, width in enumerate((1100, 1300, 1150, 1250))),
+        nodes=(node("left", width="1000"), node("right", width="1400")),
+        rule_items=(rule(WidthTransitionRule),),
+    )
+    catalog, values, missing = prepared(factory)
+    assert numeric.scan_single(catalog, values, missing, factory.budget) == (True, None)
+    assert numeric.scan_double(catalog, values, missing, factory.budget) == (True, (2, 3))
+    assert selected_nodes(factory, (2, 3)) == factory.bridge(
+        *factory.cache.problem.nodes, max_nodes=2, first_sequence=7,
+    )
+
+
+@pytest.mark.parametrize("widths,expected", (((1100, 1300, 1100, 1300), (0, 1)), ((1200,), (0, 0))))
+def test_double_scan_keeps_first_pair_ties_and_allows_same_prototype_twice(widths, expected):
+    factory = make_factory(
+        tuple(prototype(str(index), width=str(width)) for index, width in enumerate(widths)),
+        nodes=(node("left", width="1000"), node("right", width="1400")),
+        rule_items=(rule(WidthTransitionRule),),
+    )
+    catalog, values, missing = prepared(factory)
+    assert numeric.scan_double(catalog, values, missing, factory.budget) == (True, expected)
+    assert public_scan_oracle(factory, 2) == expected
+    if len(widths) == 1:
+        # The wrapper would select the already valid single; test the double primitive itself.
+        assert numeric.scan_single(catalog, values, missing, factory.budget) == (True, (0,))
+
+
+@pytest.mark.parametrize("error_on_first_edge", (True, False))
+def test_denied_rule_does_not_hide_same_edge_error_but_denied_edge_skips_next(error_on_first_edge):
+    left, right = node("left"), node("right")
+    wide = {"min_temperature": D("-1e308"), "max_temperature": D("1e308")}
+    if error_on_first_edge:
+        left = replace(left, **wide)
+    else:
+        right = replace(right, **wide)
+    factory = make_factory((prototype("p", width="1400"),), nodes=(left, right), rule_items=(
+        rule(WidthTransitionRule), rule(TemperatureOverlapRule, virtual_temperature_adaptive=False),
+    ))
+    catalog, values, missing = prepared(factory)
+    assert numeric.scan_single(catalog, values, missing, factory.budget) == (
+        not error_on_first_edge, None,
+    )
+    virtual = selected_nodes(factory, (0,))[0]
+    if error_on_first_edge:
+        with pytest.raises(ValueError, match="temperature overlap must be finite"):
+            factory._connected(left, virtual, right)
+    else:
+        assert not factory._connected(left, virtual, right)
+        with pytest.raises(ValueError, match="temperature overlap must be finite"):
+            factory.cache.allows(virtual, right)
+
+
+def test_denied_soft_rule_does_not_hide_later_thickness_severity_overflow():
+    factory = make_factory((prototype("p", thickness="1e308"),), rule_items=(
+        rule(SoftHardConnectionRule, virtual_sphc_allows_bridge=False),
+        rule(ThicknessTransitionRule, fallback_tolerance=D(0)),
+    ))
+    catalog, values, missing = prepared(factory)
+    assert numeric.scan_single(catalog, values, missing, factory.budget) == (False, None)
+    virtual = selected_nodes(factory, (0,))[0]
+    with pytest.raises(ValueError, match="thickness severity must be finite"):
+        factory.cache.allows(factory.cache.problem.nodes[0], virtual)
+
+
+def test_native_relative_tolerance_overflow_is_unsafe_not_no_bridge():
+    band = {"min": None, "max": None, "include_min": True, "include_max": True,
+            "tolerance": D("1e308"), "calculation_mode": "relative"}
+    factory = make_factory(
+        (prototype("p", thickness="1e308"),),
+        nodes=(node("left", thickness="1e308"), node("right", thickness="1e308")),
+        rule_items=(rule(ThicknessTransitionRule, ranges=(band,)),),
+    )
+    catalog, values, missing = prepared(factory)
+    assert numeric.scan_single(catalog, values, missing, factory.budget) == (False, None)
+    with pytest.raises(ValueError, match="thickness calculation must be finite"):
+        public_scan_oracle(factory, 1)
+
+
+def test_late_unsafe_score_discards_earlier_single_winner():
+    factory = make_factory((prototype("good"), prototype("late", thickness="1e308")))
+    catalog, values, missing = prepared(factory)
+    assert numeric.scan_single(catalog, values, missing, factory.budget) == (False, None)
+    with pytest.raises(ValueError, match="virtual smoothness must be finite"):
+        public_scan_oracle(factory, 1)
+    assert factory.budget.candidate_check_count == 0 and factory.budget.stop_reason is None
+
+
+def test_native_double_total_score_overflow_checks_sum_of_finite_scores():
+    factory = make_factory((prototype("first"), prototype("second", thickness="6e305")))
+    catalog, values, missing = prepared(factory)
+    safe_first, first = numeric._score(0, 2, 3, values, missing)
+    safe_second, second = numeric._score(2, 3, 1, values, missing)
+    assert safe_first and safe_second and first + second == float("inf")
+    left, right = factory.cache.problem.nodes
+    first_node, second_node = selected_nodes(factory, (0, 1))
+    assert first == virtual_smoothness(left, first_node, second_node)
+    assert second == virtual_smoothness(first_node, second_node, right)
+    assert numeric.scan_double(catalog, values, missing, factory.budget) == (False, None)
+
+
+@pytest.mark.parametrize("length,size", ((1, 0), (1, 65), (1, 129), (2, 0), (2, 65)))
+def test_native_scan_blocks_complete_full_order_without_spending_candidate_budget(length, size):
+    factory = make_factory(tuple(prototype(f"p-{index}") for index in range(size)))
+    catalog, values, missing = prepared(factory)
+    scan = numeric.scan_single if length == 1 else numeric.scan_double
+    before = values.copy(), missing.copy()
+    assert scan(catalog, values, missing, factory.budget) == (
+        True, (0,) * length if size else None,
+    )
+    np.testing.assert_array_equal(values, before[0])
+    np.testing.assert_array_equal(missing, before[1])
+    assert factory.budget.candidate_check_count == factory.cache.entry_count == 0
+    if size:
+        assert numeric._scan_block.nopython_signatures
+
+
+@pytest.mark.parametrize("kind", ("cancel", "time"))
+@pytest.mark.parametrize("length", (1, 2))
+def test_native_block_stop_discards_existing_best_and_keeps_candidate_counters(monkeypatch, kind, length):
+    signal = Signal()
+    runtime = budget(cancellation=signal) if kind == "cancel" else budget(clock=signal.clock)
+    factory = make_factory(tuple(prototype(f"p-{index}") for index in range(129)), runtime=runtime)
+    catalog, values, missing = prepared(factory)
+    scan = numeric.scan_single if length == 1 else numeric.scan_double
+    native = numeric._scan_block
+    calls = []
+
+    def stop_after_first_block(*args):
+        result = native(*args)
+        calls.append(args[:4])
+        assert result[0] and result[2] >= 0
+        signal.active = True
+        return result
+
+    monkeypatch.setattr(numeric, "_scan_block", stop_after_first_block)
+    assert scan(catalog, values, missing, runtime) == (False, None)
+    assert len(calls) == 1 and calls[0][3] - calls[0][2] <= 64
+    assert native.nopython_signatures
+    assert runtime.stop_reason is (SearchStopReason.USER_CANCELLED if kind == "cancel" else
+                                   SearchStopReason.SEARCH_TIME_LIMIT_REACHED)
+    assert runtime.candidate_check_count == factory.cache.entry_count == 0
+
+
+@pytest.mark.parametrize("length", (1, 2))
+@pytest.mark.parametrize("change", ("row_count", "column_count", "dtype", "writable", "noncontiguous"))
+def test_native_scan_invalid_array_contract_raises_instead_of_falling_back(length, change):
+    factory = make_factory((prototype("p"),))
+    catalog, values, missing = prepared(factory)
+    if change == "row_count":
+        values = values[:-1]
+    elif change == "column_count":
+        values = values[:, :3].copy()
+        values.setflags(write=False)
+    elif change == "dtype":
+        values = values.astype(np.float32)
+        values.setflags(write=False)
+    elif change == "writable":
+        values = values.copy()
+    else:
+        values = values[:, ::-1]
+    scan = numeric.scan_single if length == 1 else numeric.scan_double
+    with pytest.raises((TypeError, ValueError)):
+        scan(catalog, values, missing, factory.budget)
+
+
+@pytest.mark.parametrize("mode,first,start,stop", ((2, -1, 0, 1), (0, -1, -1, 1),
+                                                (0, -1, 0, 66), (1, 65, 0, 1)))
+def test_native_block_invalid_mode_or_indices_are_errors(mode, first, start, stop):
+    factory = make_factory(tuple(prototype(f"p-{index}") for index in range(65)))
+    catalog, values, missing = prepared(factory)
+    with pytest.raises((ValueError, IndexError)):
+        numeric._scan_block(mode, first, start, stop, values, missing, *native_rule_args(catalog),
+                            -1, -1, 0.0)
+
+
+def test_native_dispatchers_are_nopython_with_strict_compilation_flags():
+    factory = make_factory((prototype("p"),), rule_items=(rule(WidthTransitionRule),))
+    catalog, values, missing = prepared(factory)
+    assert numeric.scan_single(catalog, values, missing, factory.budget) == (True, (0,))
+    assert numeric._edge(0, 2, values, missing, *native_rule_args(catalog)) == 1
+    assert numeric._score(0, 2, 1, values, missing)[0]
+    for dispatcher in (numeric._scan_block, numeric._edge, numeric._score):
+        assert dispatcher.nopython_signatures
+        assert dispatcher.targetoptions["nopython"]
+        assert dispatcher.targetoptions["boundscheck"]
+        assert not dispatcher.targetoptions["fastmath"]
+        assert not dispatcher.targetoptions["parallel"]
+
+
+@pytest.mark.parametrize("length", (1, 2))
+def test_native_winner_and_ties_are_preserved_across_block_and_row_boundaries(length):
+    if length == 1:
+        prototypes = tuple(prototype(str(index), thickness="1" if index in (64, 128) else "2")
+                           for index in range(129))
+        factory = make_factory(prototypes)
+        expected = (64,)
+    else:
+        widths = {1: 1300, 64: 1150, 65: 1250, 128: 1150}
+        prototypes = tuple(prototype(str(index), width=str(widths.get(index, 1100)))
+                           for index in range(129))
+        factory = make_factory(prototypes, rule_items=(rule(WidthTransitionRule),),
+                               nodes=(node("left", width="1000"), node("right", width="1400")))
+        expected = (64, 65)
+    catalog, values, missing = prepared(factory)
+    scan = numeric.scan_single if length == 1 else numeric.scan_double
+    assert scan(catalog, values, missing, factory.budget) == (True, expected)
+    if length == 2:
+        assert selected_nodes(factory, expected) == factory.bridge(
+            *factory.cache.problem.nodes, max_nodes=2, first_sequence=7,
+        )
+
+
+def test_native_score_uses_strict_improvement_without_an_epsilon_tie():
+    factory = make_factory(
+        (prototype("slightly-worse", width="999.9999999999"), prototype("better", width="1000")),
+        nodes=(node("left", width="1000"), node("right", width="1400")),
+        rule_items=(rule(WidthTransitionRule, virtual_width_tolerance=D(500)),),
+    )
+    catalog, values, missing = prepared(factory)
+    assert numeric.scan_single(catalog, values, missing, factory.budget) == (True, (1,))
+    assert selected_nodes(factory, (1,)) == factory.bridge(
+        *factory.cache.problem.nodes, max_nodes=2, first_sequence=7,
+    )
+
+
+def test_native_temperature_predicate_preserves_severity_overflow_for_valid_nodes():
+    factory = make_factory((prototype("p"),), rule_items=(
+        rule(TemperatureOverlapRule, min_overlap=D(0), virtual_temperature_adaptive=False),
+    ))
+    catalog, values, missing = prepared(factory)
+    # Predicate-only case: a valid virtual node with a disjoint temperature interval.
+    # Normal bridge preparation derives a union interval and cannot generate this case.
+    virtual = replace(selected_nodes(factory, (0,))[0],
+                      min_temperature=D("-1e308"), max_temperature=D("-1e308"))
+    values = values.copy()
+    values[2, 2:] = float(virtual.min_temperature), float(virtual.max_temperature)
+    values.setflags(write=False)
+    assert numeric._edge(0, 2, values, missing, *native_rule_args(catalog)) == -1
+    with pytest.raises(ValueError, match="temperature severity must be finite"):
+        factory.cache.allows(factory.cache.problem.nodes[0], virtual)
+
+
+def test_empty_catalog_does_not_call_the_native_dispatcher(monkeypatch):
+    factory = make_factory()
+    catalog, values, missing = prepared(factory)
+
+    def forbidden(*args):
+        raise AssertionError("empty catalog must not trigger compilation or a scan block")
+
+    monkeypatch.setattr(numeric, "_scan_block", forbidden)
+    for scan in (numeric.scan_single, numeric.scan_double):
+        assert scan(catalog, values, missing, factory.budget) == (True, None)
+
+
+def test_disabled_virtual_soft_bridge_denies_without_a_later_numeric_error():
+    factory = make_factory((prototype("p"),), rule_items=(
+        rule(SoftHardConnectionRule, virtual_sphc_allows_bridge=False),
+    ))
+    catalog, values, missing = prepared(factory)
+    for length, scan in ((1, numeric.scan_single), (2, numeric.scan_double)):
+        assert scan(catalog, values, missing, factory.budget) == (True, None)
+        assert public_scan_oracle(factory, length) is None
+
+
+@pytest.mark.parametrize("ignore,adaptive", tuple(product((False, True), repeat=2)))
+def test_temperature_switches_control_actual_numeric_edges(ignore, adaptive):
+    factory = make_factory((prototype("p"),), rule_items=(
+        rule(TemperatureOverlapRule, ignore_temperature=ignore,
+             virtual_temperature_adaptive=adaptive),
+    ), nodes=(replace(node("left"), max_temperature=D(705)), node("right")))
+    catalog, values, missing = prepared(factory)
+    expected = (0,) if ignore or adaptive else None
+    assert numeric.scan_single(catalog, values, missing, factory.budget) == (True, expected)
+    assert public_scan_oracle(factory, 1) == expected
+
+
+def test_unknown_numeric_rule_kind_is_an_implementation_error():
+    factory = make_factory((prototype("p"),), rule_items=(rule(WidthTransitionRule),))
+    catalog, values, missing = prepared(factory)
+    corrupted = catalog.rule_kinds.copy()
+    corrupted[0] = 99
+    corrupted.setflags(write=False)
+    with pytest.raises(ValueError, match="unknown numeric bridge rule kind"):
+        numeric.scan_single(replace(catalog, rule_kinds=corrupted), values, missing, factory.budget)
