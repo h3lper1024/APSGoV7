@@ -75,6 +75,7 @@ def source_repository(tmp_path: Path) -> Path:
         PROJECT_ROOT / "data/apsgo_v7_rules.sqlite3",
         root / "data/apsgo_v7_rules.sqlite3",
     )
+    shutil.copy2(PROJECT_ROOT / ".gitignore", root / ".gitignore")
     shutil.copy2(PROJECT_ROOT / "pyproject.toml", root / "pyproject.toml")
     _git(root, "init", "-q")
     _git(root, "config", "user.name", "APSGo Test")
@@ -267,6 +268,30 @@ def test_source_mode_rejects_dirty_tree(source_repository: Path):
     assert raised.value.code == "source_tree_not_clean"
 
 
+def test_source_mode_rejects_modified_tracked_file(source_repository: Path):
+    config = source_repository / "config/apsgo_v7_service.yaml"
+    config.write_text(config.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_source(source_repository)
+
+    assert raised.value.code == "source_tree_not_clean"
+
+
+def test_source_mode_accepts_ignored_editor_files_on_named_branch(
+    source_repository: Path,
+):
+    _git(source_repository, "switch", "-q", "-c", "release-candidate")
+    settings = source_repository / ".vscode/settings.json"
+    settings.parent.mkdir()
+    settings.write_text("{}\n", encoding="utf-8")
+
+    result = verify_source(source_repository)
+
+    assert result["git"]["branch"] == "release-candidate"
+    assert _git(source_repository, "status", "--porcelain=v1") == ""
+
+
 def test_source_mode_rejects_untracked_database(source_repository: Path):
     _git(source_repository, "rm", "--cached", "data/apsgo_v7_rules.sqlite3")
     with pytest.raises(ReleaseValidationError) as raised:
@@ -451,6 +476,7 @@ def test_manifest_generation_is_canonical_complete_and_deterministic(
     release_package: Path, source_repository: Path, monkeypatch
 ):
     monkeypatch.setattr(release_module, "_build_environment", _windows_build_environment)
+    _git(source_repository, "switch", "-q", "-c", "release-candidate")
     first = generate_manifest(
         source_repository,
         release_package,
@@ -470,7 +496,7 @@ def test_manifest_generation_is_canonical_complete_and_deterministic(
         "project_name": "apsgo-scheduler",
         "project_version": "0.1.0.dev0",
     }
-    assert first["source"]["git_branch"] is None
+    assert first["source"]["git_branch"] == "release-candidate"
     assert first["build"] == _windows_build_environment() | {
         "built_at_utc": "2026-09-08T01:02:03Z",
         "mode": "onedir",
@@ -505,6 +531,16 @@ def test_package_mode_requires_completed_smoke_by_default(release_package: Path)
         verify_package(release_package)
     assert raised.value.code == "manifest_invalid"
     assert verify_package(release_package, allow_pending_smoke=True)["smoke_status"] == "pending"
+
+
+def test_package_mode_accepts_named_source_branch(release_package: Path):
+    manifest = json.loads(
+        (release_package / MANIFEST_PATH).read_text(encoding="utf-8")
+    )
+    manifest["source"]["git_branch"] = "codex/release-candidate"
+    _rewrite_manifest(release_package, manifest)
+
+    assert verify_package(release_package)["status"] == "pass"
 
 
 def test_package_mode_rejects_noncanonical_or_unknown_manifest_fields(
@@ -797,7 +833,6 @@ def test_powershell_build_contract_is_fixed_and_does_not_install_dependencies():
         '"--contents-directory", "_internal"',
         '"--collect-submodules", "uvicorn"',
         "$Verifier source --repository-root $ProjectRoot",
-        "if ($null -ne $SourceValidation.git.branch)",
         'if ($CheckOnly -and $Clean)',
     ):
         assert expected in source
@@ -806,6 +841,7 @@ def test_powershell_build_contract_is_fixed_and_does_not_install_dependencies():
     assert "Get-ChildItem" not in source
     assert "Library\\bin" not in source
     assert "GQGA5" not in source
+    assert "detached Git worktree" not in source
 
 
 def test_multiline_python_is_sent_over_stdin_not_native_command_arguments():
@@ -822,6 +858,7 @@ def test_build_uses_sqlite_backup_and_copies_only_release_runtime_templates():
     assert source.count("$Verifier source --repository-root $ProjectRoot") == 2
     assert source.count("$Verifier seed") == 2
     assert "$SeedValidation.source.sha256 -ne $SourceValidation.database.sha256" in source
+    assert "$FinalSourceValidation.git.branch -ne $SourceValidation.git.branch" in source
     assert "$FinalSourceValidation.git.commit -ne $SourceValidation.git.commit" in source
     assert "--seed-database $PackageSeedDatabase" in source
     assert "Copy-Item -LiteralPath $SourceDatabase" not in source

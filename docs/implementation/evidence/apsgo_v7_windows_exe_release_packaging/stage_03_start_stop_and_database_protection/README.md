@@ -75,7 +75,7 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src conda run -n aps_3.10.18 \
 
 ## 5. 未关闭门禁
 
-当前平台无法真实解析和运行 Windows BAT/PowerShell，也未生成 Windows EXE。以下必须在 Windows x64、本阶段源码提交的 detached worktree 上完成：
+当前平台无法真实解析和运行 Windows BAT/PowerShell，也未生成 Windows EXE。以下必须在 Windows x64、本阶段源码提交的干净 Git 工作树上完成；普通分支和分离提交状态均可：
 
 - 带空格路径的第一次启动与精确停止；
 - 同一目录并发首次初始化，不产生半文件或覆盖；

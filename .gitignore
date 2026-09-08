@@ -12,3 +12,4 @@ dist/
 /data/*.sqlite3-journal
 /data/*.sqlite3-shm
 /data/*.sqlite3-wal
+/.vscode/

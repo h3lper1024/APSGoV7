@@ -4,12 +4,13 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.7 / 2026-09-08 |
+| 版本 / 日期 | v0.8 / 2026-09-08 |
 | 状态 | 阶段 0～1 已完成；阶段 2～4 源码实现已完成，Windows x64 实包门禁均待关闭 |
 | 实施基线 | `codex/rule-setting-api-integration@90c78d2f460fd24add0f078508fdbb14cbc486dd` |
 | 阶段 3 实施前提交 | `d2d4f9d47eca4a7b88c71175f4f88e6c0f416a52` |
 | 阶段 4 实施前提交 | `b2f683b0d569154f44892b29070e09b43199f295` |
 | 首次 Windows 修复前提交 | `49ad41baf4bdaa0c991dcce98b1eedc68c4e4ba1` |
+| 源树门禁修正前提交 | `0fb9814ca0d5feb7369786a892c54327fd72b0c0` |
 | 权威设计 | [APSGo V7 Windows EXE 发布打包详细设计](../design/apsgo_v7_windows_exe_release_packaging_design.md) |
 | 构建平台 | 64 位 Windows；当前 macOS ARM64 只执行文档和源码侧验证 |
 | Python 环境 | Conda `aps_3.10.18`，Python 3.10.18 |
@@ -103,9 +104,9 @@ PyInstaller `.spec`、发布清单和 EXE 由构建过程生成。阶段 3 实�
 ## 7. 全阶段共同执行规则
 
 1. 开始时记录 `git status --short`、分支、提交、平台和 Python 版本。
-2. 当前用户未提交的 `.gitignore` 修改要保留；阶段 0 才按已确认语义单独纳入提交，本次文档提交不得夹带。
+2. 根目录 `.idea/` 与 `.vscode/` 是已确认的本地编辑器目录，统一通过 `.gitignore` 排除；忽略规则本身仍是受跟踪发布输入，修改后必须先提交。
 3. 每个阶段只暂存该阶段白名单，不使用 `git add .` 或 `git add -A`。
-4. 正式构建必须来自精确 Git 提交创建的全新分离 Git worktree，不能从混有本地修改的工作目录直接生成；普通提交测试仍使用 `git archive` 干净导出。
+4. 正式构建可来自普通分支或分离提交状态，但必须对应精确提交并在 Git 忽略规则生效后保持工作树干净；全部已跟踪改动和其他未忽略的未跟踪文件仍被拒绝。普通提交测试继续使用 `git archive` 干净导出。
 5. 所有规则写入和 HTTP 冒烟都使用发布目录的临时副本；不得修改仓库中受跟踪的数据库。
 6. 构建前拒绝数据库 sidecar 文件；构建后和测试后也不得把 sidecar 带入发布包。
 7. 每个阶段提交前执行 `git diff --cached --check`，使用 `git write-tree` 和 `git archive` 导出暂存树，在导出目录完成对应测试。
@@ -161,7 +162,7 @@ PyInstaller `.spec`、发布清单和 EXE 由构建过程生成。阶段 3 实�
 2. 提供两个必要模式：
    - `source`：只读验证 Git 提交、工作树、YAML、源数据库和 sidecar；
    - `package`：验证发布目录、种子、清单和禁止文件。
-3. `source` 模式在有 `.git` 的分离 worktree 中运行，以 JSON 输出提交、可空分支、配置摘要、源数据库 SHA-256、schema、活动版本、规则/原型/字典数量及两个业务指纹，供 PowerShell 直接读取；提交号是权威身份，分支只作辅助信息。
+3. `source` 模式在有 `.git` 的普通分支或分离提交状态工作树中运行，以 JSON 输出提交、可空分支、配置摘要、源数据库 SHA-256、schema、活动版本、规则/原型/字典数量及两个业务指纹，供 PowerShell 直接读取；提交号是权威身份，普通分支记录实际本地分支名，分离提交状态记录 `null`。
 4. 验证器只做发布边界检查，不重新实现规则编译、配置解析或 SQLite schema 逻辑。
 5. 任何验证失败返回非零退出码，并用稳定错误代码指出具体文件或身份；不得修改、备份或恢复源数据库。
 
@@ -190,8 +191,9 @@ PyInstaller `.spec`、发布清单和 EXE 由构建过程生成。阶段 3 实�
   `RuleStore` schema 验证及活动排程快照读取，不调用初始化、迁移、保存、恢复或备份入口。
 - 包模式验证固定目录边界、全部普通文件摘要、配置模板、数据库种子及业务身份；拒绝符号链接、
   现场 YAML、运行库、SQLite 辅助文件、源码、测试或清单外文件。
-- 新增 21 项专项回归，覆盖干净 detached HEAD、工作树/跟踪/配置边界、三类辅助文件、损坏
+- 原 21 项专项回归覆盖干净分离提交状态、工作树/跟踪/配置边界、三类辅助文件、损坏
   数据库、错误 schema、活动身份不一致、合法模拟包、摘要篡改、运行库混入、种子损坏和符号链接。
+- 后续源树门禁修正补充普通分支、忽略的 `.vscode/`、已跟踪文件改动和清单分支身份回归；未忽略文件及全部已跟踪改动仍失败。
 - 生产服务代码、正式数据库、YAML、规则、求解算法和 HTTP 契约均未修改；详细记录见
   [阶段 1 证据](evidence/apsgo_v7_windows_exe_release_packaging/stage_01_source_and_database_validator/README.md)。
 
@@ -208,13 +210,14 @@ PyInstaller `.spec`、发布清单和 EXE 由构建过程生成。阶段 3 实�
 4. 在首次试构建前把一个精确 PyInstaller 候选版本写入 `requirements-build.txt`，由开发人员显式安装；构建脚本校验 Windows x64、Conda 环境名 `aps_3.10.18`、Python 3.10.18 和该精确版本，但不得自动安装或升级。候选失败时明确修改版本并重新试构建，不能先成功后才补写版本。
 5. 以 `--paths src`、`onedir`、`console` 构建，显式收集 Uvicorn 动态子模块；先不扫描整个 Conda 环境 DLL/PYD。
 6. 构建目录只包含 V7 运行所需模块；禁止测试、文档、V3 资源、本机绝对路径和仓库正式数据库进入 EXE 内部。
-7. 先将构建脚本与精确候选版本作为本阶段实现提交，再从该提交创建分离 worktree 做 Windows 构建；构建通过后用独立证据提交标记本阶段完成。若失败，使用 `#fix` 提交修正并从新提交完整重建，不改写已发生的失败证据。
+7. 先将构建脚本与精确候选版本作为本阶段实现提交，再在该提交的干净普通分支或分离提交状态工作树中做 Windows 构建；构建通过后用独立证据提交标记本阶段完成。若失败，使用 `#fix` 提交修正并从新提交完整重建，不改写已发生的失败证据。
 
 ### 10.2 Windows 命令入口
 
 ```powershell
-git worktree add --detach C:\apsgo-v7-release-build <exact-commit>
-Set-Location C:\apsgo-v7-release-build
+Set-Location C:\path\to\APSGOV7
+git status --short
+git rev-parse HEAD
 conda run -n aps_3.10.18 python --version
 conda run -n aps_3.10.18 python -m pip install -r release\requirements-build.txt
 release\build_exe.bat -CheckOnly
@@ -237,8 +240,9 @@ release\dist\APSGoV7\APSGoV7Service.exe --help
   `PYTHONPATH=src` 时执行 `--help` 成功，证明 `--paths src` 不能省略。
 - 新增薄 BAT 和唯一 PowerShell 编排。脚本固定 Windows x64、Conda `aps_3.10.18`、
   Python 3.10.18，并把 `PyInstaller==6.22.2` 固定为首次 Windows 试构建候选；不自动安装。
-- `-CheckOnly` 与 `-Clean` 互斥；只读检查在任何项目目录写入前结束。正式构建要求源码验证器
-  返回 detached HEAD，防止从普通开发工作树生成无法精确追溯的包。
+- `-CheckOnly` 与 `-Clean` 互斥；只读检查在任何项目目录写入前结束。源码验证器接受干净的
+  普通分支或分离提交状态，拒绝全部已跟踪改动和未忽略的未跟踪文件；构建前后复核分支、
+  提交、配置和数据库身份，清单记录实际分支或 `null`。
 - PyInstaller 采用 `onedir + console + noupx`，只额外收集 Uvicorn 子模块；临时产物全部进入
   `release/build`，最终目录为 `release/dist/APSGoV7`。清理只涉及这两个固定目标，并拒绝
   Windows 重解析点。
@@ -252,8 +256,11 @@ release\dist\APSGoV7\APSGoV7Service.exe --help
   `python.exe -c` 参数中的双引号作为原生命令行引号处理，Python 实收代码出现
   `version: ..join(...)` 并退出。修复不再通过原生命令参数传递多行源码，而把运行时检查、
   PyInstaller 版本检查和种子备份三段脚本统一经标准输入交给 `python.exe -`；新增静态回归
-  禁止三段重新使用 `-c`。修复提交后必须从新提交建立 detached worktree 完整重跑，当前仍
+  禁止三段重新使用 `-c`。修复提交后必须从新的干净提交完整重跑，当前仍
   不关闭 Windows 门禁。
+- 源树门禁修正后，普通分支、忽略的 `.vscode/`、已跟踪文件改动、清单分支身份和构建前后
+  分支一致性均有回归；发布专项 55 项、共享累计 3353 项通过。共享残留检查只报告 V7 已
+  不存在的 8 个 V6 历史稳定残留，干净导出仍作为提交门禁。
 
 ## 11. 阶段 3：建立启停与规则数据库保护
 

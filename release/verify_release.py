@@ -659,8 +659,10 @@ def _validate_manifest_schema(manifest: dict, *, allow_pending_smoke: bool) -> N
     source = manifest["source"]
     _require_exact_keys(source, _SOURCE_KEYS, "source")
     commit = _require_text(source["git_commit"], "source.git_commit")
-    if re.fullmatch(r"[0-9a-f]{40}", commit) is None or source["git_branch"] is not None:
+    if re.fullmatch(r"[0-9a-f]{40}", commit) is None:
         raise ReleaseValidationError("manifest_invalid", "发布清单 Git 身份无效。")
+    if source["git_branch"] is not None:
+        _require_text(source["git_branch"], "source.git_branch")
     if source["configuration_path"] != CONFIGURATION_PATH.as_posix():
         raise ReleaseValidationError("manifest_invalid", "发布清单配置路径无效。")
     _require_sha256(source["configuration_sha256"], "source.configuration_sha256")
@@ -998,10 +1000,6 @@ def generate_manifest(
     """Generate one canonical manifest value without writing package files."""
 
     source = verify_source(repository_root)
-    if source["git"]["branch"] is not None:
-        raise ReleaseValidationError(
-            "source_branch_invalid", "正式发布清单必须来自 detached Git 工作树。"
-        )
     root = _package_root(package_root)
     files, package_database = _inspect_package(root, require_manifest=False)
     seed = verify_seed(

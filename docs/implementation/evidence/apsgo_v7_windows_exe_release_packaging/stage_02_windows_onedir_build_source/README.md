@@ -26,7 +26,7 @@ Windows x64/Python 3.10.18，并扫描整个 Conda 环境的 DLL/PYD；冻结入
 - `release/apsgo_v7_service_entry.py` 只调用现有服务 `main()`。
 - `release/build_exe.bat` 只转调同目录 PowerShell，并原样传递参数和退出码。
 - `release/build_exe.ps1` 固定 Windows x64、Conda `aps_3.10.18`、Python 3.10.18；正式构建
-  只接受源码验证器确认的干净 detached HEAD。
+  接受源码验证器确认的干净普通分支或分离提交状态。
 - `-CheckOnly` 与 `-Clean` 互斥；前者在所有构建目录写入前退出。后者只清理
   `release/build` 和 `release/dist/APSGoV7`，并拒绝重解析点。只读检查设置
   `GIT_OPTIONAL_LOCKS=0`，避免 Git 为刷新索引状态取得可选写锁。
@@ -59,7 +59,7 @@ PYTHONDONTWRITEBYTECODE=1 conda run -n aps_3.10.18 \
 ```
 
 结果：26 项发布专项通过，最小冻结入口帮助正常，发布 Python 文件编译通过。专项覆盖入口
-职责、精确版本、BAT 参数/退出码、Windows x64 与固定环境门禁、detached HEAD、严格只读
+职责、精确版本、BAT 参数/退出码、Windows x64 与固定环境门禁、分离提交状态、严格只读
 `-CheckOnly`、受控清理、目录式参数，以及禁止自动安装和全环境二进制扫描。
 
 同一共享工作树使用规定范围
@@ -72,7 +72,7 @@ PyInstaller 命令必须使用 `--paths src` 的设计一致，不是通过修�
 
 ## 6. 未关闭门禁
 
-以下项目必须在 Windows x64、当前阶段提交的 detached worktree 上完成：
+以下项目必须在 Windows x64、当前干净提交的 Git 工作树上完成；普通分支和分离提交状态均可：
 
 ```powershell
 conda run -n aps_3.10.18 python -m pip install -r release\requirements-build.txt
@@ -118,6 +118,25 @@ Cannot inspect Python in Conda environment 'aps_3.10.18'.
 | 共享树残留检查 | 退出码 1；仍只因 V7 已不存在的 V6 历史 `.claude`、`dist/apsgo-*` 和 `src/apsgo.egg-info` 稳定残留，不重建这些旧文件 |
 | 首轮精确暂存树干净导出 | 树 `861c3e432da900377b64ac8c79254e6a40666c79`；残留检查退出码 0，3350 项累计通过，199.63 秒，`compileall -q src release` 退出码 0 |
 
-当前开发机仍为 macOS ARM64，没有执行 Windows PowerShell。修复提交后须从该新提交创建
-detached worktree，重新执行 `release\build_exe.bat -CheckOnly`；通过后再执行 `-Clean`，
+当前开发机仍为 macOS ARM64，没有执行 Windows PowerShell。修复提交后须在该新提交的
+干净 Git 工作树重新执行 `release\build_exe.bat -CheckOnly`；通过后再执行 `-Clean`，
 该次失败不能计为 Windows 构建门禁通过。
+
+## 8. 普通分支源树门禁修正
+
+用户在普通分支重试时，源码校验因未跟踪的 `.vscode/settings.json` 返回
+`source_tree_not_clean`。该文件是编辑器本地配置，不影响构建内容；用户已确认在根
+`.gitignore` 中加入 `/.vscode/`。门禁据此只做以下收紧后的放宽：
+
+- 普通分支和分离提交状态均可构建，清单分别记录实际本地分支名或 `null`；
+- 完整 40 位提交号仍是权威发布身份；
+- 全部已跟踪文件改动和其他未忽略的未跟踪文件仍失败；
+- SQLite 辅助文件即使被忽略也继续由专门检查拒绝；
+- 构建结束前复核分支、提交、配置和数据库身份，任一变化都使构建失败。
+
+本次没有放宽配置、数据库、清单、包目录或业务门禁。当前 macOS 只能完成源码回归，仍须由
+用户在 Windows x64 的干净提交上重新执行 `-CheckOnly` 和 `-Clean`。
+
+源码修正后的共享工作树验证：`git diff --check` 与 Ruff 退出码均为 0，发布专项 55 项通过
+（8.64 秒），仓内累计 3353 项通过（185.48 秒）。共享残留检查仍只因 V7 已不存在的 8 个
+V6 历史稳定残留失败；不重建这些旧文件，精确暂存树的干净导出检查仍是正式提交门禁。

@@ -57,7 +57,7 @@ Conda `aps_3.10.18` 中没有安装 Ruff，因此 Ruff 只作为当前开发机�
 
 ## 5. 未关闭门禁
 
-当前平台没有运行 Windows BAT/PowerShell，也没有生成 Windows EXE。以下必须在本阶段源码提交的 Windows x64 detached worktree 和真实发布目录中验证：
+当前平台没有运行 Windows BAT/PowerShell，也没有生成 Windows EXE。以下必须在本阶段源码提交的 Windows x64 干净 Git 工作树和真实发布目录中验证；普通分支和分离提交状态均可：
 
 - PyInstaller 候选版本能成功生成完整 `onedir` 包，清单中的实际依赖和文件摘要正确；
 - BAT/PowerShell 在带空格路径中运行，配置模板自动初始化、运行库初始化和已有文件保护有效；

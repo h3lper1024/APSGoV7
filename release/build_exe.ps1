@@ -144,9 +144,6 @@ if ($SourceValidationExitCode -ne 0) {
     throw "APSGo V7 source release validation failed with exit code $SourceValidationExitCode."
 }
 $SourceValidation = $SourceValidationJson | ConvertFrom-Json
-if ($null -ne $SourceValidation.git.branch) {
-    throw "Formal builds require a detached Git worktree; found branch '$($SourceValidation.git.branch)'."
-}
 
 if ($CheckOnly) {
     Write-Host "APSGo V7 release input check passed; no build files were written."
@@ -284,6 +281,7 @@ if ($FinalSourceValidationExitCode -ne 0) {
 }
 $FinalSourceValidation = $FinalSourceValidationJson | ConvertFrom-Json
 if (
+    $FinalSourceValidation.git.branch -ne $SourceValidation.git.branch -or
     $FinalSourceValidation.git.commit -ne $SourceValidation.git.commit -or
     $FinalSourceValidation.configuration.sha256 -ne $SourceValidation.configuration.sha256 -or
     $FinalSourceValidation.database.sha256 -ne $SourceValidation.database.sha256
