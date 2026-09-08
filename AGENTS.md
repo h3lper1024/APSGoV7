@@ -1,5 +1,7 @@
 # APSGo V7 当前工作约定
 
+- 当前性能优化阶段 0（2026-09-08，实施前 `3c81a69`）：用户已授权按专项计划持续实施。计划 v0.2 的输入冻结与测量工具已实现，复用公开求解入口、精确 JSON 和既有身份辅助；读取同一份字节进行校验和保存，首轮截取不进入拆单/审计，完整模式保留双审计。真实首轮 102.523736 秒，64226 次检查/2263 次评价/34 次采纳，原方案与轨迹一致；7 项工具测试及 Ruff 通过，累计与精确暂存树结果见提交正文。[阶段 0 证据](docs/implementation/evidence/apsgo_v7_solver_performance_optimization/stage_00_baseline/README.md) 保存身份、原始样本路径和恢复命令。生产、规则、预算、YAML、SQLite 均未改；提交后继续阶段 1 节点复用，不把本次首轮观测当作完整质量或性能验收。以下“仅文档/须另授权”是此前状态，条件性 NumPy/Numba 等和 Windows 操作边界仍保留。
+
 - 当前性能优化文档入口（2026-09-08，来源 `codex/rule-setting-api-integration@ec3e0a79f0a74675ad478d2011a8aad9136f8b78`）：已从当前本地提交创建 `codex/solver-performance-optimization`，本轮仅新增[求解性能优化专项设计](docs/design/apsgo_v7_solver_performance_optimization_design.md) v0.1、[专项实施计划](docs/implementation/apsgo_v7_solver_performance_optimization_implementation_plan.md) v0.1 并更新本文件；代码阶段 0～3 均未开始。首项是 `VirtualFactory.bridge()` 同次调用内按原型及两个编号位置按需复用节点，保留规则、枚举/同分顺序、锚点温区、边查询、预算检查、正式编号及双审计。固定工作量下方案/轨迹/计数与公开边缓存统计须一致，限时运行因截断变化可产生不同结果，不能混作等价性证明。NumPy / Numba、完整评价复用、CSR 和多进程仅为测量后另行确认的候选，不自动安装或实施，不新增性能门槛。
 - 本专项下一入口为阶段 0“冻结对照输入与测量入口”，须另获代码实施授权；现场 900 秒总时限/30 秒收尾与仓内 310 秒/10 秒配置分开保存，不覆盖 YAML 或正式库，不以 `unversioned` Windows 包作为明确源码基线。临时分析资料仅是线索，先冻结可复现输入和工具；只同步两份专项文档、本文件及后续本项证据，不改 V6、V3、C#、主分支或远端。运行/测试沿用 Conda `aps_3.10.18`，独立验证及中文 `#feat`/`#fix` 提交；本次共享累计 3463 项通过（193.31 秒），最终精确暂存树结果见提交正文，不代表任何优化已实现或 Windows 已验收。
 
