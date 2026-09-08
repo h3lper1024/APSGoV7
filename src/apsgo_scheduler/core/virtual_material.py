@@ -141,12 +141,14 @@ class VirtualFactory:
         if not self.budget.allows_search() or max_nodes == 0:
             return None
         best, best_score = None, None
+        first_nodes = {}
         for prototype in self.cache.problem.virtual_prototypes:
             if not self.budget.allows_search():
                 return None
             virtual = self.materialize(
                 prototype, left, right, purpose=VirtualPurpose.EDGE_BRIDGE, sequence=first_sequence
             )
+            first_nodes[prototype.prototype_id] = virtual
             if self._connected(left, virtual, right):
                 score = virtual_smoothness(left, virtual, right)
                 if best_score is None or score < best_score:
@@ -155,28 +157,27 @@ class VirtualFactory:
             return best if self.budget.allows_search() else None
         if not self.budget.allows_search() or max_nodes < 2:
             return None
+        second_nodes = {}
         for first_prototype in self.cache.problem.virtual_prototypes:
             if not self.budget.allows_search():
                 return None
-            first = self.materialize(
-                first_prototype,
-                left,
-                right,
-                purpose=VirtualPurpose.EDGE_BRIDGE,
-                sequence=first_sequence,
-            )
+            # The complete single-bridge pass already materialized each first position.
+            first = first_nodes[first_prototype.prototype_id]
             if not self._connected(left, first):
                 continue
             for second_prototype in self.cache.problem.virtual_prototypes:
                 if not self.budget.allows_search():
                     return None
-                second = self.materialize(
-                    second_prototype,
-                    left,
-                    right,
-                    purpose=VirtualPurpose.EDGE_BRIDGE,
-                    sequence=first_sequence + 1,
-                )
+                second = second_nodes.get(second_prototype.prototype_id)
+                if second is None:
+                    second = self.materialize(
+                        second_prototype,
+                        left,
+                        right,
+                        purpose=VirtualPurpose.EDGE_BRIDGE,
+                        sequence=first_sequence + 1,
+                    )
+                    second_nodes[second_prototype.prototype_id] = second
                 if self._connected(first, second, right):
                     score = virtual_smoothness(left, first, second) + virtual_smoothness(
                         first, second, right
