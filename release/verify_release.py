@@ -11,6 +11,8 @@ import sqlite3
 import stat
 import subprocess
 import sys
+from decimal import Decimal
+from math import isfinite
 from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import yaml
@@ -289,6 +291,31 @@ def _read_database(database_path: Path, *, timeout_seconds: float) -> dict:
     }
 
 
+def _database_content_sha256(database_path: Path, *, timeout_seconds: float) -> str:
+    connection = None
+    try:
+        uri = f"{database_path.resolve(strict=True).as_uri()}?mode=ro&immutable=1"
+        connection = sqlite3.connect(
+            uri,
+            uri=True,
+            timeout=timeout_seconds,
+            isolation_level=None,
+        )
+        connection.execute("PRAGMA query_only = ON")
+        digest = hashlib.sha256()
+        for statement in connection.iterdump():
+            digest.update(statement.encode("utf-8"))
+            digest.update(b"\n")
+        return digest.hexdigest()
+    except (OSError, sqlite3.DatabaseError) as error:
+        raise ReleaseValidationError(
+            "database_integrity_invalid", "规则数据库无法计算逻辑内容摘要。"
+        ) from error
+    finally:
+        if connection is not None:
+            connection.close()
+
+
 def verify_source(repository_root: str | Path) -> dict:
     """Validate one clean Git worktree without changing its release inputs."""
 
@@ -364,10 +391,94 @@ def verify_source(repository_root: str | Path) -> dict:
             "path": CONFIGURATION_PATH.as_posix(),
             "sha256": configuration_before[2],
             "database_path": SOURCE_DATABASE_PATH.as_posix(),
+            "database_timeout_seconds": Decimal(
+                str(configuration.database_timeout_seconds)
+            ),
             "listen_host": configuration.listen_host,
             "listen_port": configuration.listen_port,
         },
         "database": database,
+    }
+
+
+def _standalone_database(value: str | Path, *, missing_code: str) -> Path:
+    try:
+        supplied = Path(value)
+        path = supplied.resolve(strict=True)
+    except (OSError, RuntimeError, TypeError, ValueError) as error:
+        raise ReleaseValidationError(missing_code, "数据库文件不存在或无法解析。") from error
+    if supplied.is_symlink() or not path.is_file():
+        raise ReleaseValidationError(missing_code, "数据库必须是普通文件。")
+    return path
+
+
+def verify_seed(
+    source_database: str | Path,
+    seed_database: str | Path,
+    *,
+    timeout_seconds: float = 5.0,
+) -> dict:
+    """Verify one SQLite Backup API result against its source without writing either."""
+
+    if type(timeout_seconds) not in (int, float) or not isfinite(timeout_seconds):
+        raise ReleaseValidationError(
+            "seed_input_invalid", "数据库超时必须是大于零的有限数字。"
+        )
+    if timeout_seconds <= 0:
+        raise ReleaseValidationError(
+            "seed_input_invalid", "数据库超时必须是大于零的有限数字。"
+        )
+    source_path = _standalone_database(
+        source_database, missing_code="source_database_missing"
+    )
+    seed_path = _standalone_database(seed_database, missing_code="seed_database_missing")
+    try:
+        same_database = os.path.samefile(source_path, seed_path)
+    except OSError as error:
+        raise ReleaseValidationError(
+            "seed_input_invalid", "无法确认源数据库与发布种子的文件身份。"
+        ) from error
+    if same_database:
+        raise ReleaseValidationError(
+            "seed_input_invalid", "发布种子不能与源数据库使用同一个文件。"
+        )
+    _reject_database_sidecars(source_path.parent, source_path)
+    _reject_database_sidecars(seed_path.parent, seed_path)
+
+    source_before = _file_state(source_path)
+    seed_before = _file_state(seed_path)
+    source = _read_database(source_path, timeout_seconds=timeout_seconds)
+    seed = _read_database(seed_path, timeout_seconds=timeout_seconds)
+    source_content_sha256 = _database_content_sha256(
+        source_path, timeout_seconds=timeout_seconds
+    )
+    seed_content_sha256 = _database_content_sha256(
+        seed_path, timeout_seconds=timeout_seconds
+    )
+    source_after = _file_state(source_path)
+    seed_after = _file_state(seed_path)
+    if source_before != source_after or seed_before != seed_after:
+        raise ReleaseValidationError(
+            "database_changed_during_verification",
+            "源数据库或发布种子在验证期间发生变化。",
+        )
+    if source != seed or source_content_sha256 != seed_content_sha256:
+        raise ReleaseValidationError(
+            "seed_database_identity_mismatch", "发布种子与源数据库的逻辑身份不一致。"
+        )
+    return {
+        "status": "pass",
+        "mode": "seed",
+        "source": {
+            "sha256": source_before[2],
+            "content_sha256": source_content_sha256,
+            **source,
+        },
+        "seed": {
+            "sha256": seed_before[2],
+            "content_sha256": seed_content_sha256,
+            **seed,
+        },
     }
 
 
@@ -638,6 +749,10 @@ def _parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="mode", required=True)
     source = subparsers.add_parser("source", help="validate one clean source worktree")
     source.add_argument("--repository-root", required=True)
+    seed = subparsers.add_parser("seed", help="validate one generated database seed")
+    seed.add_argument("--source-database", required=True)
+    seed.add_argument("--seed-database", required=True)
+    seed.add_argument("--timeout-seconds", type=float, default=5.0)
     package = subparsers.add_parser("package", help="validate one assembled release package")
     package.add_argument("--package-root", required=True)
     return parser
@@ -646,11 +761,16 @@ def _parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     arguments = _parser().parse_args(argv)
     try:
-        result = (
-            verify_source(arguments.repository_root)
-            if arguments.mode == "source"
-            else verify_package(arguments.package_root)
-        )
+        if arguments.mode == "source":
+            result = verify_source(arguments.repository_root)
+        elif arguments.mode == "seed":
+            result = verify_seed(
+                arguments.source_database,
+                arguments.seed_database,
+                timeout_seconds=arguments.timeout_seconds,
+            )
+        else:
+            result = verify_package(arguments.package_root)
     except ReleaseValidationError as error:
         payload = {
             "status": "fail",

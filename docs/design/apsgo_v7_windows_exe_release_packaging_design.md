@@ -4,9 +4,10 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.2 / 2026-09-08 |
-| 状态 | 阶段 0～1 已完成；阶段 2 源码实现已完成，待 Windows x64 实包验证 |
-| 当前代码基线 | `codex/rule-setting-api-integration@c8c26dff96c6bd290c41afba0d0d7405d6b2d337` |
+| 版本 / 日期 | v0.3 / 2026-09-08 |
+| 状态 | 阶段 0～1 已完成；阶段 2～3 源码实现已完成，Windows x64 实包门禁均待关闭 |
+| 设计基线 | `codex/rule-setting-api-integration@c8c26dff96c6bd290c41afba0d0d7405d6b2d337` |
+| 阶段 3 实施前基线 | `codex/rule-setting-api-integration@d2d4f9d47eca4a7b88c71175f4f88e6c0f416a52` |
 | 适用系统 | 64 位 Windows；确切 Windows 版本须在目标部署机验证 |
 | 构建环境 | Conda `aps_3.10.18`，Python 3.10.18 |
 | 发布对象 | APSGo V7 规则设置与 GQGA4 月计划求解 HTTP 服务 |
@@ -59,7 +60,7 @@ V7 的默认配置路径是相对当前工作目录的 `config/apsgo_v7_service.
 
 ### 4.1 可直接借鉴的发布主干
 
-V3 的 `release/build_exe.bat` 只转调 `build_exe.ps1`，PowerShell 脚本完成输入预检、PyInstaller 构建、外部资源复制、哈希核对以及启停脚本生成。V7 继续使用这一层次划分：
+V3 的 `release/build_exe.bat` 只转调 `build_exe.ps1`，PowerShell 脚本完成输入预检、PyInstaller 构建、外部资源复制、哈希核对以及启停脚本组装。V7 继续使用这一层次划分：
 
 1. `build_exe.bat` 提供双击和命令行入口；
 2. `build_exe.ps1` 是唯一构建编排入口；
@@ -67,7 +68,7 @@ V3 的 `release/build_exe.bat` 只转调 `build_exe.ps1`，PowerShell 脚本完�
 4. 生成控制台 EXE；
 5. 配置与可写数据库留在 EXE 外部；
 6. 构建结果记录文件摘要并执行 Windows 冒烟测试；
-7. 生成按自身路径启动和精确停止的批处理文件。
+7. 组装按自身路径启动和精确停止的批处理文件。
 
 本机核验来源为 `/Users/miles/dev/dev-py/apsgo-v3/release/build_exe.ps1` 和 `/Users/miles/dev/dev-py/apsgo-v3/doc/frontend_backend_scheduling_solution_design.md`。V7 已在本节完整写明吸收行为，不把这些外部绝对路径作为 Windows 构建机的必要入口。
 
@@ -116,7 +117,7 @@ release/dist/APSGoV7/
    └─ apsgo_v7_rules_seed.sqlite3
 ```
 
-`release/build/` 和 `release/dist/` 都是构建产物，不进入 Git。Git 只跟踪构建脚本、冻结入口、构建依赖声明、验证代码、设计与实施记录，以及仓库根 `data/apsgo_v7_rules.sqlite3` 发布基准库。首次正常启动后，同目录会新增 `config/apsgo_v7_service.yaml` 现场配置和 `data/apsgo_v7_rules.sqlite3` 运行库；正式压缩包在交付前必须删除冒烟产生的这两个运行文件，只保留配置模板和数据库种子。
+`release/build/` 和 `release/dist/` 都是构建产物，不进入 Git。Git 跟踪构建脚本、冻结入口、构建依赖声明、验证代码、启停批处理模板、设计与实施记录，以及仓库根 `data/apsgo_v7_rules.sqlite3` 发布基准库。启停模板提升为受跟踪文件，是因为在 PowerShell 字符串内生成批处理会引入多层转义，不利于静态审查和独立测试；构建时仅将其逐字节复制到发布目录，不引入第二套启停逻辑。首次正常启动后，同目录会新增 `config/apsgo_v7_service.yaml` 现场配置和 `data/apsgo_v7_rules.sqlite3` 运行库；正式压缩包在交付前必须删除冒烟产生的这两个运行文件，只保留配置模板和数据库种子。
 
 ## 7. 服务冻结入口与依赖收集
 
@@ -163,11 +164,12 @@ V7 已在 Windows 实测通过。构建脚本不得自动安装或升级；开�
 1. 使用 `%~dp0` 取得脚本所在目录；
 2. `cd /d "%~dp0"`，消除调用目录差异；
 3. 检查 EXE、配置模板和数据库种子是否存在；
-4. 仅当现场配置不存在时，从模板复制为 `config\apsgo_v7_service.yaml`；
-5. 仅当运行库不存在时，从种子复制为 `data\apsgo_v7_rules.sqlite3`；
+4. 仅当现场配置不存在时，先复制到同目录唯一临时文件，再通过不允许覆盖的原子改名生成 `config\apsgo_v7_service.yaml`；
+5. 仅当运行库不存在时，使用同样方式从种子生成 `data\apsgo_v7_rules.sqlite3`；
 6. 现场配置或运行库已存在时绝不覆盖、合并或重建；
-7. 执行 `APSGoV7Service.exe --config "%~dp0config\apsgo_v7_service.yaml"`；
-8. 进程异常结束时保留退出码和控制台错误信息。
+7. 启动前以读写方式打开现场运行库，不可写时明确失败；
+8. 执行 `APSGoV7Service.exe --config "%~dp0config\apsgo_v7_service.yaml"`；
+9. 进程异常结束时保留退出码和控制台错误信息。
 
 不在启动脚本设置 `listen_host`、`listen_port`、数据库路径或求解预算。配置仍完全来自 YAML。目前 `listen_host: 0.0.0.0` 表示服务监听本机所有 IPv4 网卡；其他电脑应访问 `http://部署电脑局域网IP:8001`，不能使用 `0.0.0.0` 作为客户端地址。
 
@@ -233,7 +235,7 @@ V7 已在 Windows 实测通过。构建脚本不得自动安装或升级；开�
 5. 清理本次 `release/build` 和 `release/dist/APSGoV7`。
 6. 生成一致性数据库种子。
 7. 使用 PyInstaller `onedir + console` 构建 EXE。
-8. 把源 YAML 复制为配置模板，生成启动、停止脚本并复制发布说明。
+8. 把源 YAML 复制为配置模板，复制已审查的启动、停止脚本模板并复制发布说明。
 9. 计算 EXE、依赖目录、配置模板、种子数据库、启停脚本和发布说明摘要，写入发布清单。
 10. 在发布目录执行静态核对；真正运行验证进入 Windows 验收阶段。
 
@@ -311,6 +313,9 @@ V7 当前没有独立健康接口，因此首版用“EXE 进程已监听 + 活�
 - Windows `aps_3.10.18` 环境中首次成功构建所使用的 PyInstaller 确切版本。
 - PyInstaller 对当前 Uvicorn/FastAPI 组合的实际隐藏导入清单。
 - 目标部署目录的写权限和 Windows 防火墙入站规则。
+- 启停脚本在带空格目录中的解析与运行、首次并发初始化和已有 YAML/运行库永不覆盖。
+- 两个不同发布目录同时运行时，停止脚本只结束自身目录的 EXE，并正确处理进程已自行退出的竞态。
+- 规则写入后停止、重启，现场活动版本和历史仍完整。
 - EXE 与 Python 入口在相同机器、相同请求下的启动耗时、求解耗时和内存差异。
 - 是否需要企业代码签名；该项不阻塞首版内部联调包。
 

@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from apsgo_v7_service.migrate_gqga4_grade_dictionary import backup_sqlite_database
 from release.verify_release import (
     MANIFEST_PATH,
     PACKAGE_CONFIGURATION_PATH,
@@ -19,6 +20,7 @@ from release.verify_release import (
     _sha256,
     main,
     verify_package,
+    verify_seed,
     verify_source,
 )
 
@@ -167,6 +169,7 @@ def test_source_mode_reports_complete_relative_identity(source_repository: Path,
     assert payload["mode"] == "source"
     assert payload["git"]["branch"] is None
     assert payload["configuration"]["path"] == "config/apsgo_v7_service.yaml"
+    assert payload["configuration"]["database_timeout_seconds"] == 5.0
     assert payload["database"]["path"] == "data/apsgo_v7_rules.sqlite3"
     assert payload["database"]["rule_count"] == 17
     assert payload["database"]["enabled_rule_count"] == 16
@@ -358,6 +361,127 @@ def test_package_mode_rejects_symlink(release_package: Path):
     assert raised.value.code == "package_layout_invalid"
 
 
+def _database_seed(tmp_path: Path, source_repository: Path) -> Path:
+    seed = tmp_path / "apsgo_v7_rules_seed.sqlite3"
+    backup_sqlite_database(
+        source_repository / "data/apsgo_v7_rules.sqlite3",
+        seed,
+    )
+    return seed
+
+
+def test_seed_mode_accepts_sqlite_backup_without_exposing_absolute_paths(
+    tmp_path: Path, source_repository: Path, capsys
+):
+    source = source_repository / "data/apsgo_v7_rules.sqlite3"
+    seed = _database_seed(tmp_path, source_repository)
+    assert main(
+        [
+            "seed",
+            "--source-database",
+            str(source),
+            "--seed-database",
+            str(seed),
+        ]
+    ) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "pass"
+    assert payload["mode"] == "seed"
+    assert payload["source"]["sha256"] == _sha256(source)
+    assert payload["seed"]["sha256"] == _sha256(seed)
+    assert payload["source"]["rule_set_fingerprint"] == payload["seed"][
+        "rule_set_fingerprint"
+    ]
+    assert payload["source"]["content_sha256"] == payload["seed"]["content_sha256"]
+    assert str(tmp_path) not in json.dumps(payload)
+
+
+def test_seed_mode_rejects_same_source_and_destination(source_repository: Path):
+    source = source_repository / "data/apsgo_v7_rules.sqlite3"
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_seed(source, source)
+    assert raised.value.code == "seed_input_invalid"
+
+
+def test_seed_mode_rejects_hard_link_to_source(
+    tmp_path: Path, source_repository: Path
+):
+    source = source_repository / "data/apsgo_v7_rules.sqlite3"
+    linked_seed = tmp_path / "linked-seed.sqlite3"
+    os.link(source, linked_seed)
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_seed(source, linked_seed)
+    assert raised.value.code == "seed_input_invalid"
+
+
+def test_seed_mode_rejects_symbolic_link_to_source(
+    tmp_path: Path, source_repository: Path
+):
+    source = source_repository / "data/apsgo_v7_rules.sqlite3"
+    linked_seed = tmp_path / "linked-seed.sqlite3"
+    try:
+        linked_seed.symlink_to(source)
+    except (NotImplementedError, OSError):
+        pytest.skip("symbolic links are unavailable")
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_seed(source, linked_seed)
+    assert raised.value.code == "seed_database_missing"
+
+
+def test_seed_mode_rejects_corrupt_seed(tmp_path: Path, source_repository: Path):
+    seed = _database_seed(tmp_path, source_repository)
+    seed.write_bytes(b"not a sqlite database")
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_seed(source_repository / "data/apsgo_v7_rules.sqlite3", seed)
+    assert raised.value.code == "database_integrity_invalid"
+
+
+def test_seed_mode_compares_historical_database_content(
+    tmp_path: Path, source_repository: Path
+):
+    seed = _database_seed(tmp_path, source_repository)
+    with sqlite3.connect(seed) as connection:
+        trigger = connection.execute(
+            "SELECT sql FROM sqlite_master "
+            "WHERE type = 'trigger' AND name = 'trg_v7_rule_set_version_no_update'"
+        ).fetchone()[0]
+        active = connection.execute(
+            "SELECT active_version_id FROM v7_rule_set LIMIT 1"
+        ).fetchone()[0]
+        historical = connection.execute(
+            "SELECT id FROM v7_rule_set_version WHERE id <> ? ORDER BY id LIMIT 1",
+            (active,),
+        ).fetchone()[0]
+        connection.execute("DROP TRIGGER trg_v7_rule_set_version_no_update")
+        connection.execute(
+            "UPDATE v7_rule_set_version SET remark = remark || ' changed' WHERE id = ?",
+            (historical,),
+        )
+        connection.execute(trigger)
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_seed(source_repository / "data/apsgo_v7_rules.sqlite3", seed)
+    assert raised.value.code == "seed_database_identity_mismatch"
+
+
+def test_seed_mode_rejects_sidecar(tmp_path: Path, source_repository: Path):
+    seed = _database_seed(tmp_path, source_repository)
+    Path(f"{seed}-wal").touch()
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_seed(source_repository / "data/apsgo_v7_rules.sqlite3", seed)
+    assert raised.value.code == "database_sidecar_present"
+
+
+def test_seed_mode_rejects_nonpositive_timeout(tmp_path: Path, source_repository: Path):
+    seed = _database_seed(tmp_path, source_repository)
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_seed(
+            source_repository / "data/apsgo_v7_rules.sqlite3",
+            seed,
+            timeout_seconds=0,
+        )
+    assert raised.value.code == "seed_input_invalid"
+
+
 def test_frozen_entry_only_delegates_to_existing_service_main():
     source = (RELEASE_ROOT / "apsgo_v7_service_entry.py").read_text(encoding="utf-8")
     assert "from apsgo_v7_service.app import main" in source
@@ -411,6 +535,62 @@ def test_powershell_build_contract_is_fixed_and_does_not_install_dependencies():
     assert "GQGA5" not in source
 
 
+def test_build_uses_sqlite_backup_and_copies_only_release_runtime_templates():
+    source = (RELEASE_ROOT / "build_exe.ps1").read_text(encoding="utf-8")
+    assert "backup_sqlite_database" in source
+    assert source.count("$Verifier source --repository-root $ProjectRoot") == 2
+    assert source.count("$Verifier seed") == 2
+    assert "$SeedValidation.source.sha256 -ne $SourceValidation.database.sha256" in source
+    assert "$FinalSourceValidation.git.commit -ne $SourceValidation.git.commit" in source
+    assert "--seed-database $PackageSeedDatabase" in source
+    assert "Copy-Item -LiteralPath $SourceDatabase" not in source
+    assert "apsgo_v7_service.example.yaml" in source
+    assert "apsgo_v7_rules_seed.sqlite3" in source
+    assert "start_apsgo_v7_service.bat" in source
+    assert "stop_apsgo_v7_service.bat" in source
+
+
+def test_start_script_initializes_missing_files_and_preserves_existing_files():
+    source = (RELEASE_ROOT / "start_apsgo_v7_service.bat").read_text(encoding="utf-8")
+    assert 'cd /d "%~dp0"' in source
+    assert "%~dp0APSGoV7Service.exe" in source
+    assert "%~dp0config\\apsgo_v7_service.example.yaml" in source
+    assert "%~dp0config\\apsgo_v7_service.yaml" in source
+    assert "%~dp0data\\apsgo_v7_rules_seed.sqlite3" in source
+    assert "%~dp0data\\apsgo_v7_rules.sqlite3" in source
+    assert (
+        'call :initialize_file "%APSGO_V7_CONFIG_TEMPLATE%" "%APSGO_V7_CONFIG%"'
+        in source
+    )
+    assert (
+        'call :initialize_file "%APSGO_V7_DATABASE_SEED%" '
+        '"%APSGO_V7_RUNTIME_DATABASE%"' in source
+    )
+    assert "if ([IO.File]::Exists($destination)) { exit 0 }" in source
+    assert "[IO.File]::Copy($source, $temporary, $false)" in source
+    assert "[IO.File]::Move($temporary, $destination)" in source
+    assert "copy /" not in source.lower()
+    assert "[IO.FileAccess]::ReadWrite" in source
+    assert '"%APSGO_V7_EXE%" --config "%APSGO_V7_CONFIG%"' in source
+    assert "listen_host" not in source
+    assert "listen_port" not in source
+    assert "candidate_check_limit" not in source
+
+
+def test_stop_script_matches_only_the_executable_in_its_own_directory():
+    source = (RELEASE_ROOT / "stop_apsgo_v7_service.bat").read_text(encoding="utf-8")
+    assert "%~dp0APSGoV7Service.exe" in source
+    assert "Get-Process -Name 'APSGoV7Service'" in source
+    assert "$_.Path" in source
+    assert "[StringComparison]::OrdinalIgnoreCase" in source
+    assert "Stop-Process -Id $process.Id -Force" in source
+    assert "$remaining = Get-Process -Id $process.Id -ErrorAction SilentlyContinue" in source
+    assert "$remaining.WaitForExit(15000)" in source
+    assert "taskkill" not in source.lower()
+    assert "python" not in source.lower()
+    assert "listen_port" not in source
+
+
 def test_check_only_precedes_all_build_output_mutations():
     source = (RELEASE_ROOT / "build_exe.ps1").read_text(encoding="utf-8")
     check_only = source.index("if ($CheckOnly)")
@@ -418,6 +598,8 @@ def test_check_only_precedes_all_build_output_mutations():
     for mutation in (
         "Remove-Item -LiteralPath",
         "New-Item -ItemType Directory",
+        "backup_sqlite_database",
+        "Copy-Item -LiteralPath",
         "& $CondaPython @PyInstallerArguments",
         "Move-Item -LiteralPath",
     ):

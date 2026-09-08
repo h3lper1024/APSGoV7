@@ -4,9 +4,10 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.4 / 2026-09-08 |
-| 状态 | 阶段 0～1 已完成；阶段 2 源码实现已完成，Windows x64 构建门禁待关闭 |
+| 版本 / 日期 | v0.5 / 2026-09-08 |
+| 状态 | 阶段 0～1 已完成；阶段 2～3 源码实现已完成，Windows x64 实包门禁均待关闭 |
 | 实施基线 | `codex/rule-setting-api-integration@90c78d2f460fd24add0f078508fdbb14cbc486dd` |
+| 阶段 3 实施前提交 | `d2d4f9d47eca4a7b88c71175f4f88e6c0f416a52` |
 | 权威设计 | [APSGo V7 Windows EXE 发布打包详细设计](../design/apsgo_v7_windows_exe_release_packaging_design.md) |
 | 构建平台 | 64 位 Windows；当前 macOS ARM64 只执行文档和源码侧验证 |
 | Python 环境 | Conda `aps_3.10.18`，Python 3.10.18 |
@@ -74,11 +75,13 @@
 | `release/build_exe.ps1` | 唯一构建编排：只读检查、干净构建、PyInstaller、配置模板、种子、脚本和清单组装 |
 | `release/apsgo_v7_service_entry.py` | 极小冻结入口，只调用现有 `apsgo_v7_service.app:main` |
 | `release/verify_release.py` | 共用发布验证：源输入、SQLite 身份、种子、目录和清单；不复制业务规则校验 |
-| `release/requirements-build.txt` | 固定 Windows 实测通过的 PyInstaller 精确版本 |
+| `release/requirements-build.txt` | 固定 Windows 试构建的 PyInstaller 精确候选版本；实包通过后才能称已验证 |
+| `release/start_apsgo_v7_service.bat` | 受跟踪启动模板；原子初始化现场 YAML/运行库并前台启动当前 EXE |
+| `release/stop_apsgo_v7_service.bat` | 受跟踪停止模板；只停止与当前发布目录 EXE 绝对路径匹配的实例 |
 | `release/README.md` | Windows 构建、首次部署、升级、回退和故障定位说明 |
 | `tests/release/test_release_packaging.py` | 发布验证器和目录契约的最小自动化回归 |
 
-`start_apsgo_v7_service.bat`、`stop_apsgo_v7_service.bat`、PyInstaller `.spec`、发布清单和 EXE 都由构建过程生成，不在源码中再维护第二份模板。若 PowerShell 内生成批处理导致转义复杂且难测，再把两个批处理模板提升为受跟踪文件；没有真实问题前不提前增加。
+PyInstaller `.spec`、发布清单和 EXE 由构建过程生成。阶段 3 实施时已确认：在 PowerShell 字符串内生成启停批处理会引入多层转义且难以独立静态测试，因此按本计划预留条件，将 `start_apsgo_v7_service.bat` 和 `stop_apsgo_v7_service.bat` 提升为受 Git 跟踪的单一模板。构建脚本只复制它们，不再生成或保留第二套逻辑。
 
 ## 6. 实施与提交总览
 
@@ -249,15 +252,15 @@ release\dist\APSGoV7\APSGoV7Service.exe --help
 
 1. 复用现有 `backup_sqlite_database()` 从受跟踪源库生成 `data/apsgo_v7_rules_seed.sqlite3`，禁止在服务可能写入时直接复制主文件。种子按流程视为不可修改，但不设置会传播到运行库的 Windows 只读文件属性。
 2. 生成种子后立即用阶段 1 验证器核对 schema、活动规则、业务指纹和逻辑内容身份。
-3. 生成启动脚本：
+3. 组装并使用受跟踪的启动脚本：
    - 通过 `%~dp0` 定位发布根目录并支持带空格路径；
    - 检查 EXE、`config/apsgo_v7_service.example.yaml` 配置模板和种子；
-   - 仅当现场配置不存在时，复制为 `config/apsgo_v7_service.yaml`；
-   - 仅当 `data/apsgo_v7_rules.sqlite3` 不存在时复制种子；
+   - 仅当现场配置不存在时，通过同目录唯一临时文件与不覆盖原子改名初始化 `config/apsgo_v7_service.yaml`；
+   - 仅当 `data/apsgo_v7_rules.sqlite3` 不存在时，用同样方式从种子初始化；
    - 现场配置或运行库存在时不比较新旧、不覆盖、不合并；
    - 确认新生成的运行库可写；
    - 使用绝对 `--config` 参数启动 EXE并保留退出码。
-4. 生成停止脚本：按当前发布目录中 EXE 的规范绝对路径筛选进程，只结束该实例，不按名称全杀、不结束 Python、不影响其他目录的 V7 实例。
+4. 组装并使用受跟踪的停止脚本：按当前发布目录中 EXE 的规范绝对路径筛选进程，只结束该实例，不按名称全杀、不结束 Python、不影响其他目录的 V7 实例。
 5. 启停脚本不设置 host、port、数据库路径或求解预算；这些仍只从 YAML 读取。
 
 ### 11.2 Windows 测试
@@ -274,6 +277,16 @@ release\dist\APSGoV7\APSGoV7Service.exe --help
 - 新版压缩包覆盖解压不会出现与现场配置、运行库同名的文件，因此不会直接覆盖现场配置或规则；
 - 仓库基准库、发布种子和现场运行库职责可由路径和文件名直接区分；
 - 构建及冒烟不改变仓库基准库。
+
+### 11.4 源码实现结果
+
+- 构建脚本复用现有 `backup_sqlite_database()` 生成种子，没有新写 SQLite 备份实现；种子生成后立即调用验证器的 `seed` 模式。
+- `seed` 模式分别强制只读打开源库和种子，校验 schema、活动快照、业务指纹与全历史逻辑内容摘要；拒绝 sidecar、符号链接、硬链接和源/目标同一文件。SQLite Backup API 产生的物理文件摘要允许不同，逻辑内容摘要必须相同。
+- 正式组装结束前再次执行源工作树校验，比对 Git 提交、YAML 和源库摘要，并对已移入发布目录的种子再执行一次 `seed` 校验；构建期间任一受跟踪输入漂移都不得宣告组装完成。
+- 启动与停止脚本已按第 5 节预留条件提升为受跟踪模板。启动脚本分别对缺失的现场 YAML 和运行库使用同目录唯一临时文件加不覆盖原子改名，既有文件不比较、不覆盖；启动前只做必要的运行库可写检查。
+- 停止脚本使用 64 位 Windows PowerShell，先按进程名缩小范围，再按 EXE 规范绝对路径精确匹配；目标在停止期间已自行退出时按成功处理，未停止实例在 15 秒后明确失败。
+- macOS 源码侧发布专项 37 项通过；真实受跟踪库经 Backup API 生成的种子 `quick_check=ok`，schema 2、活动版本 5、17 条规则（16 启用）、27 个虚拟原型和 230 条字典均一致；源/种子逻辑摘要均为 `af1b7cc3d3b59793b35fc27af3b89bc4a210dfd378c394af22c5dcbb6e999ad4`。
+- 本节仅表示阶段 3 源码实现完成。带空格路径、并发初始化、已有文件保护、规则写入重启持久化、双目录实例和精确停止仍须 Windows x64 实包验证。详见[阶段 3 源码证据](evidence/apsgo_v7_windows_exe_release_packaging/stage_03_start_stop_and_database_protection/README.md)。
 
 ## 12. 阶段 4：建立发布清单与包级冒烟
 
@@ -378,7 +391,8 @@ release\dist\APSGoV7\APSGoV7Service.exe --help
 | SQLite 源库只读身份 | 必须 | 必须 | 不适用 |
 | PyInstaller 构建 | 不可替代 | 必须 | 不适用 |
 | EXE `--help` | 不可替代 | 必须 | 必须 |
-| 首次配置/种子复制、规则持久化 | 不可替代 | 必须 | 必须 |
+| 首次配置/种子复制、已有文件保护、规则持久化 | 不可替代 | 必须 | 必须 |
+| 带空格路径启动、双目录实例与精确停止 | 不可替代 | 必须 | 必须 |
 | 完整 GQGA4 531 单 | 源入口回归 | 必须 | 必须 |
 | 第二台电脑局域网访问 | 不可替代 | 可作为服务端 | 必须 |
 | 升级和回退 | 流程静态检查 | 必须 | 必须 |

@@ -17,13 +17,27 @@ $SourceDirectory = Join-Path $ProjectRoot "src"
 $EntryScript = Join-Path $ReleaseDirectory "apsgo_v7_service_entry.py"
 $Verifier = Join-Path $ReleaseDirectory "verify_release.py"
 $Requirements = Join-Path $ReleaseDirectory "requirements-build.txt"
+$StartScriptTemplate = Join-Path $ReleaseDirectory "start_apsgo_v7_service.bat"
+$StopScriptTemplate = Join-Path $ReleaseDirectory "stop_apsgo_v7_service.bat"
+$SourceConfiguration = Join-Path $ProjectRoot "config\apsgo_v7_service.yaml"
+$SourceDatabase = Join-Path $ProjectRoot "data\apsgo_v7_rules.sqlite3"
 $BuildRoot = Join-Path $ReleaseDirectory "build"
 $WorkDirectory = Join-Path $BuildRoot "pyinstaller_work"
 $SpecDirectory = Join-Path $BuildRoot "pyinstaller_spec"
 $PyInstallerDistDirectory = Join-Path $BuildRoot "pyinstaller_dist"
+$ReleaseAssetsDirectory = Join-Path $BuildRoot "release_assets"
+$StagedSeedDirectory = Join-Path $ReleaseAssetsDirectory "data"
+$StagedSeedDatabase = Join-Path $StagedSeedDirectory "apsgo_v7_rules_seed.sqlite3"
 $DistRoot = Join-Path $ReleaseDirectory "dist"
 $BuiltDirectory = Join-Path $PyInstallerDistDirectory $ApplicationName
 $PackageDirectory = Join-Path $DistRoot $PackageName
+$PackageConfigurationDirectory = Join-Path $PackageDirectory "config"
+$PackageDataDirectory = Join-Path $PackageDirectory "data"
+$PackageConfigurationTemplate = Join-Path `
+    $PackageConfigurationDirectory "apsgo_v7_service.example.yaml"
+$PackageSeedDatabase = Join-Path $PackageDataDirectory "apsgo_v7_rules_seed.sqlite3"
+$PackageStartScript = Join-Path $PackageDirectory "start_apsgo_v7_service.bat"
+$PackageStopScript = Join-Path $PackageDirectory "stop_apsgo_v7_service.bat"
 
 $env:PYTHONDONTWRITEBYTECODE = "1"
 $env:PYTHONUTF8 = "1"
@@ -39,7 +53,16 @@ if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) {
 if (-not [Environment]::Is64BitOperatingSystem -or -not [Environment]::Is64BitProcess) {
     throw "APSGo V7 requires a 64-bit Windows build process."
 }
-foreach ($path in @($SourceDirectory, $EntryScript, $Verifier, $Requirements)) {
+foreach ($path in @(
+    $SourceDirectory,
+    $EntryScript,
+    $Verifier,
+    $Requirements,
+    $StartScriptTemplate,
+    $StopScriptTemplate,
+    $SourceConfiguration,
+    $SourceDatabase
+)) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Required build input is missing: $path"
     }
@@ -148,8 +171,54 @@ elseif (
 }
 
 New-Item -ItemType Directory -Force `
-    -Path $WorkDirectory, $SpecDirectory, $PyInstallerDistDirectory, $DistRoot |
+    -Path $WorkDirectory, $SpecDirectory, $PyInstallerDistDirectory, `
+          $StagedSeedDirectory, $DistRoot |
     Out-Null
+
+$SeedBackupCode = @'
+import json
+import sys
+
+from apsgo_v7_service.migrate_gqga4_grade_dictionary import backup_sqlite_database
+
+result = backup_sqlite_database(
+    sys.argv[1],
+    sys.argv[2],
+    timeout_seconds=float(sys.argv[3]),
+)
+print(json.dumps({
+    "created": result.created,
+    "integrity_check": result.integrity_check,
+    "schema_version": result.user_version,
+    "seed_sha256": result.database_sha256,
+}, sort_keys=True, separators=(",", ":")))
+'@
+$DatabaseTimeoutSeconds = [Convert]::ToString(
+    $SourceValidation.configuration.database_timeout_seconds,
+    [Globalization.CultureInfo]::InvariantCulture
+)
+$SeedBackupJson = & $CondaPython -c $SeedBackupCode `
+    $SourceDatabase $StagedSeedDatabase $DatabaseTimeoutSeconds
+$SeedBackupExitCode = $LASTEXITCODE
+Write-Output $SeedBackupJson
+if ($SeedBackupExitCode -ne 0) {
+    throw "APSGo V7 database seed creation failed with exit code $SeedBackupExitCode."
+}
+
+$SeedValidationJson = & $CondaPython $Verifier seed `
+    --source-database $SourceDatabase `
+    --seed-database $StagedSeedDatabase `
+    --timeout-seconds $DatabaseTimeoutSeconds
+$SeedValidationExitCode = $LASTEXITCODE
+Write-Output $SeedValidationJson
+if ($SeedValidationExitCode -ne 0) {
+    throw "APSGo V7 database seed validation failed with exit code $SeedValidationExitCode."
+}
+$SeedValidation = $SeedValidationJson | ConvertFrom-Json
+if ($SeedValidation.source.sha256 -ne $SourceValidation.database.sha256) {
+    throw "The source rule database changed after release input validation."
+}
+
 $PyInstallerArguments = @(
     "-m", "PyInstaller",
     "--noconfirm",
@@ -190,8 +259,49 @@ if (
 }
 Move-Item -LiteralPath $BuiltDirectory -Destination $PackageDirectory
 
+New-Item -ItemType Directory -Force `
+    -Path $PackageConfigurationDirectory, $PackageDataDirectory |
+    Out-Null
+Copy-Item -LiteralPath $SourceConfiguration -Destination $PackageConfigurationTemplate
+Move-Item -LiteralPath $StagedSeedDatabase -Destination $PackageSeedDatabase
+Copy-Item -LiteralPath $StartScriptTemplate -Destination $PackageStartScript
+Copy-Item -LiteralPath $StopScriptTemplate -Destination $PackageStopScript
+
+$FinalSourceValidationJson = & $CondaPython $Verifier source --repository-root $ProjectRoot
+$FinalSourceValidationExitCode = $LASTEXITCODE
+Write-Output $FinalSourceValidationJson
+if ($FinalSourceValidationExitCode -ne 0) {
+    throw "APSGo V7 source changed during packaging."
+}
+$FinalSourceValidation = $FinalSourceValidationJson | ConvertFrom-Json
+if (
+    $FinalSourceValidation.git.commit -ne $SourceValidation.git.commit -or
+    $FinalSourceValidation.configuration.sha256 -ne $SourceValidation.configuration.sha256 -or
+    $FinalSourceValidation.database.sha256 -ne $SourceValidation.database.sha256
+) {
+    throw "APSGo V7 release input identity changed during packaging."
+}
+
+$PackagedSeedValidationJson = & $CondaPython $Verifier seed `
+    --source-database $SourceDatabase `
+    --seed-database $PackageSeedDatabase `
+    --timeout-seconds $DatabaseTimeoutSeconds
+$PackagedSeedValidationExitCode = $LASTEXITCODE
+Write-Output $PackagedSeedValidationJson
+if ($PackagedSeedValidationExitCode -ne 0) {
+    throw "Packaged APSGo V7 database seed validation failed."
+}
+
 $PackagedExecutable = Join-Path $PackageDirectory "$ApplicationName.exe"
-if (-not (Test-Path -LiteralPath $PackagedExecutable -PathType Leaf)) {
-    throw "The packaged executable was not found: $PackagedExecutable"
+foreach ($path in @(
+    $PackagedExecutable,
+    $PackageConfigurationTemplate,
+    $PackageSeedDatabase,
+    $PackageStartScript,
+    $PackageStopScript
+)) {
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "The packaged release input was not found: $path"
+    }
 }
 Write-Host "APSGo V7 onedir build completed: $PackageDirectory"
