@@ -88,6 +88,8 @@ def _snapshot(state, context):
         "plan": state.current_plan,
         "plan_fingerprint": fingerprint(state.current_plan),
         "quality": state.current_evaluation.quality_key,
+        "evaluation": state.current_evaluation,
+        "evaluation_fingerprint": fingerprint(state.current_evaluation),
         "trace": context.accepted_move_traces,
         "trace_fingerprint": fingerprint(context.accepted_move_traces),
         "stop_reason": None if stop is None else stop.value,

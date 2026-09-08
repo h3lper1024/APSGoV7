@@ -10,8 +10,10 @@ import pytest
 from apsgo_scheduler.api.request import fingerprint_public_request
 from apsgo_scheduler.app.service import solve_request
 from apsgo_scheduler.core import solver
+from apsgo_scheduler.core.contracts import fingerprint
 from apsgo_v7_service.diagnostics import _json_values
 from tests.app.test_input_normalizer import make_request
+from tools import profile_solver_search
 from tools.profile_solver_search import load_request, main, measure
 from tools.verify_solver_diagnostics import _write_json
 
@@ -73,6 +75,29 @@ def test_full_scope_keeps_both_audits_and_first_stage_is_identical(tmp_path):
     assert full["result"]["audit_report"]["passed"]
     assert full["result"]["release"] is not None
     assert full["result"]["result_fingerprint"] == original.result_fingerprint
+
+
+def test_snapshots_keep_complete_ordered_evaluations_from_the_actual_state(tmp_path, monkeypatch):
+    _, request = prepared(tmp_path)
+    original_snapshot = profile_solver_search._snapshot
+    observed = []
+
+    def snapshot(state, context):
+        result = original_snapshot(state, context)
+        assert result["evaluation"] == _json_values(state.current_evaluation)
+        assert result["evaluation_fingerprint"] == fingerprint(state.current_evaluation)
+        assert result["evaluation"]["quality_key"] == result["quality"]
+        assert [item["chain_id"] for item in result["evaluation"]["chain_evaluations"]] == [
+            chain.chain_id for chain in state.current_plan.chains
+        ]
+        observed.append(result)
+        return result
+
+    monkeypatch.setattr(profile_solver_search, "_snapshot", snapshot)
+    report = measure(request, scope="full")
+    assert observed == [
+        report["first_search"]["initial"], report["first_search"]["final"], report["final_search"],
+    ]
 
 
 def test_check_copies_original_and_records_explicit_policy_override_without_solving(tmp_path, monkeypatch):
