@@ -97,7 +97,7 @@ if (-not (Test-Path -LiteralPath $CondaPython -PathType Leaf)) {
     throw "Python executable is missing from Conda environment '$ExpectedCondaEnvironment'."
 }
 
-$RuntimeJson = & $CondaPython -c @'
+$RuntimeInspectionCode = @'
 import json
 import platform
 import sys
@@ -108,6 +108,7 @@ print(json.dumps({
     "version": ".".join(str(part) for part in sys.version_info[:3]),
 }))
 '@
+$RuntimeJson = $RuntimeInspectionCode | & $CondaPython -
 if ($LASTEXITCODE -ne 0) {
     throw "Cannot inspect Python in Conda environment '$ExpectedCondaEnvironment'."
 }
@@ -119,7 +120,7 @@ if (-not $Runtime.is_64_bit -or $Runtime.architecture -notin @("AMD64", "x86_64"
     throw "The Conda Python must be Windows x64; found $($Runtime.architecture)."
 }
 
-$ActualPyInstallerVersion = & $CondaPython -c @'
+$PyInstallerVersionCode = @'
 from importlib.metadata import PackageNotFoundError, version
 
 try:
@@ -127,6 +128,7 @@ try:
 except PackageNotFoundError:
     raise SystemExit(3)
 '@
+$ActualPyInstallerVersion = $PyInstallerVersionCode | & $CondaPython -
 if ($LASTEXITCODE -ne 0) {
     throw "PyInstaller is not installed. Run: $CondaPython -m pip install -r $Requirements"
 }
@@ -203,7 +205,7 @@ $DatabaseTimeoutSeconds = [Convert]::ToString(
     $SourceValidation.configuration.database_timeout_seconds,
     [Globalization.CultureInfo]::InvariantCulture
 )
-$SeedBackupJson = & $CondaPython -c $SeedBackupCode `
+$SeedBackupJson = $SeedBackupCode | & $CondaPython - `
     $SourceDatabase $StagedSeedDatabase $DatabaseTimeoutSeconds
 $SeedBackupExitCode = $LASTEXITCODE
 Write-Output $SeedBackupJson

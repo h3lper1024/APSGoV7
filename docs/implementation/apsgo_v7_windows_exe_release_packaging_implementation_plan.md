@@ -4,11 +4,12 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.6 / 2026-09-08 |
+| 版本 / 日期 | v0.7 / 2026-09-08 |
 | 状态 | 阶段 0～1 已完成；阶段 2～4 源码实现已完成，Windows x64 实包门禁均待关闭 |
 | 实施基线 | `codex/rule-setting-api-integration@90c78d2f460fd24add0f078508fdbb14cbc486dd` |
 | 阶段 3 实施前提交 | `d2d4f9d47eca4a7b88c71175f4f88e6c0f416a52` |
 | 阶段 4 实施前提交 | `b2f683b0d569154f44892b29070e09b43199f295` |
+| 首次 Windows 修复前提交 | `49ad41baf4bdaa0c991dcce98b1eedc68c4e4ba1` |
 | 权威设计 | [APSGo V7 Windows EXE 发布打包详细设计](../design/apsgo_v7_windows_exe_release_packaging_design.md) |
 | 构建平台 | 64 位 Windows；当前 macOS ARM64 只执行文档和源码侧验证 |
 | Python 环境 | Conda `aps_3.10.18`，Python 3.10.18 |
@@ -247,6 +248,12 @@ release\dist\APSGoV7\APSGoV7Service.exe --help
 - 当前平台为 macOS ARM64，且项目 Conda 环境未安装 PyInstaller、没有 PowerShell；因此没有
   生成 Windows EXE。本节只表示“阶段 2 源码实现完成”，阶段 2 的 Windows x64 构建、
   EXE `--help` 和空白机验证仍为未关闭门禁。
+- 首次 Windows `-CheckOnly` 已进入 Conda Python 运行时检查，但 Windows PowerShell 将多行
+  `python.exe -c` 参数中的双引号作为原生命令行引号处理，Python 实收代码出现
+  `version: ..join(...)` 并退出。修复不再通过原生命令参数传递多行源码，而把运行时检查、
+  PyInstaller 版本检查和种子备份三段脚本统一经标准输入交给 `python.exe -`；新增静态回归
+  禁止三段重新使用 `-c`。修复提交后必须从新提交建立 detached worktree 完整重跑，当前仍
+  不关闭 Windows 门禁。
 
 ## 11. 阶段 3：建立启停与规则数据库保护
 

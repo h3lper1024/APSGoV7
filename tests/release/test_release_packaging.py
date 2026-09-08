@@ -808,6 +808,14 @@ def test_powershell_build_contract_is_fixed_and_does_not_install_dependencies():
     assert "GQGA5" not in source
 
 
+def test_multiline_python_is_sent_over_stdin_not_native_command_arguments():
+    source = (RELEASE_ROOT / "build_exe.ps1").read_text(encoding="utf-8")
+    assert "$RuntimeInspectionCode | & $CondaPython -" in source
+    assert "$PyInstallerVersionCode | & $CondaPython -" in source
+    assert "$SeedBackupCode | & $CondaPython -" in source
+    assert "& $CondaPython -c" not in source
+
+
 def test_build_uses_sqlite_backup_and_copies_only_release_runtime_templates():
     source = (RELEASE_ROOT / "build_exe.ps1").read_text(encoding="utf-8")
     assert "backup_sqlite_database" in source

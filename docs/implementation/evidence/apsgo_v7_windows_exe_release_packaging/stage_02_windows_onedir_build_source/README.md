@@ -83,3 +83,41 @@ release\dist\APSGoV7\APSGoV7Service.exe --help
 
 还须在未安装 Python/Conda 的 Windows 测试目录验证同一 EXE。当前证据只能称“阶段 2 源码
 实现完成”，不能称“阶段 2 完成”或“Windows EXE 已验证”。
+
+## 7. 首次 Windows 检查失败与修复
+
+用户在 Windows 路径 `Y:\dev-py\APSGOV7` 执行构建入口后提供的日志显示，脚本已通过
+Windows 与 64 位进程门禁，也已定位 Conda 环境 `aps_3.10.18` 的 `python.exe`，随后在
+`build_exe.ps1` 的运行时信息检查处失败：
+
+```text
+File "<string>", line 8
+  version: ..join(str(part) for part in sys.version_info[:3]),
+           ^
+SyntaxError: invalid syntax
+Cannot inspect Python in Conda environment 'aps_3.10.18'.
+```
+
+源码原本是 `"version": ".".join(...)`。`build_exe.bat` 使用 Windows PowerShell 调用原生
+`python.exe -c`；该参数传递过程没有保留多行 Python 源码中的字面双引号，因而实收代码与
+日志完全对应。后续 PyInstaller 版本检查和数据库种子备份也使用了相同方式，只修改报错行会
+让构建在下一段继续失败。
+
+修复将三段多行 Python 都改为 `$Code | & $CondaPython -`：源码经标准输入传递，文件路径等
+参数仍使用 `sys.argv`，不生成临时文件，也不改变检查和构建顺序。新增回归测试要求三段都走
+标准输入，并禁止恢复原有的多行 `-c` 形式。
+
+修复后的共享工作树验证如下：
+
+| 检查 | 结果 |
+|---|---|
+| `git diff --check` | 退出码 0 |
+| 发布专项 | 退出码 0，52 项通过，7.95 秒 |
+| 仓内累计 | 退出码 0，3350 项通过，186.86 秒 |
+| `compileall -q release` | 退出码 0 |
+| 共享树残留检查 | 退出码 1；仍只因 V7 已不存在的 V6 历史 `.claude`、`dist/apsgo-*` 和 `src/apsgo.egg-info` 稳定残留，不重建这些旧文件 |
+| 首轮精确暂存树干净导出 | 树 `861c3e432da900377b64ac8c79254e6a40666c79`；残留检查退出码 0，3350 项累计通过，199.63 秒，`compileall -q src release` 退出码 0 |
+
+当前开发机仍为 macOS ARM64，没有执行 Windows PowerShell。修复提交后须从该新提交创建
+detached worktree，重新执行 `release\build_exe.bat -CheckOnly`；通过后再执行 `-Clean`，
+该次失败不能计为 Windows 构建门禁通过。
