@@ -46,6 +46,10 @@ SIDECAR_SUFFIXES = ("-journal", "-shm", "-wal")
 EXPECTED_CONDA_ENVIRONMENT = "aps_3.10.18"
 EXPECTED_PYTHON_VERSION = "3.10.18"
 EXPECTED_PYINSTALLER_VERSION = "6.22.2"
+EXPECTED_NUMPY_VERSION = "2.2.6"
+EXPECTED_NUMBA_VERSION = "0.65.1"
+EXPECTED_LLVMLITE_VERSION = "0.47.0"
+EXPECTED_PYINSTALLER_HOOKS_VERSION = "2026.6"
 _UTC_BUILD_TIME_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _REQUIRED_PACKAGE_FILES = frozenset(
@@ -171,6 +175,10 @@ def _build_environment() -> dict:
         "fastapi_version": _installed_version("fastapi"),
         "uvicorn_version": _installed_version("uvicorn"),
         "pyyaml_version": _installed_version("PyYAML"),
+        "numpy_version": _installed_version("numpy"),
+        "numba_version": _installed_version("numba"),
+        "llvmlite_version": _installed_version("llvmlite"),
+        "pyinstaller_hooks_contrib_version": _installed_version("pyinstaller-hooks-contrib"),
     }
 
 
@@ -556,6 +564,10 @@ _BUILD_KEYS = frozenset(
         "fastapi_version",
         "uvicorn_version",
         "pyyaml_version",
+        "numpy_version",
+        "numba_version",
+        "llvmlite_version",
+        "pyinstaller_hooks_contrib_version",
         "mode",
         "console",
         "upx",
@@ -676,6 +688,10 @@ def _validate_manifest_schema(manifest: dict, *, allow_pending_smoke: bool) -> N
         or build["conda_environment"] != EXPECTED_CONDA_ENVIRONMENT
         or build["python_version"] != EXPECTED_PYTHON_VERSION
         or build["pyinstaller_version"] != EXPECTED_PYINSTALLER_VERSION
+        or build["numpy_version"] != EXPECTED_NUMPY_VERSION
+        or build["numba_version"] != EXPECTED_NUMBA_VERSION
+        or build["llvmlite_version"] != EXPECTED_LLVMLITE_VERSION
+        or build["pyinstaller_hooks_contrib_version"] != EXPECTED_PYINSTALLER_HOOKS_VERSION
         or build["mode"] != "onedir"
         or build["console"] is not True
         or build["upx"] is not False
@@ -855,7 +871,7 @@ def _validate_package_layout(files: dict[str, Path], *, require_manifest: bool) 
             "__pycache__" in parts
             or ".pytest_cache" in parts
             or "tests" in parts
-            or relative.endswith((".py", ".pyi", ".spec", ".log", ".DS_Store"))
+            or relative.endswith((".py", ".pyi", ".spec", ".log", ".DS_Store", ".nbi", ".nbc"))
         ):
             raise ReleaseValidationError(
                 "package_layout_invalid",

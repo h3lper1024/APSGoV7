@@ -44,6 +44,15 @@ from release.verify_release import (
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RELEASE_ROOT = PROJECT_ROOT / "release"
+NUMERIC_BUILD_VERSIONS = {
+    "numpy_version": "2.2.6",
+    "numba_version": "0.65.1",
+    "llvmlite_version": "0.47.0",
+    "pyinstaller_hooks_contrib_version": "2026.6",
+}
+NUMERIC_DISTRIBUTIONS = (
+    "numpy", "numba", "llvmlite", "pyinstaller-hooks-contrib",
+)
 
 
 def _git(root: Path, *arguments: str) -> str:
@@ -184,6 +193,7 @@ def _write_manifest(
                     "fastapi_version": "0.128.8",
                     "uvicorn_version": "0.40.0",
                     "pyyaml_version": "6.0.3",
+                    **NUMERIC_BUILD_VERSIONS,
                     "mode": "onedir",
                     "console": True,
                     "upx": False,
@@ -469,6 +479,7 @@ def _windows_build_environment() -> dict:
         "fastapi_version": "0.128.8",
         "uvicorn_version": "0.40.0",
         "pyyaml_version": "6.0.3",
+        **NUMERIC_BUILD_VERSIONS,
     }
 
 
@@ -533,6 +544,53 @@ def test_package_mode_requires_completed_smoke_by_default(release_package: Path)
     assert verify_package(release_package, allow_pending_smoke=True)["smoke_status"] == "pending"
 
 
+@pytest.mark.parametrize("field", NUMERIC_BUILD_VERSIONS)
+@pytest.mark.parametrize("mutation", ("missing", "wrong_version"))
+def test_package_requires_exact_numeric_build_versions(
+    release_package: Path, field: str, mutation: str,
+):
+    manifest = json.loads((release_package / MANIFEST_PATH).read_text(encoding="utf-8"))
+    if mutation == "missing":
+        del manifest["build"][field]
+    else:
+        manifest["build"][field] += ".changed"
+    _rewrite_manifest(release_package, manifest)
+
+    with pytest.raises(ReleaseValidationError) as raised:
+        verify_package(release_package)
+    assert raised.value.code == "manifest_invalid"
+
+
+def test_build_metadata_reads_actual_dependency_versions(monkeypatch):
+    queried = []
+
+    def version(distribution):
+        queried.append(distribution)
+        return f"observed-{distribution}"
+
+    monkeypatch.setattr(release_module.importlib.metadata, "version", version)
+    environment = release_module._build_environment()
+
+    for field, distribution in zip(NUMERIC_BUILD_VERSIONS, NUMERIC_DISTRIBUTIONS):
+        assert environment[field] == f"observed-{distribution}"
+        assert queried.count(distribution) == 1
+
+
+@pytest.mark.parametrize("missing", NUMERIC_DISTRIBUTIONS)
+def test_build_metadata_rejects_missing_numeric_dependency(monkeypatch, missing: str):
+    def version(distribution):
+        if distribution == missing:
+            raise release_module.importlib.metadata.PackageNotFoundError(distribution)
+        return "test-version"
+
+    monkeypatch.setattr(release_module.importlib.metadata, "version", version)
+
+    with pytest.raises(ReleaseValidationError) as raised:
+        release_module._build_environment()
+    assert raised.value.code == "build_environment_invalid"
+    assert missing in str(raised.value)
+
+
 def test_package_mode_accepts_named_source_branch(release_package: Path):
     manifest = json.loads(
         (release_package / MANIFEST_PATH).read_text(encoding="utf-8")
@@ -563,7 +621,10 @@ def test_package_mode_rejects_noncanonical_or_unknown_manifest_fields(
 
 @pytest.mark.parametrize(
     "relative",
-    ("_internal/apsgo_v7_service/app.py", "_internal/__pycache__/app.pyc", "_internal/tests/data.bin"),
+    (
+        "_internal/apsgo_v7_service/app.py", "_internal/__pycache__/app.pyc",
+        "_internal/tests/data.bin", "_internal/native.nbi", "_internal/native.nbc",
+    ),
 )
 def test_package_mode_rejects_source_test_and_cache_residue(
     release_package: Path, relative: str
@@ -823,6 +884,11 @@ def test_powershell_build_contract_is_fixed_and_does_not_install_dependencies():
     for expected in (
         '$ExpectedCondaEnvironment = "aps_3.10.18"',
         '$ExpectedPythonVersion = "3.10.18"',
+        '$ExpectedPyInstallerHooksVersion = "2026.6"',
+        '"numpy" = "2.2.6"',
+        '"numba" = "0.65.1"',
+        '"llvmlite" = "0.47.0"',
+        '"pyinstaller-hooks-contrib" = $ExpectedPyInstallerHooksVersion',
         '$ApplicationName = "APSGoV7Service"',
         '$PackageName = "APSGoV7"',
         "[Environment]::Is64BitOperatingSystem",
@@ -842,12 +908,17 @@ def test_powershell_build_contract_is_fixed_and_does_not_install_dependencies():
     assert "Library\\bin" not in source
     assert "GQGA5" not in source
     assert "detached Git worktree" not in source
+    assert source.count('$ExpectedPyInstallerHooksVersion = "2026.6"') == 1
+    dependency_check = source.index("$NumericDependencyJson =")
+    assert dependency_check < source.index("if ($CheckOnly)")
+    assert "$actualVersion -ne $dependency.Value" in source
 
 
 def test_multiline_python_is_sent_over_stdin_not_native_command_arguments():
     source = (RELEASE_ROOT / "build_exe.ps1").read_text(encoding="utf-8")
     assert "$RuntimeInspectionCode | & $CondaPython -" in source
     assert "$PyInstallerVersionCode | & $CondaPython -" in source
+    assert "$NumericDependencyCode | & $CondaPython -" in source
     assert "$SeedBackupCode | & $CondaPython -" in source
     assert "& $CondaPython -c" not in source
 
@@ -973,7 +1044,7 @@ def test_windows_smoke_uses_unmodified_disposable_package_and_exact_rule_roundtr
     ):
         assert expected in source
     assert "safe_dump" not in source
-    assert "MONTH_SOLVE_PATH" not in source
+    assert "MONTH_SOLVE_PATH" in source
 
 
 def test_smoke_runtime_configuration_is_loopback_only_and_keeps_template_unchanged(

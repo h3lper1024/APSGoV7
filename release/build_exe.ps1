@@ -9,6 +9,7 @@ $ErrorActionPreference = "Stop"
 
 $ExpectedCondaEnvironment = "aps_3.10.18"
 $ExpectedPythonVersion = "3.10.18"
+$ExpectedPyInstallerHooksVersion = "2026.6"
 $ApplicationName = "APSGoV7Service"
 $PackageName = "APSGoV7"
 $ReleaseDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -134,6 +135,40 @@ if ($LASTEXITCODE -ne 0) {
 }
 if ($ActualPyInstallerVersion.Trim() -ne $ExpectedPyInstallerVersion) {
     throw "PyInstaller $ExpectedPyInstallerVersion is required; found $ActualPyInstallerVersion."
+}
+
+$ExpectedNumericVersions = [ordered]@{
+    "numpy" = "2.2.6"
+    "numba" = "0.65.1"
+    "llvmlite" = "0.47.0"
+    "pyinstaller-hooks-contrib" = $ExpectedPyInstallerHooksVersion
+}
+$DependencyInstallArguments = ($ExpectedNumericVersions.GetEnumerator() | ForEach-Object {
+    "$($_.Key)==$($_.Value)"
+}) -join " "
+$NumericDependencyCode = @'
+import json
+import sys
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    print(json.dumps({name: version(name) for name in (
+        "numpy", "numba", "llvmlite", "pyinstaller-hooks-contrib",
+    )}))
+except PackageNotFoundError as error:
+    print(f"Required build dependency is missing: {error.name}", file=sys.stderr)
+    raise SystemExit(3)
+'@
+$NumericDependencyJson = $NumericDependencyCode | & $CondaPython -
+if ($LASTEXITCODE -ne 0) {
+    throw "Numeric build dependencies are missing. Run: & '$CondaPython' -m pip install $DependencyInstallArguments"
+}
+$ActualNumericVersions = $NumericDependencyJson | ConvertFrom-Json
+foreach ($dependency in $ExpectedNumericVersions.GetEnumerator()) {
+    $actualVersion = $ActualNumericVersions.PSObject.Properties[$dependency.Key].Value
+    if ($actualVersion -ne $dependency.Value) {
+        throw "$($dependency.Key) $($dependency.Value) is required; found $actualVersion. Run: & '$CondaPython' -m pip install $DependencyInstallArguments"
+    }
 }
 
 $env:PYTHONPATH = $SourceDirectory

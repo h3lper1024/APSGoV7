@@ -2,6 +2,26 @@
 
 本目录是 Windows x64 的目录式发布包。请完整保留 `APSGoV7Service.exe`、`_internal/`、`config/`、`data/`、两个启停脚本和 `release_manifest.json`，不要只复制 EXE。
 
+## 构建人员：数值桥接依赖与验证
+
+以下命令在 **Windows 源码仓库根目录**执行，使用 Conda `aps_3.10.18`（Python 3.10.18 x64），不是要求现场运行人员安装 Python：
+
+```powershell
+conda run -n aps_3.10.18 python -m pip install -r release/requirements-build.txt numpy==2.2.6 numba==0.65.1 llvmlite==0.47.0 pyinstaller-hooks-contrib==2026.6
+.\release\build_exe.bat -CheckOnly
+.\release\build_exe.bat
+```
+
+其他服务依赖仍按项目安装说明准备。构建脚本只检查版本，不自动安装；`-CheckOnly` 只做前置检查，不生成 EXE 或证明运行通过。已有本脚本输出目录时，确认保留需要的旧包后，再按原约定使用 `-Clean` 重建。
+
+NumPy 保存桥接数值，Numba 在实际首次桥接时编译计算循环，llvmlite 提供编译运行库；`pyinstaller-hooks-contrib` 是打包工具收集这些依赖所用的辅助规则。发布清单记录四项精确版本，不能混用其他包的运行库。首次请求含编译成本，服务启动及读取规则不预热编译，Numba不写磁盘编译缓存。
+
+完整构建还会在**临时发布副本**执行原有规则读写/重启检查，然后通过月计划接口实际运行单桥和双桥，各包含首次、同进程重复及重启后请求。检查预期订单、虚拟原型、重量和双审计，并核对 `solve.log` 中真实 `nopython=True`（已执行编译后的数值函数）记录。它会用 Windows 文件访问权限将临时程序目录设为不可写，配置、数据库和诊断使用目录外可写副本；子进程移除 Python/Conda 路径，验证不依赖外部解释器。
+
+成功时控制台输出 `evidence_directory`，保留该临时目录中的请求、响应、诊断、清单及权限检查日志；仅清理临时程序副本。失败也保留现场，先查看第一条错误。不要通过全量收集源码或放宽文件禁入检查跳过缺依赖问题。
+
+以上小输入用于验证发布包可运行，**不等于真实订单性能验收，也不等于已在另一台无 Python 的电脑验证**。正式复测仍需保留完整包、清单、现场 YAML、匹配的规则数据库及新诊断。macOS 源码测试不能代替 Windows 实包验证。
+
 ## 首次启动
 
 双击或在命令行运行 `start_apsgo_v7_service.bat`。首次启动仅在文件缺失时执行以下初始化：
