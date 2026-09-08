@@ -31,6 +31,7 @@ from apsgo_scheduler.core.contracts import SearchStopReason, SolverPolicy, Solve
 from .configuration import DEFAULT_CONFIGURATION_PATH, load_service_configuration
 from .diagnostics import (
     DiagnosticStreamHandler,
+    RunDiagnostics,
     TimestampFormatter,
     log_bound_result,
     log_configuration,
@@ -545,29 +546,93 @@ def create_app(
 
             cancellation_event = Event()
             cancellation = SimpleNamespace(is_cancelled=cancellation_event.is_set)
-            _LOGGER.info(
-                "month_solve_started request_id=%s order_count=%s period_count=%s "
-                "expected_active_version_id=%s seed=%s candidate_check_limit=%s "
-                "total_time_limit_seconds=%s elapsed_seconds=%.6f",
-                parsed.task_input.request_id, len(parsed.task_input.orders),
-                len(parsed.task_input.periods), parsed.expected_active_version_id,
-                monthly_solve_policy.seed, monthly_solve_policy.candidate_check_limit,
-                monthly_solve_policy.total_time_limit_seconds, perf_counter() - started,
-            )
+            diagnostic = RunDiagnostics(diagnostics_directory, parsed.task_input.request_id, started)
+
+            def mark_disconnected():
+                if not cancellation_event.is_set():
+                    token = request_context.set(diagnostic)
+                    try:
+                        diagnostic.observe(_LOGGER.warning, "month_solve_client_disconnected worker_continues=True")
+                    finally:
+                        request_context.reset(token)
+                    cancellation_event.set()
 
             def solve_in_worker():
-                token = request_context.set((parsed.task_input.request_id, started))
+                token = request_context.set(diagnostic)
+                bound = None
+                response = None
+                failure = None
                 try:
-                    return solve_gqga4_scheduling_task(
-                        parsed.task_input,
-                        database_path,
-                        timeout_seconds=timeout_seconds,
-                        expected_active_version_id=parsed.expected_active_version_id,
-                        cancellation=cancellation,
+                    diagnostic.observe(diagnostic.start, body)
+                    diagnostic.observe(_LOGGER.info,
+                        "month_solve_started order_count=%s period_count=%s "
+                        "expected_active_version_id=%s seed=%s candidate_check_limit=%s "
+                        "total_time_limit_seconds=%s diagnostic_directory=%s",
+                        len(parsed.task_input.orders), len(parsed.task_input.periods),
+                        parsed.expected_active_version_id, monthly_solve_policy.seed,
+                        monthly_solve_policy.candidate_check_limit,
+                        monthly_solve_policy.total_time_limit_seconds, diagnostic.directory or "-",
                     )
+                    try:
+                        bound = solve_gqga4_scheduling_task(
+                            parsed.task_input,
+                            database_path,
+                            timeout_seconds=timeout_seconds,
+                            expected_active_version_id=parsed.expected_active_version_id,
+                            cancellation=cancellation,
+                        )
+                        # Public mapping failures remain HTTP errors, not diagnostic failures.
+                        content = dumps_month_solve_response(parsed, bound)
+                        status_code = (
+                            422
+                            if bound.result.status is SolveStatus.FAILED
+                            and bound.result.stop_reason is SearchStopReason.INPUT_INVALID
+                            else 200
+                        )
+                        response = _json_response(content, status_code=status_code)
+                        result_code = bound.result.status.value
+                    except Exception as error:
+                        failure = error
+                        response, result_code = _mapped_month_error(
+                            error, request_id=parsed.task_input.request_id,
+                            expected_active_version_id=parsed.expected_active_version_id,
+                        )
+                        diagnostic.observe(_LOGGER.log,
+                            logging.ERROR if response.status_code >= 500 else logging.WARNING,
+                            "month_solve_error result_code=%s type=%s message=%s",
+                            result_code, type(error).__name__, str(error),
+                            exc_info=response.status_code >= 500,
+                        )
+                    if bound is not None:
+                        diagnostic.observe(log_bound_result, _LOGGER, bound)
+                    diagnostic.observe(diagnostic.finish, bound, response, failure, cancellation_event.is_set)
+                    diagnostic.observe(_log_month_solve,
+                        response.status_code,
+                        request_id=parsed.task_input.request_id,
+                        expected_active_version_id=parsed.expected_active_version_id,
+                        active_version_id=(
+                            bound.active_rule_set_version_id if bound is not None else
+                            getattr(failure, "current_active_version_id", None)
+                        ),
+                        result_code=result_code, started=started,
+                    )
+                    diagnostic.observe(_LOGGER.info,
+                        "month_solve_finished diagnostic_directory=%s diagnostic_failure_count=%s "
+                        "client_disconnected=%s",
+                        diagnostic.directory or "-", len(diagnostic.failures), cancellation_event.is_set(),
+                    )
+                    return response
                 finally:
-                    request_context.reset(token)
-                    solve_lock.release()
+                    try:
+                        diagnostic.observe(diagnostic.close)
+                        diagnostic.observe(_LOGGER.info,
+                            "month_solve_worker_finished diagnostic_directory=%s "
+                            "diagnostic_failure_count=%s client_disconnected=%s",
+                            diagnostic.directory or "-", len(diagnostic.failures), cancellation_event.is_set(),
+                        )
+                    finally:
+                        request_context.reset(token)
+                        solve_lock.release()
 
             try:
                 worker = asyncio.create_task(run_in_threadpool(solve_in_worker))
@@ -578,19 +643,12 @@ def create_app(
                 while not worker.done():
                     await asyncio.wait((worker,), timeout=0.05)
                     if not worker.done() and await request.is_disconnected():
-                        cancellation_event.set()
-                bound = await worker
+                        mark_disconnected()
+                return await worker
             except asyncio.CancelledError:
-                cancellation_event.set()
+                mark_disconnected()
                 worker.add_done_callback(_consume_background_task)
                 raise
-            content = await run_in_threadpool(dumps_month_solve_response, parsed, bound)
-            status_code = (
-                422
-                if bound.result.status is SolveStatus.FAILED
-                and bound.result.stop_reason is SearchStopReason.INPUT_INVALID
-                else 200
-            )
         except asyncio.CancelledError:
             raise
         except Exception as error:
@@ -622,21 +680,6 @@ def create_app(
                     perf_counter() - started,
                 )
             return result
-        token = request_context.set((parsed.task_input.request_id, started))
-        try:
-            log_bound_result(_LOGGER, bound)
-        finally:
-            request_context.reset(token)
-        _log_month_solve(
-            status_code,
-            request_id=parsed.task_input.request_id,
-            expected_active_version_id=parsed.expected_active_version_id,
-            active_version_id=bound.active_rule_set_version_id,
-            result_code=bound.result.status.value,
-            started=started,
-        )
-        return _json_response(content, status_code=status_code)
-
     @application.post(SET_ACTIVE_RULES_PATH, response_class=Response)
     async def set_active_rules(request: Request) -> Response:
         operation_id = None

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -23,6 +24,7 @@ from apsgo_scheduler.core.contracts import (
 )
 
 from .gqga4 import GQGA4_RULE_SET_TEMPLATE
+from .diagnostics import request_context
 from .grade_dictionary import (
     GradePreparationReport,
     prepare_orders_with_grade_dictionary,
@@ -267,6 +269,17 @@ def solve_gqga4_scheduling_task(
         timeout_seconds=timeout_seconds,
         expected_active_version_id=expected_active_version_id,
     )
+    diagnostic = request_context.get()
+    if diagnostic is not None:
+        diagnostic.observe(diagnostic.prepared, task)
+        diagnostic.observe(
+            logging.getLogger(__name__).info,
+            "month_solve_bound active_version_id=%s rule_fingerprint=%s "
+            "dictionary_fingerprint=%s request_fingerprint=%s preparation=%s policy=%s",
+            task.active_rule_set_version_id, task.rule_set_fingerprint,
+            task.grade_dictionary_fingerprint, task.request_fingerprint,
+            task.preparation_report, task.request.policy,
+        )
     result = solve_request(task.request, cancellation)
     return BoundSchedulingResult(
         active_rule_set_version_id=task.active_rule_set_version_id,
