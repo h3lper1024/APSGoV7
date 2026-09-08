@@ -23,6 +23,7 @@ from release.verify_release import (
 )
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RELEASE_ROOT = PROJECT_ROOT / "release"
 
 
 def _git(root: Path, *arguments: str) -> str:
@@ -355,3 +356,80 @@ def test_package_mode_rejects_symlink(release_package: Path):
     with pytest.raises(ReleaseValidationError) as raised:
         verify_package(release_package)
     assert raised.value.code == "package_layout_invalid"
+
+
+def test_frozen_entry_only_delegates_to_existing_service_main():
+    source = (RELEASE_ROOT / "apsgo_v7_service_entry.py").read_text(encoding="utf-8")
+    assert "from apsgo_v7_service.app import main" in source
+    assert 'if __name__ == "__main__":\n    main()' in source
+    assert "uvicorn" not in source
+    assert "multiprocessing" not in source
+
+
+def test_build_dependency_is_one_exact_pyinstaller_candidate():
+    requirements = (RELEASE_ROOT / "requirements-build.txt").read_text(
+        encoding="utf-8"
+    )
+    assert requirements == "PyInstaller==6.22.2\n"
+
+
+def test_batch_entry_is_only_a_powershell_exit_code_bridge():
+    source = (RELEASE_ROOT / "build_exe.bat").read_text(encoding="utf-8")
+    assert source.splitlines() == [
+        "@echo off",
+        "setlocal",
+        'powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File '
+        '"%~dp0build_exe.ps1" %*',
+        'set "EXIT_CODE=%ERRORLEVEL%"',
+        "exit /b %EXIT_CODE%",
+    ]
+
+
+def test_powershell_build_contract_is_fixed_and_does_not_install_dependencies():
+    source = (RELEASE_ROOT / "build_exe.ps1").read_text(encoding="utf-8")
+    for expected in (
+        '$ExpectedCondaEnvironment = "aps_3.10.18"',
+        '$ExpectedPythonVersion = "3.10.18"',
+        '$ApplicationName = "APSGoV7Service"',
+        '$PackageName = "APSGoV7"',
+        "[Environment]::Is64BitOperatingSystem",
+        "[Environment]::Is64BitProcess",
+        '"--onedir"',
+        '"--console"',
+        '"--noupx"',
+        '"--contents-directory", "_internal"',
+        '"--collect-submodules", "uvicorn"',
+        "$Verifier source --repository-root $ProjectRoot",
+        "if ($null -ne $SourceValidation.git.branch)",
+        'if ($CheckOnly -and $Clean)',
+    ):
+        assert expected in source
+    assert '"-m", "pip"' not in source
+    assert '"pip", "install"' not in source
+    assert "Get-ChildItem" not in source
+    assert "Library\\bin" not in source
+    assert "GQGA5" not in source
+
+
+def test_check_only_precedes_all_build_output_mutations():
+    source = (RELEASE_ROOT / "build_exe.ps1").read_text(encoding="utf-8")
+    check_only = source.index("if ($CheckOnly)")
+    exit_zero = source.index("exit 0", check_only)
+    for mutation in (
+        "Remove-Item -LiteralPath",
+        "New-Item -ItemType Directory",
+        "& $CondaPython @PyInstallerArguments",
+        "Move-Item -LiteralPath",
+    ):
+        assert check_only < exit_zero < source.index(mutation)
+    assert source.index("$env:PYTHONDONTWRITEBYTECODE") < source.index("& conda run")
+    assert source.index('$env:GIT_OPTIONAL_LOCKS = "0"') < source.index(
+        "$Verifier source --repository-root $ProjectRoot"
+    )
+    assert "foreach ($path in @($BuildRoot, $PackageDirectory))" in source
+    assert source.count("Remove-Item -LiteralPath") == 1
+    assert '"--distpath", $PyInstallerDistDirectory' in source
+    assert (
+        "$BuiltDirectory = Join-Path $PyInstallerDistDirectory $ApplicationName"
+        in source
+    )

@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.3 / 2026-09-08 |
-| 状态 | 阶段 0～1 已完成；下一项为阶段 2“建立 Windows 目录式 EXE 构建”；Windows EXE 尚未生成 |
+| 版本 / 日期 | v0.4 / 2026-09-08 |
+| 状态 | 阶段 0～1 已完成；阶段 2 源码实现已完成，Windows x64 构建门禁待关闭 |
 | 实施基线 | `codex/rule-setting-api-integration@90c78d2f460fd24add0f078508fdbb14cbc486dd` |
 | 权威设计 | [APSGo V7 Windows EXE 发布打包详细设计](../design/apsgo_v7_windows_exe_release_packaging_design.md) |
 | 构建平台 | 64 位 Windows；当前 macOS ARM64 只执行文档和源码侧验证 |
@@ -224,6 +224,24 @@ release\dist\APSGoV7\APSGoV7Service.exe --help
 - 只产生一个服务 EXE 和一个 `_internal` 目录；
 - 依赖漏包按真实错误最小补充，不用全环境扫描兜底。
 - Windows 构建证据对应一个真实 Git 提交，清单中的提交号与该提交完全一致。
+
+### 10.4 源码实现结果
+
+- 新增最小冻结入口，只调用现有 `apsgo_v7_service.app:main`；当前 macOS 在显式
+  `PYTHONPATH=src` 时执行 `--help` 成功，证明 `--paths src` 不能省略。
+- 新增薄 BAT 和唯一 PowerShell 编排。脚本固定 Windows x64、Conda `aps_3.10.18`、
+  Python 3.10.18，并把 `PyInstaller==6.22.2` 固定为首次 Windows 试构建候选；不自动安装。
+- `-CheckOnly` 与 `-Clean` 互斥；只读检查在任何项目目录写入前结束。正式构建要求源码验证器
+  返回 detached HEAD，防止从普通开发工作树生成无法精确追溯的包。
+- PyInstaller 采用 `onedir + console + noupx`，只额外收集 Uvicorn 子模块；临时产物全部进入
+  `release/build`，最终目录为 `release/dist/APSGoV7`。清理只涉及这两个固定目标，并拒绝
+  Windows 重解析点。
+- 源码侧 26 项发布专项、最小入口帮助和 Python 编译检查通过；生产服务、数据库、YAML、
+  规则、算法和 HTTP 契约未修改。详见
+  [阶段 2 源码证据](evidence/apsgo_v7_windows_exe_release_packaging/stage_02_windows_onedir_build_source/README.md)。
+- 当前平台为 macOS ARM64，且项目 Conda 环境未安装 PyInstaller、没有 PowerShell；因此没有
+  生成 Windows EXE。本节只表示“阶段 2 源码实现完成”，阶段 2 的 Windows x64 构建、
+  EXE `--help` 和空白机验证仍为未关闭门禁。
 
 ## 11. 阶段 3：建立启停与规则数据库保护
 

@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.1 / 2026-09-08 |
-| 状态 | 设计完成，待按实施计划执行；代码、构建脚本和 Windows 实包尚未实施 |
+| 版本 / 日期 | v0.2 / 2026-09-08 |
+| 状态 | 阶段 0～1 已完成；阶段 2 源码实现已完成，待 Windows x64 实包验证 |
 | 当前代码基线 | `codex/rule-setting-api-integration@c8c26dff96c6bd290c41afba0d0d7405d6b2d337` |
 | 适用系统 | 64 位 Windows；确切 Windows 版本须在目标部署机验证 |
 | 构建环境 | Conda `aps_3.10.18`，Python 3.10.18 |
@@ -146,7 +146,15 @@ if __name__ == "__main__":
 
 Uvicorn 会按字符串选择部分协议实现，首版构建显式收集其子模块。不要复制 V3“扫描 Conda 全部 DLL/PYD”的做法；若 Windows 实包出现明确的缺失模块或 DLL，再以错误信息和最小复现补充，不能预先把整个环境塞进发布包。
 
-PyInstaller 仅属于构建依赖，不加入 V7 生产 `dependencies`。实施时先在 `release/requirements-build.txt` 写入一个精确候选版本并随构建脚本提交，再从该提交的分离 worktree 由开发人员显式安装和试构建；若失败，以独立 `#fix` 提交更新候选或脚本。Windows 构建通过前，该阶段不得标记完成；后续正式发布不得静默升级，构建脚本也不得自动安装或升级。
+PyInstaller 仅属于构建依赖，不加入 V7 生产 `dependencies`。阶段 2 首次候选已固定为
+`PyInstaller==6.22.2`：该版本是 2026-08-17 发布的当前官方版本，官方元数据声明支持
+Python 3.8～3.15 并提供 Windows x86-64 wheel；这些信息只证明候选与目标环境相容，不等于
+V7 已在 Windows 实测通过。构建脚本不得自动安装或升级；开发人员必须在 detached worktree
+中显式安装并试构建。若失败，以独立 `#fix` 提交更新候选或脚本。Windows 构建通过前，
+阶段 2 不得标记完成，后续正式发布也不得静默升级。
+
+候选依据：[PyInstaller 官方 PyPI](https://pypi.org/project/pyinstaller/)与
+[官方变更记录](https://pyinstaller.org/en/latest/CHANGES.html)。
 
 ## 8. 配置与启动设计
 
