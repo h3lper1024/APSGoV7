@@ -1,0 +1,56 @@
+{
+  "candidate_dispatch": {
+    "evaluate_complete_chain": 4136,
+    "evaluate_node": 85225,
+    "evaluate_plan": 2263
+  },
+  "code_root": "/private/tmp/apsgo-v7-reuse-pairs.UlRN2t/new",
+  "counts": {
+    "candidate_attempts": 2263,
+    "candidate_completed": 2263,
+    "cold_candidates": 78,
+    "fallback_candidates": 0,
+    "new_chain_entries": 4136,
+    "possible_chain_evaluations": 51937,
+    "possible_node_evaluations": 1235956,
+    "reused_chain_entries": 47801,
+    "reused_node_evaluations": 1150731,
+    "zero_hit_candidates": 78
+  },
+  "dispatch": {
+    "evaluate_complete_chain": 6275,
+    "evaluate_node": 85756,
+    "evaluate_plan": 2264
+  },
+  "maxima": {
+    "candidate_entries": 30,
+    "candidate_nodes": 556,
+    "current_entries": 30,
+    "current_nodes": 555,
+    "distinct_entries": 31,
+    "distinct_nodes": 556
+  },
+  "node_count_semantics": "distinct Node object identities within each entry group",
+  "prepared_request_sha256": "11bdd096717414a25b14e7a219b860e6e84953f17e9c02bbf8e298da9266829c",
+  "probe_sha256": "3e29523eb8c5d55132262cbcb347022b83b00b744a8f98d5fc069c4d6a4007eb",
+  "retention_scope": "current bound holder plus one evaluated candidate, not process bytes",
+  "scope": "public solve until first-search exit; includes initial and quick checks",
+  "status": "completed",
+  "timing_warning": "profiling and counting overhead; excluded from five timing pairs",
+  "first_search_ordered_comparison": "identical to pair_01_new including evaluation and trace",
+  "observed_first_counters": [
+    64226,
+    2263,
+    34
+  ],
+  "profile_wall_seconds": 81.83206916699419,
+  "profile_cpu_seconds": 81.76817000000001,
+  "hashes": {
+    "probe_summary.json": "c352884237e069f8cf929c0fb7e29d1436f9bfaafea4446cc452d7d87546d067",
+    "first_search.pstats": "4190e87764d2f5035399fc7460ad31daae4515af72508459b6c4e042b29fed0b",
+    "measurement.json": "dbf93f0bef4664ab0f9658b1013dfaeb571f1d0f35803ef5ff64b3e99878484d",
+    "input_identity.json": "d278838014afd6cbdf67787e17046817ca4dd50f8b9d68d26e4a0ec2f1fef20a"
+  },
+  "saved_complete_chain_percent": 92.036506,
+  "saved_node_percent": 93.104528
+}
