@@ -79,7 +79,8 @@ $RequirementLines = @(
     Get-Content -LiteralPath $Requirements |
         Where-Object { $_ -and -not $_.TrimStart().StartsWith("#") }
 )
-if ($RequirementLines.Count -ne 1 -or $RequirementLines[0] -notmatch '^PyInstaller==(.+)$') {
+$PyInstallerRequirementLines = @($RequirementLines | Where-Object { $_ -match '^PyInstaller==' })
+if ($PyInstallerRequirementLines.Count -ne 1 -or $PyInstallerRequirementLines[0] -notmatch '^PyInstaller==(.+)$') {
     throw "requirements-build.txt must contain exactly one pinned PyInstaller version."
 }
 $ExpectedPyInstallerVersion = $Matches[1]
@@ -97,6 +98,7 @@ $CondaPython = Join-Path $CondaPrefix "python.exe"
 if (-not (Test-Path -LiteralPath $CondaPython -PathType Leaf)) {
     throw "Python executable is missing from Conda environment '$ExpectedCondaEnvironment'."
 }
+$DependencyInstallCommand = "& '$CondaPython' -m pip install -r '$Requirements'"
 
 $RuntimeInspectionCode = @'
 import json
@@ -131,10 +133,10 @@ except PackageNotFoundError:
 '@
 $ActualPyInstallerVersion = $PyInstallerVersionCode | & $CondaPython -
 if ($LASTEXITCODE -ne 0) {
-    throw "PyInstaller is not installed. Run: $CondaPython -m pip install -r $Requirements"
+    throw "PyInstaller is not installed. Run: $DependencyInstallCommand"
 }
 if ($ActualPyInstallerVersion.Trim() -ne $ExpectedPyInstallerVersion) {
-    throw "PyInstaller $ExpectedPyInstallerVersion is required; found $ActualPyInstallerVersion."
+    throw "PyInstaller $ExpectedPyInstallerVersion is required; found $ActualPyInstallerVersion. Run: $DependencyInstallCommand"
 }
 
 $ExpectedNumericVersions = [ordered]@{
@@ -143,9 +145,6 @@ $ExpectedNumericVersions = [ordered]@{
     "llvmlite" = "0.47.0"
     "pyinstaller-hooks-contrib" = $ExpectedPyInstallerHooksVersion
 }
-$DependencyInstallArguments = ($ExpectedNumericVersions.GetEnumerator() | ForEach-Object {
-    "$($_.Key)==$($_.Value)"
-}) -join " "
 $NumericDependencyCode = @'
 import json
 import sys
@@ -161,13 +160,13 @@ except PackageNotFoundError as error:
 '@
 $NumericDependencyJson = $NumericDependencyCode | & $CondaPython -
 if ($LASTEXITCODE -ne 0) {
-    throw "Numeric build dependencies are missing. Run: & '$CondaPython' -m pip install $DependencyInstallArguments"
+    throw "Numeric build dependencies are missing. Run: $DependencyInstallCommand"
 }
 $ActualNumericVersions = $NumericDependencyJson | ConvertFrom-Json
 foreach ($dependency in $ExpectedNumericVersions.GetEnumerator()) {
     $actualVersion = $ActualNumericVersions.PSObject.Properties[$dependency.Key].Value
     if ($actualVersion -ne $dependency.Value) {
-        throw "$($dependency.Key) $($dependency.Value) is required; found $actualVersion. Run: & '$CondaPython' -m pip install $DependencyInstallArguments"
+        throw "$($dependency.Key) $($dependency.Value) is required; found $actualVersion. Run: $DependencyInstallCommand"
     }
 }
 

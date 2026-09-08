@@ -4,7 +4,7 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.7 / 2026-09-09 |
+| 版本 / 日期 | v0.8 / 2026-09-09 |
 | 状态 | 阶段0～4已提交；阶段5发布适配源码已实现，验证见本项证据；Windows实包及阶段6待验 |
 | 仓库 / 分支 | `APSGOV7` / `codex/solver-performance-optimization` |
 | 编写前提交 | `d55dadbcc2610b0cd8ef29362084f40ff3929706`，工作树干净 |
@@ -192,7 +192,7 @@ NumPy/Numba 作为本项运行依赖声明；`llvmlite` 是 Numba 使用的编�
 
 本期不另加启动预热流程、磁盘目录、环境变量或清理器。若首次编译无法满足现有调用/取消要求，阶段 0 或性能阶段停止接线并提出预热方案，而非默认修改服务启动。冷进程与同进程后续运行分别报告，不以热运行代替首次启动验收。
 
-沿用 Windows `release/build_exe.bat` / `.ps1`，Python 3.10.18 x64、现有 PyInstaller 6.22.2 和 `onedir`。`requirements-build.txt` 当前被脚本限制为单行 PyInstaller，不能直接往里追加运行依赖。依赖声明、安装校验、发布清单的版本字段和测试同步规划；优先使用现有 PyInstaller 官方 hooks，不无差别 `collect-all`。`pyinstaller-hooks-contrib` 的适配版本也在阶段0核验后固定，由构建脚本一处私有确切版本常量作为安装/构建前检查依据，清单记录实际值；不能只记录恰好装到的版本，不新增用户配置项。
+沿用 Windows `release/build_exe.bat` / `.ps1`，Python 3.10.18 x64、现有 PyInstaller 6.22.2 和 `onedir`。用户在阶段5源码提交后要求将新增依赖放入requirements文件：`release/requirements-build.txt`现包含PyInstaller及NumPy2.2.6、Numba0.65.1、llvmlite0.47.0、hooks2026.6共5条固定声明，统一用`pip install -r`安装。脚本只要求PyInstaller声明唯一，不再限制整个文件只有一行；其他精确版本检查及清单校验保持。三个运行库与`pyproject.toml`版本由回归检查保持一致。优先现有PyInstaller官方hooks，不无差别`collect-all`；hooks构建前检查仍使用既有私有固定值，清单记录实际版本，不新增用户配置或依赖解析框架。
 
 当前发布清单拒绝散落源码/测试/缓存，Numba 打包若需要精确资源或少量源文件，应先实包核验并另提精确白名单，不能全局放宽。必须在无外部 Python 的 Windows 机器真实执行单桥和双桥内核；仅 `--help`、规则 GET/POST 和服务启动成功不算加速已可用。只读场景指 EXE/`_internal` 所在安装内容不可写，直接以原 `--config` 传入临时可写配置，数据库/日志/诊断也放临时可写位置；不是要求现有启动脚本在全只读目录初始化数据库。现启动脚本的常规可写目录冒烟仍保留，不修改正式运行目录设计。同进程再次求解和进程重启均需验证。
 

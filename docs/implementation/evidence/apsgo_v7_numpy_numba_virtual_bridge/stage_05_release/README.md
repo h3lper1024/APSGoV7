@@ -1,5 +1,7 @@
 # 阶段5：数值桥接发布适配与本机验证
 
+后续补充（实施前`edbc5a6`）：用户要求新增依赖进入requirements，现将4项固定依赖追加到原`release/requirements-build.txt`，并调整脚本的PyInstaller单条声明定位。下方原阶段5“单行文件”为当时事实，不改写历史测试；第4节安装命令已更新为当前入口，本次补充验证见其独立提交正文。
+
 ## 1. 范围与身份
 
 - 日期：2026-09-09；实施前提交：`111ac6775a326b602a508089244d31c4bb4b615d`。
@@ -70,7 +72,7 @@ git diff --check
 在Windows检出本项提交，先保持现场旧包、YAML和数据库原样，在源码仓库根目录执行：
 
 ```powershell
-conda run -n aps_3.10.18 python -m pip install -r release/requirements-build.txt numpy==2.2.6 numba==0.65.1 llvmlite==0.47.0 pyinstaller-hooks-contrib==2026.6
+conda run -n aps_3.10.18 python -m pip install -r release/requirements-build.txt
 .\release\build_exe.bat -CheckOnly
 .\release\build_exe.bat
 ```

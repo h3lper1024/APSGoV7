@@ -860,11 +860,18 @@ def test_frozen_entry_only_delegates_to_existing_service_main():
     assert "multiprocessing" not in source
 
 
-def test_build_dependency_is_one_exact_pyinstaller_candidate():
+def test_build_requirements_include_exact_pyinstaller_and_numeric_dependencies():
     requirements = (RELEASE_ROOT / "requirements-build.txt").read_text(
         encoding="utf-8"
     )
-    assert requirements == "PyInstaller==6.22.2\n"
+    assert requirements.splitlines() == [
+        "PyInstaller==6.22.2",
+        *(f"{name}=={version}" for name, version in
+          zip(NUMERIC_DISTRIBUTIONS, NUMERIC_BUILD_VERSIONS.values())),
+    ]
+    project = (PROJECT_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    for requirement in requirements.splitlines()[1:4]:
+        assert f'"{requirement}"' in project
 
 
 def test_batch_entry_is_only_a_powershell_exit_code_bridge():
@@ -912,6 +919,11 @@ def test_powershell_build_contract_is_fixed_and_does_not_install_dependencies():
     dependency_check = source.index("$NumericDependencyJson =")
     assert dependency_check < source.index("if ($CheckOnly)")
     assert "$actualVersion -ne $dependency.Value" in source
+    assert "$PyInstallerRequirementLines.Count -ne 1" in source
+    assert "Where-Object { $_ -match '^PyInstaller==' }" in source
+    assert "$RequirementLines.Count -ne 1" not in source
+    assert '$DependencyInstallCommand = "& \'$CondaPython\' -m pip install -r \'$Requirements\'"' in source
+    assert "$DependencyInstallArguments" not in source
 
 
 def test_multiline_python_is_sent_over_stdin_not_native_command_arguments():

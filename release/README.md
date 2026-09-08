@@ -7,12 +7,12 @@
 以下命令在 **Windows 源码仓库根目录**执行，使用 Conda `aps_3.10.18`（Python 3.10.18 x64），不是要求现场运行人员安装 Python：
 
 ```powershell
-conda run -n aps_3.10.18 python -m pip install -r release/requirements-build.txt numpy==2.2.6 numba==0.65.1 llvmlite==0.47.0 pyinstaller-hooks-contrib==2026.6
+conda run -n aps_3.10.18 python -m pip install -r release/requirements-build.txt
 .\release\build_exe.bat -CheckOnly
 .\release\build_exe.bat
 ```
 
-其他服务依赖仍按项目安装说明准备。构建脚本只检查版本，不自动安装；`-CheckOnly` 只做前置检查，不生成 EXE 或证明运行通过。已有本脚本输出目录时，确认保留需要的旧包后，再按原约定使用 `-Clean` 重建。
+该文件包含PyInstaller和本次数值桥接新增依赖的固定版本；其他服务依赖仍按项目安装说明准备。构建脚本只检查版本，不自动安装；`-CheckOnly` 只做前置检查，不生成 EXE 或证明运行通过。已有本脚本输出目录时，确认保留需要的旧包后，再按原约定使用 `-Clean` 重建。
 
 NumPy 保存桥接数值，Numba 在实际首次桥接时编译计算循环，llvmlite 提供编译运行库；`pyinstaller-hooks-contrib` 是打包工具收集这些依赖所用的辅助规则。发布清单记录四项精确版本，不能混用其他包的运行库。首次请求含编译成本，服务启动及读取规则不预热编译，Numba不写磁盘编译缓存。
 
