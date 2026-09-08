@@ -1,5 +1,7 @@
 # APSGo V7 当前工作约定
 
+- 当前NumPy／Numba阶段3（2026-09-09，实施前 `1994ee3`）：阶段2双树各3713项通过并提交。设计/计划v0.5；唯一bridge入口在原直接连接/数量上限后接入数值路径，原Python循环原样提取作回退，只物化胜出节点。目录按工厂复用，锚点每次准备；静态不支持不增加预算轮询，单次锚点回退不污染目录，取消整体丢弃，程序异常不吞。每工厂至多三条真实执行日志，help/规则GET/直接连接不加载数值模块。专项233项通过，原自定义17查询/49轮询保持，语法树及独立复核通过；[阶段3证据](docs/implementation/evidence/apsgo_v7_numpy_numba_virtual_bridge/stage_03_bridge_integration/README.md)及提交正文记录最终双树验证。规则、预算、配置和库不改；独立提交后持续阶段4完整对照，不提前宣称性能/Windows验收。
+
 - 当前NumPy／Numba阶段2（2026-09-08，实施前 `d5ff583`）：阶段1双树各3628项通过并提交。设计/计划v0.4；只在原私有模块加入四种判边、三点评分和共用64组合扫描，两个薄包装负责预算/数组边界；同边规则不短路、边间短路，原序/同分/双桥中间边双计分与异常回退保持。未建额外连接缓存。两次独立真实nopython探针选桥与原物化字段一致，首次129原型扫描含JIT1.652684/1.760753秒，复调约1.396/1.474毫秒，不是完整求解提速。正式bridge尚未接线，YAML/SQLite/规则/发布不改；[阶段2证据](docs/implementation/evidence/apsgo_v7_numpy_numba_virtual_bridge/stage_02_numeric_kernels/README.md)和提交正文记录专项/累计与原始测量。提交后持续阶段3唯一入口接线；不关闭完整性能或Windows门禁。
 
 - 当前NumPy／Numba阶段1（2026-09-08，实施前 `b659866`）：阶段0已提交，双树各3560项通过。设计/计划v0.3；新增私有 `_bridge_numeric.py`，准备绑定问题/规则集/上下文的只读原型和本次锚点数组；缺失掩码、规则顺序、原始Decimal温区及64行分块停止均保留。未知类型/重复边规则/不安全投影保守回退，不提前物化。数值桥接边均含生成型虚拟材，软硬规则只读原虚拟桥接开关，不建无用牌号编码。精确依赖NumPy2.2.6/Numba0.65.1/llvmlite0.47.0已声明，只有此模块有外部库导入例外；其余核心架构不放宽。正式bridge、规则、预算、YAML、SQLite及发布脚本不改；[阶段1证据](docs/implementation/evidence/apsgo_v7_numpy_numba_virtual_bridge/stage_01_numeric_inputs/README.md)及提交正文记录验证。独立提交后持续进入阶段2，不把数据准备视为内核/性能/Windows验收；下方旧入口为历史。

@@ -94,16 +94,15 @@ def _readonly(*arrays):
         array.setflags(write=False)
 
 
-def prepare_catalog(factory) -> _NumericCatalog | None:
-    """Return unsupported/stop without materializing or evaluating any prototype."""
+def supported_rules(factory):
+    """Check eligibility without budget polling, preserving the original fallback path."""
     from .virtual_material import VirtualFactory
 
     if type(factory) is not VirtualFactory or type(factory.cache) is not RuleEdgeDecisionCache:
         return None
-    cache, budget = factory.cache, factory.budget
-    if type(cache.rule_set) is not ProcessRuleSet or not budget.allows_search():
+    if type(factory.cache.rule_set) is not ProcessRuleSet:
         return None
-    rules = cache.rule_set.rules_for_scope(RuleScope.EDGE)
+    rules = factory.cache.rule_set.rules_for_scope(RuleScope.EDGE)
     kinds = []
     for rule in rules:
         if type(rule) not in _RULE_TYPES:
@@ -112,6 +111,18 @@ def prepare_catalog(factory) -> _NumericCatalog | None:
         if kind in kinds:
             return None
         kinds.append(kind)
+    return rules
+
+
+def prepare_catalog(factory) -> _NumericCatalog | None:
+    """Return unsupported/stop without materializing or evaluating any prototype."""
+    rules = supported_rules(factory)
+    if rules is None:
+        return None
+    cache, budget = factory.cache, factory.budget
+    if not budget.allows_search():
+        return None
+    kinds = [_RULE_TYPES.index(type(rule)) for rule in rules]
 
     thickness = next((rule for rule in rules if type(rule) is ThicknessTransitionRule), None)
     ranges = () if thickness is None else thickness.parameters["ranges"]

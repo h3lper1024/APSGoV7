@@ -1,5 +1,6 @@
 """Deterministic virtual choices with caller-owned, proposed generation numbers."""
 
+import logging
 from dataclasses import dataclass, field
 from itertools import pairwise
 from math import isfinite
@@ -16,7 +17,10 @@ from .model import (
     VirtualMaterialPrototype,
     VirtualPurpose,
 )
+from .process_logging import emit
 from .rules.concrete import ConsecutiveVirtualMaterialRule
+
+logger = logging.getLogger(__name__)
 
 
 def _require_nodes(*nodes):
@@ -46,6 +50,8 @@ class VirtualFactory:
     cache: RuleEdgeDecisionCache
     budget: SolveRuntimeBudget
     _node_id_prefix: str = field(init=False, repr=False)
+    _numeric_catalog: object = field(default=None, init=False, repr=False, compare=False)
+    _numeric_events: set[str] = field(default_factory=set, init=False, repr=False, compare=False)
 
     def __post_init__(self):
         if not isinstance(self.cache, RuleEdgeDecisionCache):
@@ -140,6 +146,84 @@ class VirtualFactory:
         )
         if not self.budget.allows_search() or max_nodes == 0:
             return None
+        result = self._numeric_bridge(
+            left, right, max_nodes=max_nodes, first_sequence=first_sequence,
+        )
+        if result is not NotImplemented:
+            return result
+        return self._python_bridge(left, right, max_nodes=max_nodes, first_sequence=first_sequence)
+
+    def _numeric_bridge(self, left, right, *, max_nodes, first_sequence):
+        if not self.cache.problem.virtual_prototypes or self._numeric_catalog is NotImplemented:
+            return NotImplemented
+        from . import _bridge_numeric as numeric
+
+        catalog = self._numeric_catalog
+        if catalog is not None and not catalog.matches(self.cache):
+            object.__setattr__(self, "_numeric_catalog", None)
+            catalog = None
+        if catalog is None:
+            if numeric.supported_rules(self) is None:
+                object.__setattr__(self, "_numeric_catalog", NotImplemented)
+                return NotImplemented
+            catalog = numeric.prepare_catalog(self)
+            if catalog is None:
+                if not self.budget.allows_search():
+                    return None
+                object.__setattr__(self, "_numeric_catalog", NotImplemented)
+                return NotImplemented
+            object.__setattr__(self, "_numeric_catalog", catalog)
+        if not self.budget.allows_search():
+            return None
+        try:
+            for offset in range(max_nodes):
+                _ = f"{first_sequence + offset:06d}"
+        except ValueError:
+            # Unbounded integers can exceed Python's string conversion limit during materialize.
+            return NotImplemented if self.budget.allows_search() else None
+        if not self.budget.allows_search():
+            return None
+        arrays = numeric.prepare_bridge(catalog, left, right, self.budget)
+        if arrays is None:
+            return NotImplemented if self.budget.allows_search() else None
+        if "start" not in self._numeric_events:
+            self._numeric_events.add("start")
+            emit(logger, "solver_bridge_numeric_start")
+        safe, selected = numeric.scan_single(catalog, *arrays, self.budget)
+        if not safe:
+            return NotImplemented if self.budget.allows_search() else None
+        self._numeric_ready("single", selected, numeric._scan_block.nopython_signatures)
+        if selected is None and max_nodes > 1:
+            safe, selected = numeric.scan_double(catalog, *arrays, self.budget)
+            if not safe:
+                return NotImplemented if self.budget.allows_search() else None
+            self._numeric_ready("double", selected, numeric._scan_block.nopython_signatures)
+        if not self.budget.allows_search() or selected is None:
+            return None
+        result = []
+        for offset, index in enumerate(selected):
+            if not self.budget.allows_search():
+                return None
+            result.append(
+                self.materialize(
+                    self.cache.problem.virtual_prototypes[index], left, right,
+                    purpose=VirtualPurpose.EDGE_BRIDGE, sequence=first_sequence + offset,
+                )
+            )
+            if not self.budget.allows_search():
+                return None
+        return tuple(result) if self.budget.allows_search() else None
+
+    def _numeric_ready(self, mode, selected, signatures):
+        if mode not in self._numeric_events and signatures:
+            self._numeric_events.add(mode)
+            emit(
+                logger, "solver_bridge_numeric_ready", mode=mode, nopython=True,
+                found=selected is not None,
+            )
+
+    def _python_bridge(self, left, right, *, max_nodes, first_sequence):
+        """The original ordered virtual search, after the unchanged public direct-edge prefix."""
         best, best_score = None, None
         first_nodes = {}
         for prototype in self.cache.problem.virtual_prototypes:

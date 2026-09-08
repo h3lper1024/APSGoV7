@@ -1,8 +1,15 @@
 """Numeric preparation only: binding, exact inputs and bounded, zero-cost stops."""
 
+import builtins
+import logging
+import os
+import subprocess
+import sys
 from dataclasses import fields, replace
 from decimal import Decimal
 from itertools import product
+from pathlib import Path
+from textwrap import dedent
 
 import numpy as np
 import pytest
@@ -10,12 +17,14 @@ import pytest
 from apsgo_scheduler.app.input_normalizer import normalize_input
 from apsgo_scheduler.app.rule_set_loader import load_rule_set
 from apsgo_scheduler.core import _bridge_numeric as numeric
+from apsgo_scheduler.core import virtual_material
 from apsgo_scheduler.core.budget import SolveRuntimeBudget
 from apsgo_scheduler.core.compatibility import RuleEdgeDecisionCache
 from apsgo_scheduler.core.contracts import RuleScope, SearchStopReason, fingerprint
 from apsgo_scheduler.core.model import MaterialRole, Node, VirtualMaterialPrototype, VirtualPurpose
 from apsgo_scheduler.core.rules.base import Rule, RuleEvaluationContext
 from apsgo_scheduler.core.rules.concrete import (
+    ConsecutiveVirtualMaterialRule,
     SoftHardConnectionRule,
     TemperatureOverlapRule,
     ThicknessTransitionRule,
@@ -457,18 +466,30 @@ def test_bridge_preparation_checks_each_block_and_discards_partial_output(monkey
     assert fingerprint(factory.cache.problem) == before
 
 
-def test_stage_one_does_not_connect_the_numeric_preparer_to_production_bridge(monkeypatch):
+def test_production_bridge_calls_real_numeric_scan_and_materializes_only_single_winner(monkeypatch):
     factory = make_factory((prototype("a", width="1100"), prototype("b", width="1200")),
                            nodes=(node("left", width="1000"), node("right", width="1300")),
                            rule_items=(rule(WidthTransitionRule),))
 
-    def forbidden(*args, **kwargs):
-        raise AssertionError("stage one must not invoke numeric preparation from bridge")
+    scans, created = [], []
+    original_scan, original_materialize = numeric.scan_single, VirtualFactory.materialize
 
-    monkeypatch.setattr(numeric, "prepare_catalog", forbidden)
+    def scan(*args):
+        result = original_scan(*args)
+        scans.append(result)
+        return result
+
+    def materialize(self, *args, **kwargs):
+        created.append(args[0].prototype_id)
+        return original_materialize(self, *args, **kwargs)
+
+    monkeypatch.setattr(numeric, "scan_single", scan)
+    monkeypatch.setattr(VirtualFactory, "materialize", materialize)
     selected = factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=5)
     assert len(selected) == 1 and selected[0].virtual_lineage.prototype_id == "a"
-    assert factory.cache.miss_count > 0 and factory.budget.candidate_check_count == 0
+    assert scans == [(True, (0,))] and created == ["a"]
+    assert numeric._scan_block.nopython_signatures
+    assert factory.cache.miss_count == 1 and factory.budget.candidate_check_count == 0
 
 
 def prepared(factory):
@@ -890,3 +911,459 @@ def test_unknown_numeric_rule_kind_is_an_implementation_error():
     corrupted.setflags(write=False)
     with pytest.raises(ValueError, match="unknown numeric bridge rule kind"):
         numeric.scan_single(replace(catalog, rule_kinds=corrupted), values, missing, factory.budget)
+
+
+def integration_factory(*, double=False, rule_items=(), runtime=None):
+    return make_factory(
+        tuple(prototype(str(index), width=str(width))
+              for index, width in enumerate((1100, 1300, 1150, 1250))),
+        nodes=(node("left", width="1000"), node("right", width="1400" if double else "1300")),
+        rule_items=(rule(WidthTransitionRule), *rule_items), runtime=runtime,
+    )
+
+
+@pytest.mark.parametrize("double", (False, True))
+def test_integrated_numeric_bridge_matches_original_python_nodes_without_speculative_materialization(
+    monkeypatch, double,
+):
+    factory = integration_factory(double=double)
+    created = []
+    original = VirtualFactory.materialize
+
+    def materialize(self, *args, **kwargs):
+        result = original(self, *args, **kwargs)
+        created.append(result)
+        return result
+
+    monkeypatch.setattr(VirtualFactory, "materialize", materialize)
+    before = fingerprint(factory.cache.problem)
+    result = factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7)
+    assert tuple(created) == result
+    assert len(result) == (2 if double else 1)
+    assert tuple(item.virtual_lineage.accepted_sequence for item in result) == (
+        (7, 8) if double else (7,)
+    )
+    assert factory.cache.entry_count == 1
+    assert numeric._scan_block.nopython_signatures
+    assert result == factory._python_bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7)
+    assert fingerprint(factory.cache.problem) == before
+    assert factory.budget.candidate_check_count == 0
+
+
+@pytest.mark.parametrize("case", ("direct", "zero_argument", "zero_rule", "empty"))
+def test_non_numeric_bridge_paths_do_not_import_or_prepare_numeric_data(monkeypatch, case):
+    if case == "direct":
+        factory = make_factory((prototype("bad", width="1e10000"),))
+    elif case == "empty":
+        factory = make_factory((), nodes=(node("left"), node("right", width="1300")),
+                               rule_items=(rule(WidthTransitionRule),))
+    else:
+        cap = ConsecutiveVirtualMaterialRule("cap", "cap", RuleScope.CHAIN, True, "1", {"max_count": 0})
+        factory = integration_factory(rule_items=(cap,) if case == "zero_rule" else ())
+    imported = builtins.__import__
+
+    def reject_numeric(name, globals=None, locals=None, fromlist=(), level=0):
+        if "_bridge_numeric" in name or "_bridge_numeric" in (fromlist or ()):
+            raise AssertionError("no numerical work is needed on this path")
+        return imported(name, globals, locals, fromlist, level)
+
+    monkeypatch.setattr(builtins, "__import__", reject_numeric)
+    assert factory.bridge(*factory.cache.problem.nodes, max_nodes=0 if case == "zero_argument" else 2,
+                          first_sequence=7) == (() if case == "direct" else None)
+    assert factory._numeric_catalog is None and factory.budget.candidate_check_count == 0
+
+
+@pytest.mark.parametrize("allowed", (False, True))
+def test_integrated_virtual_soft_bridge_switch_matches_original(allowed):
+    factory = integration_factory(rule_items=(rule(SoftHardConnectionRule,
+                                                  virtual_sphc_allows_bridge=allowed),))
+    result = factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7)
+    assert bool(result) is allowed
+    assert result == factory._python_bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7)
+    assert factory._numeric_catalog is not None
+
+
+@pytest.mark.parametrize("ignore,adaptive", tuple(product((False, True), repeat=2)))
+def test_integrated_temperature_switches_match_original(ignore, adaptive):
+    factory = integration_factory(rule_items=(rule(TemperatureOverlapRule,
+                                                  ignore_temperature=ignore,
+                                                  virtual_temperature_adaptive=adaptive),))
+    left, right = factory.cache.problem.nodes
+    anchors = replace(left, max_temperature=D(705)), right
+    result = factory.bridge(*anchors, max_nodes=2, first_sequence=7)
+    assert bool(result) is (ignore or adaptive)
+    assert result == factory._python_bridge(*anchors, max_nodes=2, first_sequence=7)
+    assert factory._numeric_catalog is not None
+
+
+def test_integrated_catalog_reuse_keeps_anchors_local_and_recovers_after_anchor_fallback(monkeypatch):
+    factory = integration_factory()
+    original = numeric.prepare_catalog
+    calls = []
+
+    def prepare(value):
+        calls.append(value)
+        return original(value)
+
+    monkeypatch.setattr(numeric, "prepare_catalog", prepare)
+    anchors = factory.cache.problem.nodes
+    initial = factory.bridge(*anchors, max_nodes=2, first_sequence=7)
+    catalog = factory._numeric_catalog
+    changed = tuple(replace(item, min_temperature=D(500), max_temperature=D(600)) for item in anchors)
+    altered = factory.bridge(*changed, max_nodes=2, first_sequence=8)
+    assert altered[0].min_temperature == D(500) and altered[0].max_temperature == D(600)
+    assert initial[0].min_temperature == D(700) and initial[0].max_temperature == D(900)
+    reversed_interval = (replace(anchors[0], min_temperature=D(900), max_temperature=None),
+                         replace(anchors[1], min_temperature=None, max_temperature=D(800)))
+    with pytest.raises(ValueError, match="temperature"):
+        factory.bridge(*reversed_interval, max_nodes=2, first_sequence=9)
+    assert factory._numeric_catalog is catalog
+    assert factory.bridge(*anchors, max_nodes=2, first_sequence=7) == initial
+    assert calls == [factory] and factory.budget.candidate_check_count == 0
+
+
+def test_integrated_factories_do_not_share_task_catalogs_or_rule_thresholds():
+    first = integration_factory()
+    second = make_factory(first.cache.problem.virtual_prototypes, nodes=first.cache.problem.nodes,
+                          rule_items=(rule(WidthTransitionRule, virtual_width_tolerance=D(10)),))
+    assert first.bridge(*first.cache.problem.nodes, max_nodes=2, first_sequence=7)
+    assert second.bridge(*second.cache.problem.nodes, max_nodes=2, first_sequence=7) is None
+    assert first._numeric_catalog is not second._numeric_catalog
+    assert first._numeric_catalog.matches(first.cache) and not first._numeric_catalog.matches(second.cache)
+    assert second._numeric_catalog.matches(second.cache)
+
+
+def test_unvisited_invalid_prototype_is_left_to_original_stopping_order(monkeypatch):
+    signal = Signal()
+    factory = make_factory((prototype("good", width="1200"), prototype("bad", width="1e10000")),
+                           nodes=(node("left"), node("right", width="1400")),
+                           rule_items=(rule(WidthTransitionRule),), runtime=budget(cancellation=signal))
+    original = VirtualFactory.materialize
+    created = []
+
+    def materialize(self, *args, **kwargs):
+        value = original(self, *args, **kwargs)
+        created.append(value.virtual_lineage.prototype_id)
+        signal.active = True
+        return value
+
+    monkeypatch.setattr(VirtualFactory, "materialize", materialize)
+    assert factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7) is None
+    assert created == ["good"]
+    assert factory.budget.stop_reason is SearchStopReason.USER_CANCELLED
+
+
+@pytest.mark.parametrize("kind", ("custom_rule", "factory", "ruleset", "cache", "duplicate_rule"))
+def test_integrated_unsupported_shapes_use_original_without_numeric_preparation(monkeypatch, kind):
+    factory = integration_factory()
+    if kind == "custom_rule":
+        factory = make_factory((prototype("a"),), allowed_edges={("left", "a"), ("a", "right")})
+    elif kind == "duplicate_rule":
+        factory = integration_factory(rule_items=(rule(WidthTransitionRule, rule_id="second-width"),))
+    elif kind == "factory":
+        class CustomFactory(VirtualFactory):
+            pass
+        factory = clone_as(CustomFactory, factory)
+    else:
+        class CustomRuleSet(ProcessRuleSet):
+            pass
+
+        class CustomCache(RuleEdgeDecisionCache):
+            pass
+
+        cache = (clone_as(CustomCache, factory.cache) if kind == "cache" else
+                 RuleEdgeDecisionCache(factory.cache.problem,
+                                       clone_as(CustomRuleSet, factory.cache.rule_set), factory.cache.context))
+        factory = VirtualFactory(cache, factory.budget)
+    original = VirtualFactory._python_bridge
+    calls = []
+
+    def fallback(self, *args, **kwargs):
+        calls.append(self)
+        return original(self, *args, **kwargs)
+
+    def forbidden(*args):
+        raise AssertionError("unsupported dispatch must be screened before preparation")
+
+    monkeypatch.setattr(VirtualFactory, "_python_bridge", fallback)
+    monkeypatch.setattr(numeric, "prepare_catalog", forbidden)
+    result = factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7)
+    assert result and calls == [factory] and factory._numeric_catalog is NotImplemented
+    assert factory.budget.candidate_check_count == 0
+
+
+@pytest.mark.parametrize("fault", ("dependency", "compile", "unknown_kind"))
+def test_integrated_dependency_compilation_and_program_errors_are_not_business_fallback(monkeypatch, fault):
+    factory = integration_factory()
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("program errors must not enter the business fallback")
+
+    monkeypatch.setattr(VirtualFactory, "_python_bridge", forbidden)
+    if fault == "dependency":
+        imported = builtins.__import__
+
+        def missing(name, globals=None, locals=None, fromlist=(), level=0):
+            if "_bridge_numeric" in name or "_bridge_numeric" in (fromlist or ()):
+                raise ModuleNotFoundError("numeric dependency unavailable")
+            return imported(name, globals, locals, fromlist, level)
+
+        monkeypatch.setattr(builtins, "__import__", missing)
+        expected, message = ModuleNotFoundError, "numeric dependency unavailable"
+    elif fault == "compile":
+        def compilation_failure(*args):
+            raise RuntimeError("numeric compilation failure")
+
+        monkeypatch.setattr(numeric, "scan_single", compilation_failure)
+        expected, message = RuntimeError, "numeric compilation failure"
+    else:
+        original = numeric.prepare_catalog
+
+        def corrupt(value):
+            catalog = original(value)
+            kinds = catalog.rule_kinds.copy()
+            kinds[0] = 99
+            kinds.setflags(write=False)
+            return replace(catalog, rule_kinds=kinds)
+
+        monkeypatch.setattr(numeric, "prepare_catalog", corrupt)
+        expected, message = ValueError, "unknown numeric bridge rule kind"
+    with pytest.raises(expected, match=message):
+        factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7)
+    assert factory.budget.candidate_check_count == 0 and factory.budget.stop_reason is None
+
+
+def test_integrated_arithmetic_fallback_replays_original_error_without_early_materialization(monkeypatch, caplog):
+    factory = make_factory((prototype("good", width="1200"), prototype("bad", width="1200", thickness="1e308")),
+                           nodes=(node("left"), node("right", width="1400")),
+                           rule_items=(rule(WidthTransitionRule),))
+    original, original_fallback = VirtualFactory.materialize, VirtualFactory._python_bridge
+    created, fallback_started = [], []
+    caplog.set_level(logging.INFO, logger=virtual_material.logger.name)
+
+    def materialize(self, *args, **kwargs):
+        assert fallback_started
+        created.append(args[0].prototype_id)
+        return original(self, *args, **kwargs)
+
+    def fallback(self, *args, **kwargs):
+        fallback_started.append(self)
+        return original_fallback(self, *args, **kwargs)
+
+    monkeypatch.setattr(VirtualFactory, "materialize", materialize)
+    monkeypatch.setattr(VirtualFactory, "_python_bridge", fallback)
+    with pytest.raises(ValueError, match="virtual smoothness must be finite"):
+        factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7)
+    assert created == ["good", "bad"] and fallback_started == [factory]
+    assert [record.solver_event for record in caplog.records if hasattr(record, "solver_event")] == [
+        "solver_bridge_numeric_start",
+    ]
+
+
+@pytest.mark.parametrize("kind", ("cancel", "time"))
+@pytest.mark.parametrize("phase", ("prepare_catalog", "prepare_bridge", "scan_single", "scan_double",
+                                   "first_materialize", "second_materialize"))
+def test_integrated_stop_never_returns_partial_nodes_or_enters_python_fallback(monkeypatch, kind, phase):
+    signal = Signal()
+    runtime = budget(cancellation=signal) if kind == "cancel" else budget(clock=signal.clock)
+    factory = integration_factory(double=True, runtime=runtime)
+    created = []
+    materialize = VirtualFactory.materialize
+
+    def observe_materialize(self, *args, **kwargs):
+        value = materialize(self, *args, **kwargs)
+        created.append(value)
+        if phase == ("first_materialize" if len(created) == 1 else "second_materialize"):
+            signal.active = True
+        return value
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("stopping must not enter Python search")
+
+    monkeypatch.setattr(VirtualFactory, "materialize", observe_materialize)
+    monkeypatch.setattr(VirtualFactory, "_python_bridge", forbidden)
+    if phase in ("prepare_catalog", "prepare_bridge", "scan_single", "scan_double"):
+        original = getattr(numeric, phase)
+
+        def stop_after(*args):
+            value = original(*args)
+            signal.active = True
+            return value
+
+        monkeypatch.setattr(numeric, phase, stop_after)
+    before = fingerprint(factory.cache.problem)
+    assert factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7) is None
+    assert len(created) == {"first_materialize": 1, "second_materialize": 2}.get(phase, 0)
+    assert runtime.stop_reason is (SearchStopReason.USER_CANCELLED if kind == "cancel" else
+                                   SearchStopReason.SEARCH_TIME_LIMIT_REACHED)
+    assert runtime.candidate_check_count == 0 and fingerprint(factory.cache.problem) == before
+
+
+def test_integrated_incomplete_native_block_has_no_ready_event(monkeypatch, caplog):
+    signal = Signal()
+    factory = integration_factory(double=True, runtime=budget(cancellation=signal))
+    native = numeric._scan_block
+    caplog.set_level(logging.INFO, logger=virtual_material.logger.name)
+
+    def cancel_after_block(*args):
+        result = native(*args)
+        cancel_after_block.nopython_signatures = native.nopython_signatures
+        signal.active = True
+        return result
+
+    monkeypatch.setattr(numeric, "_scan_block", cancel_after_block)
+    assert factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7) is None
+    assert [record.solver_event for record in caplog.records if hasattr(record, "solver_event")] == [
+        "solver_bridge_numeric_start",
+    ]
+
+
+def test_integrated_numeric_events_are_bounded_per_factory_and_describe_actual_modes(caplog):
+    caplog.set_level(logging.INFO, logger=virtual_material.logger.name)
+    factory = integration_factory(double=True)
+    for sequence in (7, 10, 15):
+        assert factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=sequence)
+    records = [record for record in caplog.records if hasattr(record, "solver_event")]
+    assert [record.solver_event for record in records] == [
+        "solver_bridge_numeric_start", "solver_bridge_numeric_ready", "solver_bridge_numeric_ready",
+    ]
+    assert records[1].solver_details == {"mode": "single", "nopython": True, "found": False}
+    assert records[2].solver_details == {"mode": "double", "nopython": True, "found": True}
+    assert numeric._scan_block.nopython_signatures
+    other = integration_factory()
+    assert other.bridge(*other.cache.problem.nodes, max_nodes=2, first_sequence=7)
+    assert sum(getattr(record, "solver_event", None) == "solver_bridge_numeric_start"
+               for record in caplog.records) == 2
+
+
+def test_integrated_logging_failure_does_not_change_nodes_or_budget_and_edge_calls(monkeypatch):
+    checks = []
+    original_check = SolveRuntimeBudget.allows_search
+
+    def check(self):
+        checks.append(self)
+        return original_check(self)
+
+    def log_failure(*args, **kwargs):
+        raise RuntimeError("handler failure")
+
+    monkeypatch.setattr(SolveRuntimeBudget, "allows_search", check)
+    results = []
+    for fail in (False, True):
+        factory = integration_factory(double=True)
+        checks.clear()
+        with monkeypatch.context() as local_patch:
+            if fail:
+                local_patch.setattr(virtual_material.logger, "log", log_failure)
+            nodes = factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7)
+        results.append((nodes, len(checks), factory.cache.hit_count, factory.cache.miss_count,
+                        factory.budget.candidate_check_count, factory.budget.stop_reason))
+    assert results[0] == results[1]
+
+
+@pytest.mark.parametrize("second_only", (False, True))
+def test_integrated_large_sequence_fallback_preserves_original_materialization_boundary(second_only):
+    limit = getattr(sys, "get_int_max_str_digits", lambda: 0)()
+    if not limit:
+        pytest.skip("this interpreter does not impose integer-to-string digit limits")
+    factory = integration_factory()
+    sequence = 10 ** limit - int(second_only)
+    if second_only:
+        # The next sequence cannot format, but a successful single never needs it.
+        result = factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=sequence)
+        assert len(result) == 1 and result[0].virtual_lineage.accepted_sequence == sequence
+        assert result == factory._python_bridge(*factory.cache.problem.nodes,
+                                                max_nodes=2, first_sequence=sequence)
+    else:
+        for method in (factory.bridge, factory._python_bridge):
+            with pytest.raises(ValueError, match="integer string conversion"):
+                method(*factory.cache.problem.nodes, max_nodes=2, first_sequence=sequence)
+
+
+def run_fresh_python(source):
+    root = Path(__file__).resolve().parents[3]
+    environment = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1",
+                   "PYTHONPATH": os.pathsep.join((str(root / "src"), str(root)))}
+    result = subprocess.run([sys.executable, "-B", "-c", dedent(source)], cwd=root,
+                            env=environment, capture_output=True, text=True, timeout=30)
+    assert result.returncode == 0, result.stdout + result.stderr
+    return result.stdout
+
+
+def test_fresh_service_help_rule_query_and_non_numeric_bridges_do_not_load_numba():
+    output = run_fresh_python("""
+        import sys
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+        from fastapi.testclient import TestClient
+        from apsgo_v7_service import app
+        from tests.service.test_rule_http_api import _seed_active_v1, GET_PATH
+        from tests.core.search.test_virtual_material_factory import make_factory, prototype
+        from tests.core.graph.test_construction_order import node
+        from apsgo_scheduler.core.rules.concrete import WidthTransitionRule
+        from apsgo_scheduler.core.contracts import RuleScope
+        from decimal import Decimal
+
+        def assert_unloaded():
+            assert 'apsgo_scheduler.core._bridge_numeric' not in sys.modules
+            assert 'numba' not in sys.modules
+
+        assert_unloaded()
+        try:
+            app.main(['--help'])
+        except SystemExit as error:
+            assert error.code == 0
+        else:
+            raise AssertionError('help did not exit')
+        assert_unloaded()
+        with TemporaryDirectory() as directory:
+            database = Path(directory) / 'rules.sqlite3'
+            _seed_active_v1(database)
+            with TestClient(app.create_app(database_path=database)) as client:
+                assert client.get(GET_PATH).status_code == 200
+            assert_unloaded()
+        direct = make_factory((prototype('unvisited', width='1e10000'),))
+        assert direct.bridge(*direct.cache.problem.nodes, max_nodes=2, first_sequence=1) == ()
+        width = WidthTransitionRule('width', 'width', RuleScope.EDGE, True, '1',
+            {'max_reverse_width': Decimal(20), 'virtual_width_tolerance': Decimal(200)})
+        zero = make_factory((prototype('p'),), rule_items=(width,),
+                            nodes=(node('left'), node('right', width='1400')))
+        assert zero.bridge(*zero.cache.problem.nodes, max_nodes=0, first_sequence=1) is None
+        assert_unloaded()
+        print('fresh-import-boundary-passed')
+    """)
+    assert "fresh-import-boundary-passed" in output
+
+
+def test_fresh_real_compilation_crosses_controlled_deadline_without_resetting_budget():
+    output = run_fresh_python("""
+        from apsgo_scheduler.core import _bridge_numeric as numeric
+        from apsgo_scheduler.core.contracts import SearchStopReason
+        from tests.core.search.test_virtual_bridge_numeric import integration_factory
+        from tests.core.graph.test_bipartite_matching import budget
+
+        assert not numeric._scan_block.nopython_signatures
+        now = [1.0]
+        runtime = budget(clock=lambda: now[0])
+        factory = integration_factory(double=True, runtime=runtime)
+        original = numeric._scan_block
+        calls = []
+
+        def compile_then_cross_deadline(*args):
+            assert not original.nopython_signatures
+            result = original(*args)
+            assert original.nopython_signatures
+            compile_then_cross_deadline.nopython_signatures = original.nopython_signatures
+            calls.append(result)
+            now[0] = 101.0
+            return result
+
+        numeric._scan_block = compile_then_cross_deadline
+        assert factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7) is None
+        assert len(calls) == 1 and calls[0][0]
+        assert runtime.stop_reason is SearchStopReason.SEARCH_TIME_LIMIT_REACHED
+        assert runtime.started_at_monotonic == 0 and runtime.search_deadline_monotonic == 100
+        assert runtime.candidate_check_count == 0 and factory._numeric_events == {'start'}
+        print('real-cold-compile-controlled-deadline-passed')
+    """)
+    assert "real-cold-compile-controlled-deadline-passed" in output
