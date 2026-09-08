@@ -603,7 +603,7 @@ def test_interrupted_split_never_commits_half_partition_or_replays(stop_kind, wh
         owner, attribute = {
             "authorization": (ProcessRuleSet, "evaluate_controlled_split"),
             "separator": (VirtualFactory, "separator"),
-            "evaluation": (neighborhoods, "evaluate_plan"),
+            "evaluation": (neighborhoods, "_evaluate_candidate_plan"),
         }[when]
         original = getattr(owner, attribute)
 
@@ -634,7 +634,7 @@ def test_split_errors_propagate_without_natural_completion_or_state_changes(wher
     owner, attribute = {
         "authorization": (ProcessRuleSet, "evaluate_controlled_split"),
         "separator": (VirtualFactory, "separator"),
-        "evaluation": (neighborhoods, "evaluate_plan"),
+        "evaluation": (neighborhoods, "_evaluate_candidate_plan"),
     }[where]
 
     def fail(*args, **kwargs):

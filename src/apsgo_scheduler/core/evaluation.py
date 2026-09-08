@@ -15,8 +15,9 @@ from .contracts import (
     sum_decimals,
     sum_weights,
 )
-from .model import Chain, SchedulePlan
+from .model import Chain, SchedulePlan, SearchState
 from .resource_facts import derive_evaluation_resource_view
+from .rules import concrete
 from .rules.base import (
     ChainRuleSubject,
     NodeRuleSubject,
@@ -27,6 +28,7 @@ from .rules.base import (
     RuleContribution,
     RuleDisposition,
     RuleEvaluationContext,
+    RuleScope,
     RuleViolation,
 )
 from .rules.rule_set import ProcessRuleSet
@@ -114,6 +116,67 @@ class _ChainEvaluationEntry:
     contribution: RuleContribution
     node_contributions: tuple[RuleContribution, ...]
     evaluation: ChainEvaluation
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class _AcceptedPlanEvaluation:
+    state: SearchState
+    plan: SchedulePlan
+    rule_set: ProcessRuleSet
+    rule_context: RuleEvaluationContext
+    entries: Mapping[str, _ChainEvaluationEntry]
+
+    def matches(self, state, rule_set, rule_context):
+        return (
+            self.state is state
+            and self.plan is state.current_plan
+            and self.rule_set is rule_set
+            and self.rule_context is rule_context
+        )
+
+
+# Only audited concrete implementations; unknown extensions keep uncached evaluation.
+_REUSABLE_RULE_TYPES = frozenset((
+    concrete.SyntheticWidthLimitRule,
+    concrete.SoftHardConnectionRule,
+    concrete.TemperatureOverlapRule,
+    concrete.ThicknessTransitionRule,
+    concrete.WidthTransitionRule,
+    concrete.SyntheticNodePriorityRule,
+    concrete.StrategicCustomerPriorityRule,
+    concrete.HighSurfaceRunCountRule,
+    concrete.ContinuousNarrowSteelWeightRule,
+    concrete.SameSpecContinuousRealWeightRule,
+    concrete.ChainWeightRangeRule,
+    concrete.ConsecutiveVirtualMaterialRule,
+    concrete.ReverseWidthCountRule,
+    concrete.ConsecutiveReverseWidthRule,
+    concrete._VirtualBridgeWidthRule,
+    concrete.LateOriginalPeriodMoveRule,
+    concrete.VirtualOutputRatioRule,
+    concrete.InterChainWidthGapRule,
+    concrete.FutureFillWeightTargetRule,
+    concrete.ControlledOrderSplitRule,
+))
+
+
+def _evaluate_candidate_plan(plan, state, rule_set, rule_context, previous):
+    if type(rule_set) is not ProcessRuleSet or any(
+        type(rule) not in _REUSABLE_RULE_TYPES
+        for scope in RuleScope
+        for rule in rule_set.rules_for_scope(scope)
+    ):
+        return evaluate_plan(plan, rule_set, rule_context), None
+    entries = (
+        previous.entries
+        if previous is not None and previous.matches(state, rule_set, rule_context)
+        else {}
+    )
+    evaluation, candidate_entries = _evaluate_plan(plan, rule_set, rule_context, entries)
+    # Prepared before acceptance; a rejected candidate never becomes long-lived state.
+    return evaluation, _AcceptedPlanEvaluation(
+        state, plan, rule_set, rule_context, candidate_entries
+    )
 
 
 def _validate_inputs(subject, subject_type, rule_set, context):

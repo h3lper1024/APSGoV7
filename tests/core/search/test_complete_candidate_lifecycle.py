@@ -66,9 +66,9 @@ def setup(groups=(("z",), ("a",), ("u",)), *, runtime=None):
     )
 
 
-def merged(state, *extra):
+def merged(state, *extra, chain_id="merged"):
     first, second, *remaining = state.current_plan.chains
-    return (*remaining, Chain("merged", first.nodes + tuple(extra) + second.nodes, "period"))
+    return (*remaining, Chain(chain_id, first.nodes + tuple(extra) + second.nodes, "period"))
 
 
 def attempt(state, context, chains, **changes):
@@ -83,9 +83,9 @@ def attempt(state, context, chains, **changes):
     return try_complete_candidate(state, context, chains, **options)
 
 
-def assert_unchanged(state, context, before):
+def assert_unchanged(state, context, before, traces=()):
     assert fingerprint(state) == before
-    assert context.accepted_move_traces == ()
+    assert context.accepted_move_traces == traces
 
 
 def test_acceptance_reuses_unaffected_chain_and_atomically_records_complete_trace():
@@ -182,7 +182,7 @@ def test_ineligible_coverage_or_value_changes_are_rejected_before_full_evaluatio
         chains = (replace(chains[-1], nodes=nodes + untouched.nodes),)
     before = fingerprint(state)
     evaluation = Mock(side_effect=AssertionError("ineligible candidates are not evaluated"))
-    monkeypatch.setattr(neighborhoods, "evaluate_plan", evaluation)
+    monkeypatch.setattr(neighborhoods, "_evaluate_candidate_plan", evaluation)
     assert not attempt(state, context, chains)
     assert_unchanged(state, context, before)
     assert context.complete_candidate_evaluation_count == 0
@@ -383,8 +383,9 @@ class Stop:
 
 @pytest.mark.parametrize("after_evaluation", (False, True))
 @pytest.mark.parametrize("kind", ("cancel", "time"))
+@pytest.mark.parametrize("warm", (False, True))
 def test_stop_before_or_after_full_evaluation_keeps_plan_number_and_trace_uncommitted(
-    monkeypatch, after_evaluation, kind
+    monkeypatch, after_evaluation, kind, warm
 ):
     signal = Stop()
     runtime = (
@@ -392,11 +393,16 @@ def test_stop_before_or_after_full_evaluation_keeps_plan_number_and_trace_uncomm
         if kind == "cancel"
         else budget(candidate_check_limit=10, clock=signal.clock)
     )
-    state, context = setup(runtime=runtime)
-    candidate = merged(state, proposed_virtual(state, context))
+    state, context = setup(groups=(("z",), ("a",), ("u",), ("v",)), runtime=runtime)
+    if warm:
+        assert attempt(state, context, merged(state))
+        assert context._evaluation_reuse is not None
+    previous = context._evaluation_reuse
+    traces = context.accepted_move_traces
+    candidate = merged(state, proposed_virtual(state, context), chain_id="interrupted-merge")
     before = fingerprint(state)
     assert runtime.consume_candidate_check()
-    original = neighborhoods.evaluate_plan
+    original = neighborhoods._evaluate_candidate_plan
     calls = 0
 
     def evaluate_then_stop(*args, **kwargs):
@@ -406,11 +412,13 @@ def test_stop_before_or_after_full_evaluation_keeps_plan_number_and_trace_uncomm
         signal.active = True
         return result
 
-    monkeypatch.setattr(neighborhoods, "evaluate_plan", evaluate_then_stop)
+    monkeypatch.setattr(neighborhoods, "_evaluate_candidate_plan", evaluate_then_stop)
     signal.active = not after_evaluation
     assert not attempt(state, context, candidate, virtual_sequence=1)
-    assert_unchanged(state, context, before)
-    assert calls == context.complete_candidate_evaluation_count == int(after_evaluation)
+    assert_unchanged(state, context, before, traces)
+    assert context._evaluation_reuse is previous
+    assert calls == int(after_evaluation)
+    assert context.complete_candidate_evaluation_count == int(warm) + int(after_evaluation)
     assert runtime.candidate_check_count == 1
     assert runtime.stop_reason is (
         SearchStopReason.USER_CANCELLED
@@ -419,11 +427,21 @@ def test_stop_before_or_after_full_evaluation_keeps_plan_number_and_trace_uncomm
     )
 
 
-@pytest.mark.parametrize("stage", ("evaluate_plan", "AcceptedMoveTrace", "commit_accepted"))
-def test_evaluation_trace_or_commit_errors_do_not_publish_a_partial_acceptance(monkeypatch, stage):
-    state, context = setup()
+@pytest.mark.parametrize(
+    "stage", ("_evaluate_candidate_plan", "AcceptedMoveTrace", "commit_accepted")
+)
+@pytest.mark.parametrize("warm", (False, True))
+def test_evaluation_trace_or_commit_errors_do_not_publish_a_partial_acceptance(
+    monkeypatch, stage, warm
+):
+    state, context = setup(groups=(("z",), ("a",), ("u",), ("v",)))
+    if warm:
+        assert attempt(state, context, merged(state))
+        assert context._evaluation_reuse is not None
+    previous = context._evaluation_reuse
+    traces = context.accepted_move_traces
     before = fingerprint(state)
-    candidate = merged(state)
+    candidate = merged(state, chain_id="failed-merge")
     owner = SearchState if stage == "commit_accepted" else neighborhoods
     error = RuntimeError("deliberate candidate failure")
     monkeypatch.setattr(owner, stage, Mock(side_effect=error))
@@ -431,8 +449,9 @@ def test_evaluation_trace_or_commit_errors_do_not_publish_a_partial_acceptance(m
     with pytest.raises(RuntimeError) as raised:
         attempt(state, context, candidate)
     assert raised.value is error
-    assert_unchanged(state, context, before)
-    assert context.complete_candidate_evaluation_count == 1
+    assert_unchanged(state, context, before, traces)
+    assert context._evaluation_reuse is previous
+    assert context.complete_candidate_evaluation_count == int(warm) + 1
     assert context.factory.budget.candidate_check_count == 1
     assert context.factory.budget.stop_reason is None
 
@@ -453,3 +472,111 @@ def test_invalid_candidate_call_metadata_fails_without_changing_accepted_state(c
         attempt(state, context, merged(state), **changes)
     assert_unchanged(state, context, before)
     assert context.complete_candidate_evaluation_count == 0
+
+
+def test_rejected_cold_candidates_never_warm_the_accepted_plan(monkeypatch):
+    state, context = setup()
+    before = fingerprint(state)
+    seen = []
+    original = neighborhoods._evaluate_candidate_plan
+
+    def record(plan, state, rule_set, rule_context, previous):
+        result = original(plan, state, rule_set, rule_context, previous)
+        seen.append((previous, result[1]))
+        return result
+
+    monkeypatch.setattr(neighborhoods, "_evaluate_candidate_plan", record)
+    for _ in range(3):
+        assert context.factory.budget.consume_candidate_check()
+        assert not attempt(state, context, state.current_plan.chains)
+        assert context._evaluation_reuse is None
+    assert_unchanged(state, context, before)
+    assert len(seen) == context.complete_candidate_evaluation_count == 3
+    assert context.factory.budget.candidate_check_count == 3
+    assert all(previous is None and candidate is not None for previous, candidate in seen)
+    assert len({id(candidate) for _, candidate in seen}) == 3
+
+
+def test_accepted_entries_are_bounded_and_rejected_candidates_do_not_replace_them():
+    state, context = setup(
+        groups=(("z",), ("a",), ("u",), ("v",)),
+        runtime=budget(candidate_check_limit=1000),
+    )
+    runtime = context.factory.budget
+    assert context._evaluation_reuse is None
+    assert runtime.consume_candidate_check()
+    assert attempt(state, context, merged(state))
+    previous = context._evaluation_reuse
+    assert previous is not None and previous.state is state
+    assert previous.plan is state.current_plan
+    assert tuple(previous.entries) == tuple(chain.chain_id for chain in state.current_plan.chains)
+    assert len(previous.entries) == 3
+    retained = previous.entries["merged"]
+    before, traces = fingerprint(state), context.accepted_move_traces
+    for _ in range(32):
+        assert runtime.consume_candidate_check()
+        assert not attempt(state, context, state.current_plan.chains)
+        assert context._evaluation_reuse is previous
+        assert len(previous.entries) == 3
+    assert_unchanged(state, context, before, traces)
+    assert runtime.consume_candidate_check()
+    assert attempt(state, context, merged(state, chain_id="merged-again"))
+    current = context._evaluation_reuse
+    assert current is not previous and current.plan is state.current_plan
+    assert tuple(current.entries) == ("merged", "merged-again")
+    assert current.entries["merged"] is retained
+    assert all(
+        entry.chain is chain
+        for chain, entry in zip(state.current_plan.chains, current.entries.values())
+    )
+    assert state.accepted_move_count == 2
+    assert runtime.candidate_check_count == context.complete_candidate_evaluation_count == 34
+    assert state.current_evaluation == evaluate_plan(
+        state.current_plan, context.factory.cache.rule_set, context.factory.cache.context
+    )
+
+
+@pytest.mark.parametrize("changed", ("state", "plan", "rules", "context"))
+def test_external_binding_identity_change_clears_entries_before_candidate_evaluation(
+    monkeypatch, changed
+):
+    state, context = setup(groups=(("z",), ("a",), ("u",), ("v",)))
+    assert attempt(state, context, merged(state))
+    previous = context._evaluation_reuse
+    assert previous is not None
+    if changed == "state":
+        state = SearchState(state.current_plan, state.current_evaluation)
+    elif changed == "plan":
+        state.current_plan = replace(state.current_plan)
+    else:
+        cache = context.factory.cache
+        context.factory = replace(
+            context.factory,
+            cache=RuleEdgeDecisionCache(
+                cache.problem,
+                replace(cache.rule_set) if changed == "rules" else cache.rule_set,
+                replace(cache.context) if changed == "context" else cache.context,
+            ),
+        )
+    assert not previous.matches(
+        state, context.factory.cache.rule_set, context.factory.cache.context
+    )
+    seen = []
+    original = neighborhoods._evaluate_candidate_plan
+
+    def record(plan, received_state, rule_set, rule_context, previous):
+        seen.append((previous, context._evaluation_reuse))
+        return original(plan, received_state, rule_set, rule_context, previous)
+
+    monkeypatch.setattr(neighborhoods, "_evaluate_candidate_plan", record)
+    before, traces = fingerprint(state), context.accepted_move_traces
+    assert not attempt(state, context, state.current_plan.chains)
+    assert seen == [(None, None)]
+    assert context._evaluation_reuse is None
+    assert_unchanged(state, context, before, traces)
+
+
+def test_search_context_does_not_accept_injected_evaluation_reuse():
+    _, context = setup()
+    with pytest.raises(TypeError, match="_evaluation_reuse"):
+        SearchContext(context.factory, context.policy, _evaluation_reuse=object())

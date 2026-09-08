@@ -475,7 +475,10 @@ def test_stop_at_each_new_candidate_boundary_keeps_state_and_numbers_private(
         owner, name = (
             (VirtualFactory, "materialize")
             if when == "materialize"
-            else (neighborhoods, "evaluate_plan" if when == "evaluation" else "AcceptedMoveTrace")
+            else (
+                neighborhoods,
+                "_evaluate_candidate_plan" if when == "evaluation" else "AcceptedMoveTrace",
+            )
         )
         original = getattr(owner, name)
 
@@ -501,7 +504,7 @@ def test_stop_at_each_new_candidate_boundary_keeps_state_and_numbers_private(
 
 
 @pytest.mark.parametrize(
-    "stage", ("materialize", "evaluate_plan", "AcceptedMoveTrace", "commit_accepted")
+    "stage", ("materialize", "_evaluate_candidate_plan", "AcceptedMoveTrace", "commit_accepted")
 )
 def test_exceptions_before_commit_do_not_publish_partial_candidate(monkeypatch, stage):
     state, context = guard_case()

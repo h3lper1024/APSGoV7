@@ -1,7 +1,7 @@
 """Complete-candidate acceptance and reference-ordered local neighborhoods."""
 
 import logging
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from decimal import Decimal
 from fractions import Fraction
 from math import ceil
@@ -23,7 +23,11 @@ from .contracts import (
     sum_decimals,
     sum_weights,
 )
-from .evaluation import evaluate_plan, quick_chain_prohibited_profile
+from .evaluation import (
+    _AcceptedPlanEvaluation,
+    _evaluate_candidate_plan,
+    quick_chain_prohibited_profile,
+)
 from .model import Chain, MaterialRole, SchedulePlan, SearchState, SplitLineage, VirtualPurpose
 from .process_logging import emit
 from .resource_facts import derive_evaluation_resource_view
@@ -87,6 +91,9 @@ class SearchContext:
     policy: SolverPolicy
     complete_candidate_evaluation_count: int = 0
     accepted_move_traces: tuple[AcceptedMoveTrace, ...] = ()
+    _evaluation_reuse: _AcceptedPlanEvaluation | None = field(
+        default=None, init=False, repr=False, compare=False
+    )
 
     def __post_init__(self):
         if not isinstance(self.factory, VirtualFactory) or not isinstance(
@@ -533,7 +540,13 @@ def try_complete_candidate(
     if not budget.allows_search():
         return False
     context.complete_candidate_evaluation_count += 1
-    evaluation = evaluate_plan(plan, cache.rule_set, cache.context)
+    if context._evaluation_reuse is not None and not context._evaluation_reuse.matches(
+        state, cache.rule_set, cache.context
+    ):
+        context._evaluation_reuse = None
+    evaluation, candidate_reuse = _evaluate_candidate_plan(
+        plan, state, cache.rule_set, cache.context, context._evaluation_reuse
+    )
     if (
         not budget.allows_search()
         or not evaluation.quality_key < state.current_evaluation.quality_key
@@ -574,6 +587,7 @@ def try_complete_candidate(
         virtual_sequence=virtual_sequence,
         split_mode=None if split_decision is None else split_decision.mode,
     )
+    context._evaluation_reuse = candidate_reuse
     context.accepted_move_traces = traces
     emit(
         logger,

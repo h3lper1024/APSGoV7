@@ -135,14 +135,14 @@ def test_uncommitted_candidate_never_logs_acceptance(mode, monkeypatch, caplog):
     if mode == "cancel":
         token = Stop()
         context.factory.budget.cancellation = token
-        original = neighborhoods.evaluate_plan
+        original = neighborhoods._evaluate_candidate_plan
 
         def evaluate_then_cancel(*args):
             evaluated = original(*args)
             token.active = True
             return evaluated
 
-        monkeypatch.setattr(neighborhoods, "evaluate_plan", evaluate_then_cancel)
+        monkeypatch.setattr(neighborhoods, "_evaluate_candidate_plan", evaluate_then_cancel)
         assert not attempt(state, context, candidate)
     else:
 
@@ -296,7 +296,9 @@ def test_fixed_workload_and_clock_reads_match_with_disabled_enabled_and_broken_l
             initial_solution, "evaluate_plan", wraps=initial_solution.evaluate_plan
         ) as initial:
             with patch.object(
-                neighborhoods, "evaluate_plan", wraps=neighborhoods.evaluate_plan
+                neighborhoods,
+                "_evaluate_candidate_plan",
+                wraps=neighborhoods._evaluate_candidate_plan,
             ) as candidates:
                 with patch.object(
                     final_audit, "evaluate_plan", wraps=final_audit.evaluate_plan

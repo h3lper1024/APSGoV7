@@ -1,7 +1,7 @@
 """Complete evaluation retains chain detail without confusing runs across chains."""
 
 import json
-from dataclasses import FrozenInstanceError, replace
+from dataclasses import FrozenInstanceError, fields, replace
 from decimal import Decimal
 from pathlib import Path
 
@@ -23,6 +23,7 @@ from apsgo_scheduler.core.model import (
     MaterialRole,
     Node,
     SchedulePlan,
+    SearchState,
     VirtualLineage,
     VirtualPurpose,
 )
@@ -92,6 +93,17 @@ def ruleset(rules=()):
     )
 
 
+def warm_evaluation(plan, active, ctx):
+    expected = evaluate_plan(plan, active, ctx)
+    state = SearchState(plan, expected)
+    cold, previous = evaluation._evaluate_candidate_plan(plan, state, active, ctx, None)
+    actual, retained = evaluation._evaluate_candidate_plan(plan, state, active, ctx, previous)
+    assert previous is not None and retained is not None
+    assert actual == cold == expected and fingerprint(actual) == fingerprint(expected)
+    assert all(retained.entries[key] is entry for key, entry in previous.entries.items())
+    return actual
+
+
 @pytest.fixture(scope="module")
 def gqga4():
     raw = json.loads(
@@ -151,7 +163,7 @@ def test_each_chain_retains_its_value_while_global_takes_maximum(
         for count in (3, 5)
     )
     plan = SchedulePlan(chains)
-    result = evaluate_plan(plan, ruleset((rule,)), context())
+    result = warm_evaluation(plan, ruleset((rule,)), context())
     assert [chain.metrics[key] for chain in result.chain_evaluations] == [3 * scale, 5 * scale]
     assert result.metrics[key] == 5 * scale
     assert result.metrics[key] != 8 * scale
@@ -184,7 +196,7 @@ def test_missing_surface_breaks_the_run_and_disabled_rule_has_no_metric():
     result = evaluate_plan(plan, ruleset((rule,)), context())
     assert result.metrics["max_high_surface_run_count"] == 1
     assert result.violations == ()
-    disabled = evaluate_plan(plan, ruleset((replace(rule, enabled=False),)), context())
+    disabled = warm_evaluation(plan, ruleset((replace(rule, enabled=False),)), context())
     assert "max_high_surface_run_count" not in disabled.metrics
     assert "max_high_surface_run_count" not in disabled.chain_evaluations[0].metrics
 
@@ -211,7 +223,7 @@ def test_full_gqga4_keeps_chain_edge_plan_rules_and_internal_virtual_anchor(gqga
     ) + tuple(node(f"b{i}", width=D(1030), weight=D(200)) for i in range(6))
     plan = SchedulePlan((Chain("chain", nodes, "first"),))
     before = fingerprint((plan, gqga4, context()))
-    result = evaluate_plan(plan, gqga4, context())
+    result = warm_evaluation(plan, gqga4, context())
     assert [v.rule_id for v in result.violations] == [
         "chain_weight_range",
         "max_reverse_width_count",
@@ -384,6 +396,7 @@ def test_captured_entries_keep_raw_metrics_and_ordered_node_contributions(maximu
         assert len(entry.node_contributions) == len(chain.nodes)
         with pytest.raises(FrozenInstanceError):
             entry.chain = chain
+    assert warm_evaluation(plan, active, ctx) == expected
 
 
 def test_uncached_plan_evaluation_does_not_create_reuse_entries(monkeypatch):
@@ -453,3 +466,95 @@ def test_shared_evaluation_preserves_all_chain_then_all_node_execution_order(
             run()
         assert raised.value is error
         assert seen == events[: events.index(failure) + 1]
+
+
+@pytest.mark.parametrize("change", ("same", "order", "clone", "width", "weight", "attributes", "role", "period", "nodes"))
+def test_reuse_requires_the_same_chain_object_and_recomputes_global_rules(monkeypatch, change):
+    a = Chain("a", (node("a1"), node("a2", width=D(1010))), "first")
+    b = Chain("b", (node("b1"),), "first")
+    plan = SchedulePlan((a, b))
+    active, ctx = ruleset(), context()
+    state = SearchState(plan, evaluate_plan(plan, active, ctx))
+    _, previous = evaluation._evaluate_candidate_plan(plan, state, active, ctx, None)
+    if change == "order":
+        candidate = SchedulePlan((b, a))
+    elif change in ("same", "clone"):
+        candidate = SchedulePlan((a if change == "same" else replace(a), b))
+    else:
+        changes = {
+            "width": {"width": D(990)}, "weight": {"weight": D(11)},
+            "attributes": {"rule_attributes": {}},
+            "role": {"material_role": MaterialRole.ACTUAL_TRANSITION},
+        }
+        changed = (
+            replace(a, assigned_period="later") if change == "period"
+            else replace(a, nodes=tuple(reversed(a.nodes))) if change == "nodes"
+            else replace(a, nodes=(replace(a.nodes[0], **changes[change]), a.nodes[1]))
+        )
+        candidate = SchedulePlan((changed, b))
+    expected = evaluate_plan(candidate, active, ctx)
+    calls = []
+    for method in ("evaluate_complete_chain", "evaluate_node", "evaluate_plan"):
+        original = getattr(ProcessRuleSet, method)
+
+        def observe(self, subject, context, method=method, original=original):
+            calls.append((method, subject.subject_id))
+            return original(self, subject, context)
+
+        monkeypatch.setattr(ProcessRuleSet, method, observe)
+    actual, retained = evaluation._evaluate_candidate_plan(candidate, state, active, ctx, previous)
+    assert actual == expected and fingerprint(actual) == fingerprint(expected)
+    changed_calls = [] if change in ("same", "order") else [
+        ("evaluate_complete_chain", "a"),
+        *[("evaluate_node", item.node_id) for item in candidate.chains[0].nodes],
+    ]
+    assert calls == [*changed_calls, ("evaluate_plan", "plan")]
+    assert retained.entries["b"] is previous.entries["b"]
+    assert tuple(retained.entries) == tuple(chain.chain_id for chain in candidate.chains)
+    assert all(entry.chain is chain for entry, chain in zip(retained.entries.values(), candidate.chains))
+
+
+@pytest.mark.parametrize("mode", ("unknown", "disabled_unknown", "rule_set_subclass", "derived_not_allowed"))
+def test_unverified_extensions_fall_back_without_rejecting_inputs(monkeypatch, mode, gqga4):
+    from tests.core.test_reference_numeric_projection import severity_rule
+
+    active = ruleset((replace(severity_rule("1"), enabled=mode != "disabled_unknown"),))
+    if mode == "rule_set_subclass":
+        class CustomRuleSet(ProcessRuleSet):
+            def evaluate_node(self, subject, context):
+                return super().evaluate_node(subject, context)
+
+        base = ruleset()
+        active = CustomRuleSet(**{field.name: getattr(base, field.name) for field in fields(base) if field.init})
+    elif mode == "derived_not_allowed":
+        active = gqga4
+        monkeypatch.setattr(evaluation, "_REUSABLE_RULE_TYPES", evaluation._REUSABLE_RULE_TYPES - {
+            evaluation.concrete._VirtualBridgeWidthRule,
+        })
+    plan, ctx = SchedulePlan((Chain("a", (node("a"),), "first"),)), context()
+    expected = evaluate_plan(plan, active, ctx)
+    state = SearchState(plan, expected)
+    previous = None
+    public_calls = []
+    original = evaluation.evaluate_plan
+
+    def observe(*args):
+        public_calls.append(args)
+        return original(*args)
+
+    monkeypatch.setattr(evaluation, "evaluate_plan", observe)
+    for _ in range(2):
+        actual, previous = evaluation._evaluate_candidate_plan(plan, state, active, ctx, previous)
+        assert actual == expected and fingerprint(actual) == fingerprint(expected)
+        assert (previous is not None) == (mode == "disabled_unknown")
+    assert len(public_calls) == (0 if mode == "disabled_unknown" else 2)
+
+
+def test_warm_reuse_preserves_existing_numeric_goldens(monkeypatch):
+    from tests.core import test_reference_numeric_projection as numeric
+
+    monkeypatch.setattr(numeric, "evaluate_plan", warm_evaluation)
+    numeric.test_actual_rules_preserve_chain_edge_interleaving_for_float_severity()
+    numeric.test_underweight_rounds_each_chain_before_summing_and_keeps_both_raw_values()
+    numeric.test_two_place_underweight_can_turn_raw_improvement_into_equal_quality()
+    numeric.test_virtual_weight_is_summed_exactly_before_its_single_float_projection()
