@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import traceback
 import uuid
 from contextlib import contextmanager
 from copy import deepcopy
@@ -31,6 +32,7 @@ from apsgo_v7_service.app import GET_ACTIVE_RULES_PATH, MONTH_SOLVE_PATH, SET_AC
 from apsgo_v7_service.configuration import load_service_configuration
 from apsgo_v7_service.gqga4 import GQGA4_INITIAL_RULES, GQGA4_INITIAL_VIRTUAL_PROTOTYPES
 from apsgo_v7_service.month_scheduling import MONTH_SOLVE_CONTRACT_VERSION
+from apsgo_v7_service.rule_management import get_active_gqga4_scheduling_snapshot
 
 try:
     from .verify_release import (
@@ -352,7 +354,7 @@ def _controlled_rules_request(active_version: int) -> dict:
     return json.loads(dumps_set_active_rules_request(value), parse_float=Decimal)
 
 
-def _bridge_request(active_version: int, mode: str) -> dict:
+def _bridge_request(active_version: int, mode: str, *, grade: str = "DC01") -> dict:
     _require(mode in {"single", "double"}, "unknown bridge smoke mode")
     thicknesses = ("0.6", "1.0") if mode == "single" else ("0.4", "0.8")
     return {
@@ -363,8 +365,8 @@ def _bridge_request(active_version: int, mode: str) -> dict:
         "orders": [
             {
                 "source_order_id": name, "source_period": "P0", "is_virtual": False,
-                "weight": Decimal(600), "grade": "DC01", "grade_class": "普通钢",
-                "hot_roll_grade": "DC01", "width": Decimal(1000),
+                "weight": Decimal(600), "grade": grade, "grade_class": "普通钢",
+                "hot_roll_grade": grade, "width": Decimal(1000),
                 "thickness": Decimal(thickness), "min_temperature": Decimal(700),
                 "max_temperature": Decimal(800), "customer_grade": "战略客户",
                 "customer_name": None, "execution_standard": None, "surface_grade": None,
@@ -389,7 +391,7 @@ def _assert_bridge_result(response: dict, request: dict, mode: str) -> None:
              and audit["result"]["passed"] is True, "controlled bridge audits did not pass")
     _require(response["preparation_report"]["matched_order_count"] == 2
              and response["preparation_report"]["missing_order_count"] == 0,
-             "controlled DC01 orders require an enabled dictionary entry")
+             "controlled orders did not match the selected enabled dictionary entry")
     prototypes = ["0.8"] if mode == "single" else ["0.6", "0.5"]
     thicknesses = [request["orders"][1]["thickness"],
                    *(Decimal(value) for value in prototypes), request["orders"][0]["thickness"]]
@@ -450,27 +452,49 @@ def _assert_bridge_log(text: str, request_id: str, mode: str) -> list[dict]:
     return events
 
 
+def _invoke_acl(evidence: Path, label: str, arguments: list[str]) -> None:
+    system_root = os.environ.get("SystemRoot")
+    _require(bool(system_root), "SystemRoot is unavailable for ACL validation")
+    executable = str(Path(system_root) / "System32" / "icacls.exe")
+    result = subprocess.run([executable, *arguments], cwd=evidence.parent,
+                            capture_output=True, check=False, timeout=60)
+    output = result.stdout + result.stderr
+    log_path = evidence / f"acl_{label}.log"
+    log_path.write_bytes(output)
+    encoding = "mbcs" if sys.platform == "win32" else "utf-8"
+    _require(result.returncode == 0,
+             f"Windows installation ACL {label} failed (exit {result.returncode}); "
+             f"log={log_path}; {output.decode(encoding, errors='replace').strip()}")
+
+
+def _check_acl_restore_available(evidence: Path) -> None:
+    """Check the caller's restore privileges without denying any write permissions."""
+    backup = evidence / "acl_preflight.txt"
+    with tempfile.TemporaryDirectory(prefix="APSGo V7 ACL probe ", dir=evidence.parent) as directory:
+        _invoke_acl(evidence, "preflight_save",
+                    [Path(directory).name, "/save", str(backup), "/Q"])
+        try:
+            _invoke_acl(evidence, "preflight_restore", [".", "/restore", str(backup), "/Q"])
+        except SmokeError as error:
+            raise SmokeError(
+                "ACL restore preflight failed before write permissions were changed. "
+                "Run the build from an elevated Windows terminal; if it still fails, "
+                "check the account's restore privileges. "
+                f"{error}"
+            ) from error
+
+
 @contextmanager
 def _readonly_installation(package: Path, evidence: Path):
     """Deny writes on the owned copy with Windows DACLs, then restore its original ACLs."""
     _require(os.name == "nt" and package.parent == evidence.parent
              and package.name == "APSGo V7 package", "ACL target must be the disposable package")
-    system_root = os.environ.get("SystemRoot")
-    _require(bool(system_root), "SystemRoot is unavailable for ACL validation")
-    executable = str(Path(system_root) / "System32" / "icacls.exe")
     backup = evidence / "installation_acl.txt"
-
-    def invoke(label, arguments):
-        result = subprocess.run([executable, *arguments], cwd=package.parent,
-                                capture_output=True, check=False, timeout=60)
-        (evidence / f"acl_{label}.log").write_bytes(result.stdout + result.stderr)
-        _require(result.returncode == 0, f"Windows installation ACL {label} failed")
-
-    invoke("save", [package.name, "/save", str(backup), "/T", "/Q"])
+    _invoke_acl(evidence, "save", [package.name, "/save", str(backup), "/T", "/Q"])
     try:
         # Explicit deny on every existing object; keep read/execute and owner ACL restoration.
-        invoke("deny", [package.name, "/deny", "*S-1-1-0:(WD,AD,WEA,WA,DE,DC)", "/T", "/Q"])
-        invoke("verify", [package.name, "/verify", "/T", "/Q"])
+        _invoke_acl(evidence, "deny", [package.name, "/deny", "*S-1-1-0:(WD,AD,WEA,WA,DE,DC)", "/T", "/Q"])
+        _invoke_acl(evidence, "verify", [package.name, "/verify", "/T", "/Q"])
         for directory in (package, package / "_internal"):
             probe = directory / ".apsgo-write-probe"
             try:
@@ -488,13 +512,21 @@ def _readonly_installation(package: Path, evidence: Path):
             raise SmokeError("installation executable remains writable")
         yield
     finally:
-        invoke("restore", [".", "/restore", str(backup), "/Q"])
+        _invoke_acl(evidence, "restore", [".", "/restore", str(backup), "/Q"])
 
 
 def _run_bridge_requests(base_url, configuration, active, evidence, label, *, request_timeout_seconds):
+    snapshot = get_active_gqga4_scheduling_snapshot(
+        configuration.database_path,
+        timeout_seconds=configuration.database_timeout_seconds,
+        expected_active_version_id=active["active_version_id"],
+    )
+    grade = next((entry.normalized_grade for entry in snapshot.grade_dictionary.entries
+                  if entry.enabled and not entry.is_if_steel), None)
+    _require(grade is not None, "controlled bridge requires an enabled non-IF grade in the active dictionary")
     results = []
     for mode in ("single", "double"):
-        request = _bridge_request(active["active_version_id"], mode)
+        request = _bridge_request(active["active_version_id"], mode, grade=grade)
         stem = f"{label}_{mode}"
         _record_json(evidence / f"{stem}_request.json", request)
         started = time.perf_counter()
@@ -636,6 +668,7 @@ def run_smoke(
     success = False
     try:
         verify_package(smoke_package, allow_pending_smoke=True)
+        _check_acl_restore_available(evidence)
         help_result = subprocess.run(
             [str(smoke_package / "APSGoV7Service.exe"), "--help"],
             cwd=smoke_package,
@@ -784,6 +817,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     except Exception as error:
         sys.stderr.write(f"APSGo V7 release smoke failed: {error}\n")
+        traceback.print_exc(file=sys.stderr)
         return 1
     sys.stdout.write(f"{dumps_exact_json(result)}\n")
     return 0
