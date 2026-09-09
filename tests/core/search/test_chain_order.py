@@ -398,14 +398,14 @@ def test_interruption_never_publishes_an_unfinished_order(stop_kind, when, monke
     if when == "before":
         stop.active = True
     else:
-        original = neighborhoods.evaluate_plan
+        original = neighborhoods._evaluate_candidate_plan
 
         def interrupt(*args):
             result = original(*args)
             stop.active = True
             return result
 
-        monkeypatch.setattr(neighborhoods, "evaluate_plan", interrupt)
+        monkeypatch.setattr(neighborhoods, "_evaluate_candidate_plan", interrupt)
     improve_chain_order(state, context)
     assert runtime.stop_reason is (
         SearchStopReason.USER_CANCELLED

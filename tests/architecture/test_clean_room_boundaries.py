@@ -11,6 +11,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 PACKAGE = ROOT / "src" / "apsgo_scheduler"
+SERVICE_PACKAGE = ROOT / "src" / "apsgo_v7_service"
+ALLOWED_SOURCE_PREFIXES = ("src/apsgo_scheduler/", "src/apsgo_v7_service/")
 LAYERS = {"api", "core", "app"}
 OLD_SOURCE = re.compile(
     r"\b(?:apsgo|shared_kernel|kernel_contracts|OptimizationProblem|"
@@ -18,6 +20,8 @@ OLD_SOURCE = re.compile(
     r"|APSGOV6|apsgo-v3|PYTHONPATH"
 )
 REFERENCE_SOURCE = re.compile(r"(?:^/|^[A-Za-z]:[\\/]).*\.py(?:$|[\\/])")
+LOCAL_ABSOLUTE_PATH = re.compile(r"^/Users/|^[A-Za-z]:[\\/]")
+TEST_SOURCE = re.compile(r"(?:^|[\\/])tests(?:[\\/]|$)")
 LINE_NAMES = re.compile(r"GQGA4|GQPT|XQGA")
 BENCHMARK_NUMBERS = {531, 29333.91, 37, 3}
 
@@ -55,12 +59,19 @@ def check_source(source, path, package):
             targets = import_targets(node, module, path.name == "__init__.py")
             for target in targets:
                 top = target.partition(".")[0]
-                assert top in sys.stdlib_module_names or top == "apsgo_scheduler", (
+                numeric_dependency = (
+                    module == "apsgo_scheduler.core._bridge_numeric"
+                    and top in {"numpy", "numba"}
+                )
+                assert top in sys.stdlib_module_names or top == "apsgo_scheduler" or (
+                    numeric_dependency
+                ), (
                     f"External production dependency: {target} in {path}"
                 )
                 assert top not in {"importlib", "runpy", "ctypes"}, (
                     f"Dynamic code loading is outside the production boundary: {target}"
                 )
+                assert top != "sqlite3", f"Database access belongs in apsgo_v7_service, not {path}"
                 if top == "apsgo_scheduler":
                     pieces = target.split(".")
                     assert len(pieces) == 1 or pieces[1] in LAYERS, target
@@ -114,8 +125,41 @@ def check_package(package):
             check_source(path.read_text(encoding="utf-8"), path, package)
 
 
+def check_service_source(source, path):
+    assert not OLD_SOURCE.search(source), f"Historical source reference: {path}"
+    tree = ast.parse(source, filename=str(path))
+    module = module_name(path, SERVICE_PACKAGE)
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            for target in import_targets(node, module, path.name == "__init__.py"):
+                top = target.partition(".")[0]
+                assert top in sys.stdlib_module_names or top in {
+                    "apsgo_scheduler",
+                    "apsgo_v7_service",
+                    "fastapi",
+                    "uvicorn",
+                    "yaml",
+                }, f"External service dependency: {target} in {path}"
+                assert top != "tests", f"Test dependency in service package: {target}"
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+            assert not LOCAL_ABSOLUTE_PATH.search(node.value), (
+                f"Absolute local path in {path}:{node.lineno}"
+            )
+            assert not TEST_SOURCE.search(node.value), f"Test path in {path}:{node.lineno}"
+
+
 def test_production_tree_is_self_contained():
     check_package(PACKAGE)
+
+
+def test_service_package_is_plain_python_and_not_a_symlink():
+    assert SERVICE_PACKAGE.is_dir() and not SERVICE_PACKAGE.is_symlink()
+    assert (SERVICE_PACKAGE / "__init__.py").is_file()
+    for path in SERVICE_PACKAGE.rglob("*"):
+        assert not path.is_symlink(), f"Symlink in service package: {path}"
+        if path.is_file() and "__pycache__" not in path.parts:
+            assert path.suffix == ".py", f"Non-source service payload: {path}"
+            check_service_source(path.read_text(encoding="utf-8"), path)
 
 
 def test_tracked_source_contains_only_new_package():
@@ -134,13 +178,15 @@ def test_tracked_source_contains_only_new_package():
             capture_output=True,
         )
         paths = result.stdout.decode("utf-8").strip("\0").split("\0")
-    assert all(not path or path.startswith("src/apsgo_scheduler/") for path in paths), paths
+    assert all(not path or path.startswith(ALLOWED_SOURCE_PREFIXES) for path in paths), paths
 
 
 @pytest.mark.parametrize(
     "source",
     [
         "import numpy",
+        "import numba",
+        "import sqlite3",
         "import apsgo.rules",
         "class ResourceLedger: pass",
         "class OptimizationProblem: pass",
@@ -176,6 +222,47 @@ def test_source_guard_accepts_standard_library():
         "from dataclasses import dataclass\nimport math\nvalue = 2",
         PACKAGE / "core" / "example.py",
         PACKAGE,
+    )
+
+
+@pytest.mark.parametrize("source", ("import numpy as np", "from numba import njit"))
+def test_numeric_dependency_exception_is_only_the_private_bridge_module(source):
+    check_source(source, PACKAGE / "core" / "_bridge_numeric.py", PACKAGE)
+    for relative in (
+        "core/example.py", "core/_bridge_numeric_extra.py",
+        "api/_bridge_numeric.py", "app/_bridge_numeric.py",
+    ):
+        with pytest.raises(AssertionError, match="External production dependency"):
+            check_source(source, PACKAGE / relative, PACKAGE)
+
+
+@pytest.mark.parametrize("source", ("import scipy", "import llvmlite", "import sqlite3"))
+def test_numeric_dependency_exception_does_not_relax_other_boundaries(source):
+    with pytest.raises(AssertionError):
+        check_source(source, PACKAGE / "core" / "_bridge_numeric.py", PACKAGE)
+
+
+@pytest.mark.parametrize(
+    "source",
+    (
+        "from tests.app import helper",
+        "source = 'tests/baseline.json'",
+        "source = '/Users/example/private.json'",
+        "source = 'C:\\\\private\\\\config.json'",
+        "import numpy",
+        "import numba",
+    ),
+)
+def test_service_source_guard_rejects_test_local_and_external_dependencies(source):
+    with pytest.raises(AssertionError):
+        check_service_source(source, SERVICE_PACKAGE / "example.py")
+
+
+def test_service_source_guard_accepts_declared_runtime_dependencies():
+    check_service_source(
+        "import sqlite3\nimport yaml\n"
+        "from apsgo_scheduler.api.request import RuleSetSpec\nline = 'GQGA4'",
+        SERVICE_PACKAGE / "example.py",
     )
 
 

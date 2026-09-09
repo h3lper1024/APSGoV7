@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
-from apsgo_scheduler.core import controlled_split, final_audit
+from apsgo_scheduler.core import controlled_split, evaluation, final_audit, neighborhoods
 from apsgo_scheduler.core.compatibility import RuleEdgeDecisionCache
 from apsgo_scheduler.core.contracts import (
     CoreAuditStatus,
@@ -141,6 +141,12 @@ def test_replay_uses_new_authoritative_context_and_never_search_edge_cache(monke
         return original(plan, active_rules, context)
 
     monkeypatch.setattr(final_audit, "evaluate_plan", replay)
+    for owner, name in (
+        (evaluation, "_evaluate_candidate_plan"),
+        (neighborhoods, "_evaluate_candidate_plan"),
+        (evaluation, "_ChainEvaluationEntry"),
+    ):
+        monkeypatch.setattr(owner, name, lambda *args: pytest.fail("search reuse used by audit"))
     monkeypatch.setattr(
         RuleEdgeDecisionCache, "allows", lambda *args: pytest.fail("search cache used by audit")
     )

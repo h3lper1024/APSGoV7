@@ -1,0 +1,51 @@
+{
+  "contract_version": "v7-month-solve-v1",
+  "request_id": "00000000-0000-4000-8000-000000000001",
+  "expected_active_version_id": 1,
+  "periods": [
+    {
+      "period_id": "BR_00000002",
+      "sequence": 0
+    },
+    {
+      "period_id": "BR_00000003",
+      "sequence": 1
+    }
+  ],
+  "orders": [
+    {
+      "source_order_id": "0030121724-000020",
+      "source_period": "BR_00000002",
+      "is_virtual": false,
+      "weight": 195.2,
+      "grade": "DC51D+Z",
+      "grade_class": "普碳",
+      "hot_roll_grade": "SPHC",
+      "width": 1250.0,
+      "thickness": 2.5,
+      "min_temperature": 700.0,
+      "max_temperature": 720.0,
+      "customer_grade": "",
+      "customer_name": "河钢集团有限公司销售总公司钢材贸易部",
+      "execution_standard": "Q/TB 305-2017",
+      "surface_grade": "FB"
+    },
+    {
+      "source_order_id": "0030122066-000070",
+      "source_period": "BR_00000003",
+      "is_virtual": false,
+      "weight": 24.0,
+      "grade": "HC340/590DPD+Z",
+      "grade_class": "双相钢",
+      "hot_roll_grade": "W590X4",
+      "width": 1299.0,
+      "thickness": 2.49,
+      "min_temperature": 760.0,
+      "max_temperature": 780.0,
+      "customer_grade": "",
+      "customer_name": "河钢汽车板有限公司",
+      "execution_standard": "Q/TB 305-2017",
+      "surface_grade": "FB"
+    }
+  ]
+}

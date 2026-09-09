@@ -317,7 +317,7 @@ def test_cancellation_or_time_at_candidate_boundaries_never_publishes_private_ma
             "after_materialize": (VirtualFactory, "materialize"),
             "after_edge": (RuleEdgeDecisionCache, "allows"),
             "after_ratio": (VirtualOutputRatioRule, "evaluate"),
-            "after_evaluation": (neighborhoods, "evaluate_plan"),
+            "after_evaluation": (neighborhoods, "_evaluate_candidate_plan"),
         }[when]
         original = getattr(owner, attribute)
 
@@ -371,7 +371,7 @@ def test_candidate_errors_propagate_without_acceptance_or_sequence_change(
         "materialize": (VirtualFactory, "materialize"),
         "edge": (RuleEdgeDecisionCache, "allows"),
         "ratio": (VirtualOutputRatioRule, "evaluate"),
-        "evaluation": (neighborhoods, "evaluate_plan"),
+        "evaluation": (neighborhoods, "_evaluate_candidate_plan"),
     }[failure_point]
 
     def fail(*args, **kwargs):

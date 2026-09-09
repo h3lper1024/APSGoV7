@@ -1,13 +1,17 @@
 """Rule-authorized complete weight partitions and one post-split search replay."""
 
+import logging
 from dataclasses import replace
 from itertools import pairwise
+from time import perf_counter
 
 from .contracts import ControlledSplitMode, SearchStopReason, sum_weights
 from .model import Chain, MaterialRole, SchedulePlan, SearchState
 from .neighborhoods import (
     SearchContext,
+    _boundary_join,
     _normalize_chain,
+    _split_donor_sides,
     _split_lineage,
     _split_partition_id,
     _split_piece_weights,
@@ -15,9 +19,15 @@ from .neighborhoods import (
     run_local_search,
     try_complete_candidate,
 )
+from .process_logging import emit, stop_status
 from .resource_facts import derive_evaluation_resource_view
 from .rules.base import ControlledSplitRuleSubject, PlanRuleSubject, RuleDisposition
-from .rules.concrete import WEIGHT_EPSILON, VirtualOutputRatioRule
+from .rules.concrete import (
+    WEIGHT_EPSILON,
+    VirtualOutputRatioRule,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def _prepare_split(state, context, donor, parent, subject, decision, piece_prefix):
@@ -42,6 +52,14 @@ def _prepare_split(state, context, donor, parent, subject, decision, piece_prefi
     weights = _split_piece_weights(parent.weight, decision)
     if not weights:
         return None
+    donor_sides = _split_donor_sides(donor, parent)
+    if donor_sides is None:
+        return None
+    prefix, suffix, _ = donor_sides
+    repaired = _boundary_join(prefix, suffix, context, state.virtual_sequence)
+    if repaired is None:
+        return None
+    remaining, sequence = repaired
     partition_id = _split_partition_id(subject, decision, weights)
     lineage = _split_lineage(subject, decision, weights, partition_id)
     pieces = []
@@ -63,7 +81,7 @@ def _prepare_split(state, context, donor, parent, subject, decision, piece_prefi
         separator = context.factory.separator(
             left,
             right,
-            first_sequence=state.virtual_sequence + len(separators) + 1,
+            first_sequence=sequence + len(separators) + 1,
             related_partition_id=partition_id,
         )
         if separator is None or not budget.allows_search():
@@ -72,11 +90,6 @@ def _prepare_split(state, context, donor, parent, subject, decision, piece_prefi
         returned.extend((separator, right))
     if sum_weights(node.weight for node in separators) > sum_weights(
         (decision.maximum_separator_weight, WEIGHT_EPSILON)
-    ):
-        return None
-    remaining = tuple(node for node in donor.nodes if node.node_id != parent.node_id)
-    if remaining and all(
-        node.material_role is MaterialRole.GENERATED_VIRTUAL for node in remaining
     ):
         return None
     candidate = []
@@ -92,7 +105,7 @@ def _prepare_split(state, context, donor, parent, subject, decision, piece_prefi
     while chain_id in current_ids:
         chain_id = "_" + chain_id
     candidate.append(Chain(chain_id, tuple(returned), decision.target_assigned_period))
-    return tuple(candidate), state.virtual_sequence + len(separators)
+    return tuple(candidate), sequence + len(separators)
 
 
 def run_controlled_order_split(state: SearchState, context: SearchContext) -> SearchState:
@@ -180,7 +193,48 @@ def run_controlled_order_split(state: SearchState, context: SearchContext) -> Se
             break
     if budget.allows_search():
         if state.split_sequence > starting_sequence:
-            run_local_search(state, context)
+            started = perf_counter()
+            details = dict(
+                stage="local_search_replay",
+                parent_stage="controlled_split_and_replay",
+                replay=True,
+            )
+            emit(logger, "solver_stage_started", **details)
+            try:
+                run_local_search(state, context)
+            except Exception:
+                emit(
+                    logger,
+                    "solver_stage_failed",
+                    **details,
+                    stage_seconds=perf_counter() - started,
+                    status="error",
+                    level=logging.ERROR,
+                    exc_info=True,
+                )
+                raise
+            emit(
+                logger,
+                "solver_stage_finished",
+                **details,
+                stage_seconds=perf_counter() - started,
+                status=stop_status(budget.stop_reason),
+                stop_reason=None if budget.stop_reason is None else budget.stop_reason.value,
+                quality=state.current_evaluation.quality_key,
+                chain_count=len(state.current_plan.chains),
+                candidate_check_count=budget.candidate_check_count,
+                complete_candidate_evaluation_count=context.complete_candidate_evaluation_count,
+                accepted_move_count=state.accepted_move_count,
+            )
         else:
             budget.stop_reason = SearchStopReason.LOCAL_SEARCH_COMPLETE
+            emit(
+                logger,
+                "solver_stage_skipped",
+                stage="local_search_replay",
+                parent_stage="controlled_split_and_replay",
+                replay=True,
+                status="skipped",
+                reason="no_accepted_split",
+            )
     return state

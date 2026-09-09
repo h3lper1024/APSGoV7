@@ -1,0 +1,5 @@
+PyInstaller==6.22.2
+numpy==2.2.6
+numba==0.65.1
+llvmlite==0.47.0
+pyinstaller-hooks-contrib==2026.6

@@ -1,5 +1,6 @@
 """One ordered core solve and one audited, time-bounded release boundary."""
 
+import logging
 from dataclasses import fields, replace
 from decimal import Decimal
 from time import perf_counter
@@ -30,11 +31,14 @@ from .initial_solution import construct_initial_plan
 from .model import Node, SchedulingProblem, SearchState
 from .neighborhoods import AcceptedMoveTrace, SearchContext, run_local_search
 from .path_cover import minimum_path_cover
+from .process_logging import audit_status, emit, stop_status
 from .rules.base import RuleEvaluationContext
 from .rules.concrete import WEIGHT_EPSILON, ChainWeightRangeRule
 from .rules.rule_set import ProcessRuleSet
 from .virtual_material import VirtualFactory
 from .width_optimization import run_width_optimization
+
+logger = logging.getLogger(__name__)
 
 
 def _values(value, excluded=()):
@@ -299,6 +303,14 @@ def _finalization_allowed(runtime, issues):
         return runtime.allows_finalization()
     except Exception as error:
         runtime.stop_reason = SearchStopReason.SYSTEM_ERROR
+        emit(
+            logger,
+            "solver_finalization_exception",
+            status="error",
+            exception_type=type(error).__name__,
+            level=logging.ERROR,
+            exc_info=True,
+        )
         issues.append(
             _issue("runtime_check_error", f"运行边界检查失败：{type(error).__name__}: {error}")
         )
@@ -459,9 +471,48 @@ def solve(
     state, context, audit = None, None, None
     metrics, issues, durations = SolveMetrics(), [], {}
     phase = "input_validation"
+    observed_phases = set()
+
+    def log_phase(event, *, name=None, **details):
+        name = phase if name is None else name
+        observed_phases.add(name)
+        evaluation = None if state is None else state.current_evaluation
+        emit(
+            logger,
+            event,
+            stage=name,
+            stop_reason=None if runtime.stop_reason is None else runtime.stop_reason.value,
+            candidate_check_count=runtime.candidate_check_count,
+            complete_candidate_evaluation_count=(
+                0 if context is None else context.complete_candidate_evaluation_count
+            ),
+            accepted_move_count=0 if state is None else state.accepted_move_count,
+            chain_count=None if state is None else len(state.current_plan.chains),
+            quality=None
+            if evaluation is None
+            else tuple(
+                (criterion.metric_key, value)
+                for criterion, value in zip(rule_set.quality_spec, evaluation.quality_key)
+            ),
+            **details,
+        )
 
     def finish():
         nonlocal metrics
+        for name in (
+            "input_validation",
+            "construction_graph",
+            "minimum_path_cover",
+            "initial_solution",
+            "local_search",
+            "controlled_split_and_replay",
+            "width_optimization",
+            "core_audit",
+        ):
+            if name not in observed_phases:
+                log_phase(
+                    "solver_stage_skipped", name=name, status="skipped", reason="prior_stage_exit"
+                )
         values = dict(
             candidate_check_count=runtime.candidate_check_count, stage_duration_seconds=durations
         )
@@ -481,6 +532,14 @@ def solve(
             metrics = replace(metrics, **values)
         except ValueError as error:
             runtime.stop_reason = SearchStopReason.SYSTEM_ERROR
+            emit(
+                logger,
+                "solver_counter_exception",
+                status="error",
+                exception_type=type(error).__name__,
+                level=logging.ERROR,
+                exc_info=True,
+            )
             issues.append(
                 _issue(
                     "solver_counter_invalid",
@@ -502,6 +561,7 @@ def solve(
 
     started = perf_counter()
     try:
+        log_phase("solver_stage_started")
         issues.extend(_identity_issues(problem, rule_set, policy, runtime))
         if not issues:
             issues.extend(_material_issues(problem, rule_set, runtime))
@@ -509,9 +569,21 @@ def solve(
         if issues:
             if runtime.stop_reason is not SearchStopReason.USER_CANCELLED:
                 runtime.stop_reason = SearchStopReason.INPUT_INVALID
+            log_phase(
+                "solver_stage_finished",
+                stage_seconds=durations[phase],
+                status=stop_status(runtime.stop_reason),
+                issue_count=len(issues),
+            )
             return finish()
         if not runtime.allows_search():
+            log_phase(
+                "solver_stage_finished",
+                stage_seconds=durations[phase],
+                status=stop_status(runtime.stop_reason),
+            )
             return finish()
+        log_phase("solver_stage_finished", stage_seconds=durations[phase], status="completed")
         rule_context = RuleEvaluationContext(
             problem.period_order,
             {period: index for index, period in enumerate(problem.period_order)},
@@ -520,6 +592,7 @@ def solve(
         cache = RuleEdgeDecisionCache(problem, rule_set, rule_context, policy.numeric_semantics_key)
         factory = VirtualFactory(cache, runtime)
         phase, started = "construction_graph", perf_counter()
+        log_phase("solver_stage_started")
         graph = build_construction_dag(problem, cache, runtime, seed=policy.seed)
         durations[phase] = Decimal(str(perf_counter() - started))
         metrics = replace(
@@ -527,46 +600,128 @@ def solve(
             graph_edge_check_count=graph.checked_edge_count,
             graph_allowed_edge_count=graph.allowed_edge_count,
         )
+        log_phase(
+            "solver_stage_finished",
+            stage_seconds=durations[phase],
+            status="completed" if graph.complete else stop_status(runtime.stop_reason),
+            complete=graph.complete,
+            graph_edge_check_count=graph.checked_edge_count,
+            graph_allowed_edge_count=graph.allowed_edge_count,
+        )
         if not graph.complete:
             return finish()
         phase, started = "minimum_path_cover", perf_counter()
+        log_phase("solver_stage_started")
         cover = minimum_path_cover(graph, runtime)
         durations[phase] = Decimal(str(perf_counter() - started))
         metrics = replace(
             metrics, matching_edge_count=cover.matched_edge_count, path_count=cover.path_count
         )
+        log_phase(
+            "solver_stage_finished",
+            stage_seconds=durations[phase],
+            status="completed" if cover.complete else stop_status(runtime.stop_reason),
+            complete=cover.complete,
+            matching_edge_count=cover.matched_edge_count,
+            path_count=cover.path_count,
+        )
         if not cover.complete:
             return finish()
         phase, started = "initial_solution", perf_counter()
+        log_phase("solver_stage_started")
         initial = construct_initial_plan(problem, graph, cover, cache, runtime)
         durations[phase] = Decimal(str(perf_counter() - started))
         if not initial.complete:
+            log_phase(
+                "solver_stage_finished",
+                stage_seconds=durations[phase],
+                status=stop_status(runtime.stop_reason),
+                complete=False,
+            )
             return finish()
         state = SearchState(initial.candidate.plan, initial.candidate.search_evaluation)
         metrics = replace(metrics, initial_chain_count=len(state.current_plan.chains))
+        log_phase(
+            "solver_stage_finished",
+            stage_seconds=durations[phase],
+            status="completed",
+            complete=True,
+        )
         context = SearchContext(factory, policy)
         phase, started = "local_search", perf_counter()
+        log_phase("solver_stage_started")
         run_local_search(state, context)
         durations[phase] = Decimal(str(perf_counter() - started))
+        log_phase(
+            "solver_stage_finished",
+            stage_seconds=durations[phase],
+            status=stop_status(runtime.stop_reason),
+        )
         phase, started = "controlled_split_and_replay", perf_counter()
+        split_stopped = runtime.stop_reason not in (None, SearchStopReason.LOCAL_SEARCH_COMPLETE)
+        log_phase(
+            "solver_stage_skipped" if split_stopped else "solver_stage_started",
+            **({"status": "skipped", "reason": "search_already_stopped"} if split_stopped else {}),
+        )
         # This stage owns the optional single replay of the original local search.
         run_controlled_order_split(state, context)
         durations[phase] = Decimal(str(perf_counter() - started))
+        if not split_stopped:
+            log_phase(
+                "solver_stage_finished",
+                stage_seconds=durations[phase],
+                status=stop_status(runtime.stop_reason),
+            )
+        width_objective = chain_order_objective_index(rule_set)
         if (
-            chain_order_objective_index(rule_set) is not None
+            width_objective is not None
             and not state.current_evaluation.violations
             and runtime.stop_reason in (None, SearchStopReason.LOCAL_SEARCH_COMPLETE)
         ):
             phase, started = "width_optimization", perf_counter()
+            log_phase("solver_stage_started")
             run_width_optimization(state, context)
             durations[phase] = Decimal(str(perf_counter() - started))
+            log_phase(
+                "solver_stage_finished",
+                stage_seconds=durations[phase],
+                status=stop_status(runtime.stop_reason),
+            )
+        else:
+            log_phase(
+                "solver_stage_skipped",
+                name="width_optimization",
+                status="skipped",
+                reason="objective_not_enabled"
+                if width_objective is None
+                else "candidate_has_violations"
+                if state.current_evaluation.violations
+                else "search_already_stopped",
+            )
         phase, started = "core_audit", perf_counter()
+        log_phase("solver_stage_started")
         snapshot = CoreCandidateSnapshot(state.current_plan, state.current_evaluation)
         audit = audit_core_without_search_cache(snapshot, problem, rule_set, runtime)
         durations[phase] = Decimal(str(perf_counter() - started))
+        log_phase(
+            "solver_stage_finished",
+            stage_seconds=durations[phase],
+            status=audit_status(audit.report),
+            audit_status=audit.report.status.value,
+            audit_passed=audit.report.passed,
+            issue_count=len(audit.issues),
+        )
     except Exception as error:
         durations[phase] = Decimal(str(perf_counter() - started))
         runtime.stop_reason = SearchStopReason.SYSTEM_ERROR
+        log_phase(
+            "solver_stage_failed",
+            stage_seconds=durations[phase],
+            status="error",
+            exception_type=type(error).__name__,
+            level=logging.ERROR,
+            exc_info=True,
+        )
         issues.append(
             _issue(
                 "core_solver_error",

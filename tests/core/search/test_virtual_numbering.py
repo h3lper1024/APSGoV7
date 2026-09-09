@@ -7,6 +7,7 @@ from unittest.mock import Mock
 import pytest
 
 from apsgo_scheduler.core import virtual_material
+from apsgo_scheduler.core.budget import SolveRuntimeBudget
 from apsgo_scheduler.core.compatibility import RuleEdgeDecisionCache
 from apsgo_scheduler.core.contracts import SearchStopReason, fingerprint
 from apsgo_scheduler.core.evaluation import evaluate_plan
@@ -14,7 +15,12 @@ from apsgo_scheduler.core.model import Chain, SchedulePlan, SearchState, Virtual
 from apsgo_scheduler.core.virtual_material import VirtualFactory
 from tests.core.graph.test_bipartite_matching import budget
 from tests.core.graph.test_construction_order import node
-from tests.core.search.test_virtual_material_factory import make_factory, prototype
+from tests.core.search.test_virtual_material_factory import (
+    DOUBLE_BRIDGE_EDGES,
+    DOUBLE_BRIDGE_QUERIES,
+    make_factory,
+    prototype,
+)
 
 
 def single_factory(**changes):
@@ -83,7 +89,14 @@ def test_two_bridge_boundaries_in_one_candidate_use_a_private_continuous_cursor(
         "p",
         "q",
     )
-    assert factory.bridge(left, right, max_nodes=2, first_sequence=4) == first
+    repeated = factory.bridge(left, right, max_nodes=2, first_sequence=4)
+    assert repeated == first
+    assert all(new is not old for new, old in zip(repeated, first))
+    hotter = replace(right, min_temperature=Decimal(1100), max_temperature=Decimal(1200))
+    changed = factory.bridge(left, hotter, max_nodes=2, first_sequence=4)
+    assert tuple(item.node_id for item in changed) == tuple(item.node_id for item in first)
+    assert all(item.max_temperature == Decimal(1200) for item in changed)
+    assert all(item.max_temperature != Decimal(1200) for item in first)
     assert factory.budget.candidate_check_count == 0
 
 
@@ -261,6 +274,42 @@ class Stop:
 
     def clock(self):
         return 100.0 if self.active else 1.0
+
+
+@pytest.mark.parametrize("kind", ("cancel", "time"))
+@pytest.mark.parametrize("stop_at,edge_count", ((32, 11), (35, 12), (41, 14), (49, 17)))
+def test_reused_bridge_positions_keep_original_stop_checkpoints(monkeypatch, kind, stop_at, edge_count):
+    signal = Stop()
+    runtime = budget(cancellation=signal) if kind == "cancel" else budget(clock=signal.clock)
+    factory = make_factory(
+        tuple(prototype(name) for name in "abc"), allowed_edges=DOUBLE_BRIDGE_EDGES, runtime=runtime,
+    )
+    state = state_for(factory)
+    before = fingerprint(state)
+    queries = []
+    probes = 0
+    original_probe = SolveRuntimeBudget.allows_search
+    original_allows = RuleEdgeDecisionCache.allows
+
+    def probe(self):
+        nonlocal probes
+        probes += 1
+        if probes == stop_at:
+            signal.active = True
+        return original_probe(self)
+
+    def allowed(self, left, right):
+        queries.append((left.grade, right.grade))
+        return original_allows(self, left, right)
+
+    monkeypatch.setattr(SolveRuntimeBudget, "allows_search", probe)
+    monkeypatch.setattr(RuleEdgeDecisionCache, "allows", allowed)
+    assert factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7) is None
+    assert tuple(queries) == DOUBLE_BRIDGE_QUERIES[:edge_count]
+    assert runtime.stop_reason is (
+        SearchStopReason.USER_CANCELLED if kind == "cancel" else SearchStopReason.SEARCH_TIME_LIMIT_REACHED
+    )
+    assert runtime.candidate_check_count == 0 and fingerprint(state) == before
 
 
 def select(factory, method):

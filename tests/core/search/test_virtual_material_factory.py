@@ -1,10 +1,12 @@
 """Virtual bridge, weight-fill and split-separator choices keep distinct rankings."""
 
+from collections import Counter
 from dataclasses import replace
 from decimal import ROUND_UP, Decimal, Inexact, localcontext
 
 import pytest
 
+from apsgo_scheduler.core.budget import SolveRuntimeBudget
 from apsgo_scheduler.core.compatibility import RuleEdgeDecisionCache
 from apsgo_scheduler.core.contracts import RuleScope, fingerprint
 from apsgo_scheduler.core.model import (
@@ -26,6 +28,17 @@ from tests.core.graph.test_bipartite_matching import budget
 from tests.core.graph.test_construction_order import node, rules
 
 D = Decimal
+DOUBLE_BRIDGE_EDGES = {
+    ("left", "a"), ("left", "b"), ("a", "c"), ("b", "c"), ("c", "right"),
+}
+DOUBLE_BRIDGE_QUERIES = (
+    ("left", "right"),
+    ("left", "a"), ("a", "right"),
+    ("left", "b"), ("b", "right"), ("left", "c"),
+    ("left", "a"), ("a", "a"), ("a", "b"), ("a", "c"), ("c", "right"),
+    ("left", "b"), ("b", "a"), ("b", "b"), ("b", "c"), ("c", "right"),
+    ("left", "c"),
+)
 
 
 class AllowedConnectionsRule(Rule):
@@ -212,6 +225,75 @@ def test_double_bridge_uses_sum_of_both_triplet_scores_then_nested_catalog_order
     )
     result = factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=1)
     assert selected_prototypes(result) == expected
+
+
+def test_bridge_reuses_nodes_without_changing_edge_order_cache_counts_or_budget(monkeypatch):
+    factory = make_factory(tuple(prototype(name) for name in "abc"), allowed_edges=DOUBLE_BRIDGE_EDGES)
+    created, queries, observed = [], [], {}
+    original_materialize = VirtualFactory.materialize
+    original_allows = RuleEdgeDecisionCache.allows
+    original_probe = SolveRuntimeBudget.allows_search
+    probes = 0
+
+    def materialized(self, *args, **kwargs):
+        value = original_materialize(self, *args, **kwargs)
+        created.append(value)
+        return value
+
+    def allowed(self, left, right):
+        queries.append((left.grade, right.grade))
+        for item in (left, right):
+            if item.virtual_lineage is not None:
+                key = (item.virtual_lineage.prototype_id, item.virtual_lineage.accepted_sequence)
+                observed.setdefault(key, []).append(item)
+        return original_allows(self, left, right)
+
+    def probe(self):
+        nonlocal probes
+        probes += 1
+        return original_probe(self)
+
+    monkeypatch.setattr(VirtualFactory, "materialize", materialized)
+    monkeypatch.setattr(RuleEdgeDecisionCache, "allows", allowed)
+    monkeypatch.setattr(SolveRuntimeBudget, "allows_search", probe)
+    result = factory.bridge(*factory.cache.problem.nodes, max_nodes=2, first_sequence=7)
+    assert selected_prototypes(result) == ("a", "c")
+    assert tuple(queries) == DOUBLE_BRIDGE_QUERIES
+    assert (factory.cache.hit_count, factory.cache.miss_count, factory.cache.entry_count) == (4, 13, 13)
+    assert probes == 49
+    assert factory.budget.candidate_check_count == 0 and factory.budget.stop_reason is None
+    assert Counter(
+        (item.virtual_lineage.prototype_id, item.virtual_lineage.accepted_sequence) for item in created
+    ) == {(name, sequence): 1 for name in "abc" for sequence in (7, 8)}
+    for items in observed.values():
+        assert all(item is items[0] for item in items)
+    for name in "abc":
+        first, second = observed[name, 7][0], observed[name, 8][0]
+        assert first is not second and first.node_id != second.node_id
+
+
+@pytest.mark.parametrize(
+    "max_nodes,edges,expected_count",
+    (
+        (0, set(), 0),
+        (2, {("left", "right")}, 0),
+        (1, {("left", "a")}, 3),
+        (2, set(), 3),
+        (2, {("left", "a"), ("a", "right")}, 3),
+    ),
+)
+def test_bridge_does_not_materialize_unvisited_second_positions(monkeypatch, max_nodes, edges, expected_count):
+    factory = make_factory(tuple(prototype(name) for name in "abc"), allowed_edges=edges)
+    sequences = []
+    original = VirtualFactory.materialize
+
+    def observed(self, *args, **kwargs):
+        sequences.append(kwargs["sequence"])
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(VirtualFactory, "materialize", observed)
+    factory.bridge(*factory.cache.problem.nodes, max_nodes=max_nodes, first_sequence=7)
+    assert sequences == [7] * expected_count
 
 
 @pytest.mark.parametrize(

@@ -1,5 +1,6 @@
 """Independent final checks and unsigned audited material for the core result owner."""
 
+import logging
 from collections import Counter, defaultdict
 from dataclasses import dataclass, fields, replace
 from math import isfinite
@@ -23,6 +24,7 @@ from .contracts import (
 from .evaluation import PlanEvaluation, evaluate_plan
 from .model import MaterialRole, SchedulingProblem, VirtualPurpose, validate_dimensions
 from .neighborhoods import _split_partition_id, _split_piece_weights
+from .process_logging import emit
 from .resource_facts import (
     PlanDerivedFacts,
     SplitPartitionFact,
@@ -744,6 +746,15 @@ def audit_core_without_search_cache(
         return outcome if budget.allows_finalization() else interrupted()
     except Exception as error:
         budget.stop_reason = SearchStopReason.SYSTEM_ERROR
+        emit(
+            logging.getLogger(__name__),
+            "solver_stage_exception",
+            stage="core_audit",
+            status="error",
+            exception_type=type(error).__name__,
+            level=logging.ERROR,
+            exc_info=True,
+        )
         _record(
             issues,
             None,

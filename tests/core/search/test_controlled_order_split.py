@@ -25,6 +25,7 @@ from apsgo_scheduler.core.model import (
 from apsgo_scheduler.core.neighborhoods import SearchContext
 from apsgo_scheduler.core.rules.base import RuleEvaluationContext
 from apsgo_scheduler.core.rules.concrete import (
+    ConsecutiveVirtualMaterialRule,
     ContinuousNarrowSteelWeightRule,
     VirtualOutputRatioRule,
 )
@@ -35,7 +36,7 @@ from tests.core.graph.test_bipartite_matching import budget
 from tests.core.graph.test_construction_order import node, rules
 from tests.core.rules.test_controlled_order_split import parameters, rule
 from tests.core.search.test_single_real_node_relocation import Stop
-from tests.core.search.test_virtual_material_factory import prototype
+from tests.core.search.test_virtual_material_factory import AllowedConnectionsRule, prototype
 
 D = Decimal
 SAME = ControlledSplitMode.SAME_PERIOD_SPLIT
@@ -364,14 +365,14 @@ def test_equal_complete_candidate_is_rejected_without_replay_or_number_commit(mo
     assert fingerprint(state) == before and replay == []
 
 
-def test_parent_removal_cannot_silently_drop_an_existing_virtual_only_remainder(monkeypatch):
+def test_parent_removal_cannot_drop_a_nonbridge_virtual_only_remainder(monkeypatch):
     state, context = split_case()
     original = state.current_plan.chains[0].nodes[0]
     virtual = context.factory.materialize(
         context.factory.cache.problem.virtual_prototypes[0],
         original,
         original,
-        purpose=VirtualPurpose.EDGE_BRIDGE,
+        purpose=VirtualPurpose.WEIGHT_FILL,
         sequence=1,
     )
     plan = SchedulePlan((replace(state.current_plan.chains[0], nodes=(original, virtual)),))
@@ -386,6 +387,149 @@ def test_parent_removal_cannot_silently_drop_an_existing_virtual_only_remainder(
     before = fingerprint(state)
     replay = suppress_replay(monkeypatch)
     controlled_split.run_controlled_order_split(state, context)
+    assert fingerprint(state) == before and replay == []
+    assert context.factory.budget.candidate_check_count == 0
+    assert context.complete_candidate_evaluation_count == 0
+
+
+def test_parent_removal_discards_adjacent_edge_bridges_before_split(monkeypatch):
+    cap = ConsecutiveVirtualMaterialRule(
+        "virtual-run", "virtual-run", RuleScope.CHAIN, True, "1", {"max_count": 2}
+    )
+    state, context = split_case(anchor=True, extra_rules=(cap,))
+    anchor, original = state.current_plan.chains[0].nodes
+    virtuals = tuple(
+        context.factory.materialize(
+            context.factory.cache.problem.virtual_prototypes[0],
+            original,
+            original,
+            purpose=VirtualPurpose.EDGE_BRIDGE,
+            sequence=sequence,
+        )
+        for sequence in range(1, 5)
+    )
+    plan = SchedulePlan(
+        (
+            replace(
+                state.current_plan.chains[0],
+                nodes=(anchor,) + virtuals[:2] + (original,) + virtuals[2:],
+            ),
+        )
+    )
+    state = replace(
+        state,
+        current_plan=plan,
+        virtual_sequence=4,
+        current_evaluation=evaluate_plan(
+            plan, context.factory.cache.rule_set, context.factory.cache.context
+        ),
+    )
+    replay = suppress_replay(monkeypatch)
+
+    controlled_split.run_controlled_order_split(state, context)
+
+    assert state.split_sequence == 1
+    assert state.virtual_sequence == 6
+    assert context.factory.budget.candidate_check_count == 1
+    assert context.complete_candidate_evaluation_count == 1
+    assert state.current_plan.chains[0].nodes == (anchor,)
+    assert not {node.node_id for node in virtuals} & {
+        node.node_id for chain in state.current_plan.chains for node in chain.nodes
+    }
+    assert replay == [(state, context)]
+
+
+def test_parent_removal_rebuilds_middle_boundary_with_fresh_edge_bridge(monkeypatch):
+    left = parent(
+        "left", weight="10", grade="left", rule_attributes={"grade_class": "OTHER"}
+    )
+    original = parent(grade="parent")
+    right = parent(
+        "right", weight="10", grade="right", rule_attributes={"grade_class": "OTHER"}
+    )
+    allowed = {
+        ("left", "p"),
+        ("p", "p"),
+        ("p", "parent"),
+        ("parent", "p"),
+        ("p", "right"),
+    }
+    cap = ConsecutiveVirtualMaterialRule(
+        "virtual-run", "virtual-run", RuleScope.CHAIN, True, "1", {"max_count": 2}
+    )
+    edge = AllowedConnectionsRule(
+        "connections",
+        "connections",
+        RuleScope.EDGE,
+        True,
+        "1",
+        {"allowed_edges": tuple(sorted(allowed))},
+    )
+    state, context = split_case(
+        (left, original, right),
+        extra_rules=(cap, edge),
+        prototypes=(prototype("p", weight="5"),),
+    )
+    virtuals = tuple(
+        context.factory.materialize(
+            context.factory.cache.problem.virtual_prototypes[0],
+            left if sequence < 3 else original,
+            original if sequence < 3 else right,
+            purpose=VirtualPurpose.EDGE_BRIDGE,
+            sequence=sequence,
+        )
+        for sequence in range(1, 5)
+    )
+    plan = SchedulePlan(
+        (
+            replace(
+                state.current_plan.chains[0],
+                nodes=(left,) + virtuals[:2] + (original,) + virtuals[2:] + (right,),
+            ),
+        )
+    )
+    state = replace(
+        state,
+        current_plan=plan,
+        virtual_sequence=4,
+        current_evaluation=evaluate_plan(
+            plan, context.factory.cache.rule_set, context.factory.cache.context
+        ),
+    )
+    replay = suppress_replay(monkeypatch)
+
+    controlled_split.run_controlled_order_split(state, context)
+
+    donor, returned = state.current_plan.chains
+    assert (donor.nodes[0], donor.nodes[-1]) == (left, right)
+    assert len(donor.nodes) == 3
+    bridge = donor.nodes[1]
+    assert bridge.virtual_lineage.purpose is VirtualPurpose.EDGE_BRIDGE
+    assert bridge.virtual_lineage.accepted_sequence == 5
+    assert tuple(
+        node.virtual_lineage.accepted_sequence
+        for node in returned.nodes
+        if node.virtual_lineage is not None
+    ) == (6, 7)
+    assert not {node.node_id for node in virtuals} & {
+        node.node_id for chain in state.current_plan.chains for node in chain.nodes
+    }
+    assert state.virtual_sequence == 7 and state.split_sequence == 1
+    assert state.current_evaluation.quality_key == (0, D(0))
+    assert replay == [(state, context)]
+
+
+def test_split_is_rejected_when_the_remaining_donor_boundary_cannot_be_rebuilt(monkeypatch):
+    left = parent("left", weight="10", rule_attributes={"grade_class": "OTHER"})
+    original = parent()
+    right = parent("right", weight="10", rule_attributes={"grade_class": "OTHER"})
+    state, context = split_case((left, original, right))
+    before = fingerprint(state)
+    replay = suppress_replay(monkeypatch)
+    monkeypatch.setattr(VirtualFactory, "bridge", lambda *args, **kwargs: None)
+
+    controlled_split.run_controlled_order_split(state, context)
+
     assert fingerprint(state) == before and replay == []
     assert context.factory.budget.candidate_check_count == 0
     assert context.complete_candidate_evaluation_count == 0
@@ -459,7 +603,7 @@ def test_interrupted_split_never_commits_half_partition_or_replays(stop_kind, wh
         owner, attribute = {
             "authorization": (ProcessRuleSet, "evaluate_controlled_split"),
             "separator": (VirtualFactory, "separator"),
-            "evaluation": (neighborhoods, "evaluate_plan"),
+            "evaluation": (neighborhoods, "_evaluate_candidate_plan"),
         }[when]
         original = getattr(owner, attribute)
 
@@ -490,7 +634,7 @@ def test_split_errors_propagate_without_natural_completion_or_state_changes(wher
     owner, attribute = {
         "authorization": (ProcessRuleSet, "evaluate_controlled_split"),
         "separator": (VirtualFactory, "separator"),
-        "evaluation": (neighborhoods, "evaluate_plan"),
+        "evaluation": (neighborhoods, "_evaluate_candidate_plan"),
     }[where]
 
     def fail(*args, **kwargs):

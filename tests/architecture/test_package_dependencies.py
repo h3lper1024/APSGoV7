@@ -42,6 +42,7 @@ def check_dependencies(source, module, is_package=False):
                 targets.append(".".join([aliases[node.id], *reversed(names)]))
     for target in targets:
         pieces = target.split(".")
+        assert pieces[0] != "apsgo_v7_service", f"Forbidden dependency: {module} -> {target}"
         if pieces[0] == "apsgo_scheduler" and len(pieces) > 1:
             assert pieces[1] in ALLOWED[layer], f"Forbidden dependency: {module} -> {target}"
 
@@ -66,6 +67,7 @@ def test_package_import_directions():
         ("apsgo_scheduler.api.request", "from .. import app", False),
         ("apsgo_scheduler.api.request", "import apsgo_scheduler.app.service as service", False),
         ("apsgo_scheduler.core.model", "import apsgo_scheduler as root; root.app.service()", False),
+        ("apsgo_scheduler.app.service", "import apsgo_v7_service", False),
     ],
 )
 def test_dependency_guard_rejects_reversed_imports(module, source, is_package):

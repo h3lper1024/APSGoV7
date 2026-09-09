@@ -20,6 +20,7 @@ from ..core.contracts import (
     fingerprint,
 )
 from ..core.model import SchedulingProblem
+from ..core.process_logging import audit_status, emit, stop_status
 from ..core.rules.rule_set import ProcessRuleSet
 from ..core.solver import _not_run_audit
 from .contract_audit import audit_result_contract
@@ -57,7 +58,13 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
     try:
         started_at = monotonic()
     except Exception as error:
-        logger.exception("记录排产服务入口时间失败")
+        emit(
+            logger,
+            "solver_entry_clock_exception",
+            level=logging.ERROR,
+            exc_info=True,
+            exception_type=type(error).__name__,
+        )
         started_at, clock_error = None, error
     else:
         clock_error = None
@@ -73,9 +80,23 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
     stop_reason = None
     phase = DiagnosticPhase.REQUEST_VALIDATION
     stage, stage_started = "request_preparation", perf_counter()
+    observed_stages = set()
 
-    def measure():
+    def log_stage(event, *, name=None, **details):
+        name = stage if name is None else name
+        observed_stages.add(name)
+        emit(
+            logger,
+            event,
+            stage=name,
+            request_id=request.request_id,
+            stop_reason=None if stop_reason is None else stop_reason.value,
+            **details,
+        )
+
+    def measure(*, event="solver_stage_finished", status="completed", **details):
         durations[stage] = Decimal(str(perf_counter() - stage_started))
+        log_stage(event, stage_seconds=durations[stage], status=status, **details)
 
     def boundary(*, finalizing=False):
         nonlocal stop_reason
@@ -135,6 +156,19 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
         if stop_reason is None:
             stop_reason = SearchStopReason.SYSTEM_ERROR
             issues.append(_issue("service_stop_reason_missing", phase, "服务未取得明确停止原因。"))
+        for name in (
+            "request_preparation",
+            "rule_loading",
+            "input_normalization",
+            "core_solve",
+            "result_assembly",
+            "result_contract_audit",
+            "result_sealing",
+        ):
+            if name not in observed_stages:
+                log_stage(
+                    "solver_stage_skipped", name=name, status="skipped", reason="prior_stage_exit"
+                )
         candidate = None if core_result is None else core_result.diagnostic_candidate
         if stop_reason is SearchStopReason.USER_CANCELLED:
             status = SolveStatus.CANCELLED
@@ -182,6 +216,7 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
                 return unavailable(check_boundary=False)
         return completed
 
+    log_stage("solver_stage_started")
     try:
         if clock_error is not None:
             raise clock_error
@@ -201,10 +236,11 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
                     path="policy",
                 )
             )
-        measure()
+        measure(status="failed" if issues else "completed", issue_count=len(issues))
         if not boundary():
             return unavailable()
         phase, stage, stage_started = DiagnosticPhase.RULE_LOADING, "rule_loading", perf_counter()
+        log_stage("solver_stage_started")
         try:
             loaded = load_rule_set(request.rule_set_spec)
             if not isinstance(loaded, ProcessRuleSet):
@@ -213,7 +249,7 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
         except RuleSetLoadError:
             # The normalizer repeats signed loading and collects safe, normalized input errors.
             pass
-        measure()
+        measure(status="failed" if rule_set is None else "completed")
         if not boundary():
             return unavailable()
         phase, stage, stage_started = (
@@ -221,6 +257,7 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
             "input_normalization",
             perf_counter(),
         )
+        log_stage("solver_stage_started")
         try:
             normalized = normalize_input(request, rule_set)
             if not isinstance(normalized, SchedulingProblem):
@@ -228,7 +265,7 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
             problem = normalized
         except InputNormalizationError as error:
             issues.extend(error.issues)
-        measure()
+        measure(status="failed" if issues else "completed", issue_count=len(issues))
         if issues:
             stop_reason = SearchStopReason.INPUT_INVALID
             if runtime is not None:
@@ -237,13 +274,18 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
         if not boundary():
             return unavailable()
         phase, stage, stage_started = DiagnosticPhase.CONSTRUCTION, "core_solve", perf_counter()
+        log_stage("solver_stage_started")
         solved = core.solve(problem, rule_set, request.policy, runtime)
         if not isinstance(solved, SolverResult):
             raise ValueError("core.solve must return SolverResult")
         core_result = solved
         issues.extend(core_result.issues)
         stop_reason = core_result.stop_reason
-        measure()
+        measure(
+            status=stop_status(stop_reason),
+            result_status=core_result.status.value,
+            publishable=core_result.release is not None,
+        )
         if core_result.release is None or not boundary(finalizing=True):
             return unavailable()
         phase, stage, stage_started = (
@@ -251,6 +293,7 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
             "result_assembly",
             perf_counter(),
         )
+        log_stage("solver_stage_started")
         assembled = assemble_draft_scheduling_result(request, core_result, manifest())
         if not isinstance(assembled, DraftSchedulingResult):
             raise ValueError("assemble_draft_scheduling_result must return DraftSchedulingResult")
@@ -263,6 +306,7 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
             "result_contract_audit",
             perf_counter(),
         )
+        log_stage("solver_stage_started")
         checked = audit_result_contract(draft, request, problem, core_result, runtime)
         if not isinstance(checked, ResultAuditReport):
             raise ValueError("audit_result_contract must return ResultAuditReport")
@@ -271,7 +315,11 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
         if elapsed < 0:
             raise ValueError("monotonic() moved before the service entry time")
         durations["service_to_result_audit_seconds"] = Decimal(str(elapsed))
-        measure()
+        measure(
+            status=audit_status(report),
+            audit_status=report.status.value,
+            audit_passed=report.passed,
+        )
         if not report.passed:
             issues.extend(
                 _issue(code, phase, f"结果契约自检未通过：{code}。")
@@ -291,6 +339,7 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
             "result_sealing",
             perf_counter(),
         )
+        log_stage("solver_stage_started")
         completed = seal_scheduling_result(draft, report, runtime)
         if not isinstance(completed, SchedulingResult):
             raise ValueError("seal_scheduling_result must return SchedulingResult")
@@ -311,8 +360,13 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
             return unavailable()
         return completed
     except Exception as error:
-        logger.exception("排产服务阶段 %s 失败", stage)
-        measure()
+        measure(
+            event="solver_stage_failed",
+            status="error",
+            exception_type=type(error).__name__,
+            level=logging.ERROR,
+            exc_info=True,
+        )
         stop_reason = SearchStopReason.SYSTEM_ERROR
         if runtime is not None:
             runtime.stop_reason = stop_reason
@@ -333,7 +387,13 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
                 if type(cancelled) is not bool:
                     raise ValueError("is_cancelled must return bool")
             except Exception:
-                logger.exception("异常处理期间读取取消信号失败")
+                emit(
+                    logger,
+                    "solver_cancellation_exception",
+                    level=logging.ERROR,
+                    exc_info=True,
+                    request_id=request.request_id,
+                )
             else:
                 if cancelled:
                     stop_reason = SearchStopReason.USER_CANCELLED

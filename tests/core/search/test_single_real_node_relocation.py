@@ -461,14 +461,14 @@ def test_cancellation_and_time_never_publish_an_interrupted_move(stop_kind, when
 
         monkeypatch.setattr(RuleEdgeDecisionCache, "allows", stop_after_edge)
     else:
-        original = neighborhoods.evaluate_plan
+        original = neighborhoods._evaluate_candidate_plan
 
         def stop_after_evaluation(*args):
             result = original(*args)
             stop.active = True
             return result
 
-        monkeypatch.setattr(neighborhoods, "evaluate_plan", stop_after_evaluation)
+        monkeypatch.setattr(neighborhoods, "_evaluate_candidate_plan", stop_after_evaluation)
     improve_real_node_relocation(state, context)
     assert runtime.stop_reason is (
         SearchStopReason.USER_CANCELLED
@@ -514,7 +514,7 @@ def test_rule_or_evaluation_exceptions_propagate_without_candidate_leak(
         raise RuntimeError("synthetic candidate failure")
 
     if during_evaluation:
-        monkeypatch.setattr(neighborhoods, "evaluate_plan", fail)
+        monkeypatch.setattr(neighborhoods, "_evaluate_candidate_plan", fail)
     else:
         monkeypatch.setattr(RuleEdgeDecisionCache, "allows", fail)
     with pytest.raises(RuntimeError, match="synthetic candidate failure"):
