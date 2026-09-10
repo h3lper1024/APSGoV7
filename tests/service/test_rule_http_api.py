@@ -242,13 +242,21 @@ def client(database_path):
         yield value
 
 
-def test_http_surface_contains_the_three_confirmed_operations(database_path):
+def test_http_surface_contains_the_confirmed_operations(database_path):
     application = http_module.create_app(database_path=database_path)
     assert http_module.MAX_REQUEST_BODY_BYTES == 262_144
     schema = application.openapi()
-    assert set(schema["paths"]) == {GET_PATH, POST_PATH, http_module.MONTH_SOLVE_PATH}
+    assert set(schema["paths"]) == {
+        GET_PATH,
+        POST_PATH,
+        http_module.MONTH_PRESET_BIG_ROLLS_PATH,
+        http_module.MONTH_CALCULATE_LATEST_DATES_PATH,
+        http_module.MONTH_SOLVE_PATH,
+    }
     assert set(schema["paths"][GET_PATH]) == {"get"}
     assert set(schema["paths"][POST_PATH]) == {"post"}
+    assert set(schema["paths"][http_module.MONTH_PRESET_BIG_ROLLS_PATH]) == {"post"}
+    assert set(schema["paths"][http_module.MONTH_CALCULATE_LATEST_DATES_PATH]) == {"post"}
     assert set(schema["paths"][http_module.MONTH_SOLVE_PATH]) == {"post"}
     writes = {
         (path, method)
@@ -258,6 +266,8 @@ def test_http_surface_contains_the_three_confirmed_operations(database_path):
     }
     assert writes == {
         (POST_PATH, "post"),
+        (http_module.MONTH_PRESET_BIG_ROLLS_PATH, "post"),
+        (http_module.MONTH_CALCULATE_LATEST_DATES_PATH, "post"),
         (http_module.MONTH_SOLVE_PATH, "post"),
     }
 
@@ -268,6 +278,12 @@ def test_http_surface_contains_the_three_confirmed_operations(database_path):
         wrong_post = value.get(POST_PATH)
         _assert_error(wrong_post, 405, code="method_not_allowed")
         assert wrong_post.headers["allow"] == "POST"
+        wrong_preset = value.get(http_module.MONTH_PRESET_BIG_ROLLS_PATH)
+        _assert_error(wrong_preset, 405, code="method_not_allowed")
+        assert wrong_preset.headers["allow"] == "POST"
+        wrong_dates = value.get(http_module.MONTH_CALCULATE_LATEST_DATES_PATH)
+        _assert_error(wrong_dates, 405, code="method_not_allowed")
+        assert wrong_dates.headers["allow"] == "POST"
         wrong_solve = value.get(http_module.MONTH_SOLVE_PATH)
         _assert_error(wrong_solve, 405, code="method_not_allowed")
         assert wrong_solve.headers["allow"] == "POST"
@@ -719,8 +735,16 @@ def test_run_server_loads_one_configuration_and_uses_the_confirmed_endpoint(tmp_
     calls = []
     applications = []
 
-    def create_app(database_path, *, timeout_seconds, monthly_solve_policy, diagnostics_directory):
+    def create_app(
+        database_path,
+        *,
+        timeout_seconds,
+        monthly_solve_policy,
+        diagnostics_directory,
+        month_plan_dates_path,
+    ):
         assert diagnostics_directory is None
+        assert month_plan_dates_path.name == "month_plan_dates.json"
         applications.append((database_path, timeout_seconds, monthly_solve_policy))
         return object()
 

@@ -50,6 +50,13 @@ from .month_scheduling import (
     dumps_month_solve_response,
     loads_month_solve_request,
 )
+from .month_plan_auxiliary import (
+    MonthPlanDateConfigurationError,
+    dumps_calculate_latest_dates_response,
+    dumps_preset_big_rolls_response,
+    loads_calculate_latest_dates_request,
+    loads_preset_big_rolls_request,
+)
 from .rule_management import (
     DEFAULT_AUDIT_ACTOR,
     RuleManagementServiceError,
@@ -62,8 +69,12 @@ from .scheduling import solve_gqga4_scheduling_task
 GET_ACTIVE_RULES_PATH = "/api/v1/rule-sets/GQGA4/default/month/getActiveRules"
 SET_ACTIVE_RULES_PATH = "/api/v1/rule-sets/GQGA4/default/month/setActiveRules"
 MONTH_SOLVE_PATH = "/api/v1/scheduling/GQGA4/default/month/solve"
+MONTH_PRESET_BIG_ROLLS_PATH = "/api/v1/scheduling/month/presetBigRolls"
+MONTH_CALCULATE_LATEST_DATES_PATH = "/api/v1/scheduling/month/calculateLatestDates"
 MAX_REQUEST_BODY_BYTES = 262_144
 MAX_MONTH_SOLVE_REQUEST_BODY_BYTES = 8 * 1024 * 1024
+MAX_MONTH_PLAN_AUXILIARY_REQUEST_BODY_BYTES = 1024 * 1024
+MAX_MONTH_LATEST_DATES_REQUEST_BODY_BYTES = 8 * 1024 * 1024
 DEFAULT_LISTEN_HOST = "0.0.0.0"
 DEFAULT_LISTEN_PORT = 8001
 
@@ -351,6 +362,69 @@ def _mapped_month_error(
     )
 
 
+def _mapped_month_auxiliary_error(
+    error: Exception,
+    *,
+    request_id: str | None,
+    invalid_message: str = "大辊预设输入未通过校验。",
+) -> tuple[Response, str]:
+    if isinstance(error, MonthSchedulingContractError):
+        issue = error.issues[0]
+        status = (
+            400
+            if issue.code
+            in {
+                "duplicate_json_key",
+                "invalid_json",
+                "missing_field",
+                "unknown_field",
+                "unsupported_contract_version",
+            }
+            or issue.field_path in {"contract_version", "request_id"}
+            else 422
+        )
+        code = "invalid_request" if status == 400 else "invalid_input"
+        return (
+            _month_error_response(
+                status,
+                code,
+                "请求格式不正确。" if status == 400 else invalid_message,
+                request_id=request_id,
+                issues=error.issues,
+            ),
+            code,
+        )
+    if isinstance(error, MonthPlanDateConfigurationError):
+        return (
+            _month_error_response(
+                503,
+                "date_configuration_unavailable",
+                "月计划日期配置暂不可用。",
+                request_id=request_id,
+            ),
+            "date_configuration_unavailable",
+        )
+    if isinstance(error, _HttpRequestError):
+        return (
+            _month_error_response(
+                error.status_code,
+                error.code,
+                str(error),
+                request_id=request_id,
+            ),
+            error.code,
+        )
+    return (
+        _month_error_response(
+            500,
+            "internal_server_error",
+            "月计划辅助服务发生内部错误。",
+            request_id=request_id,
+        ),
+        "internal_server_error",
+    )
+
+
 def _log_result(
     method: str,
     status_code: int,
@@ -404,6 +478,24 @@ def _log_month_solve(
         result_code,
         status_code,
         format_timing(timing_metrics(started, cpu_started, cpu_count)),
+    )
+
+
+def _log_month_auxiliary(
+    operation: str,
+    status_code: int,
+    *,
+    request_id: str | None,
+    result_code: str,
+) -> None:
+    log_safely(
+        _LOGGER,
+        logging.INFO,
+        "month_plan_auxiliary operation=%s request_id=%s result_code=%s status=%s",
+        operation,
+        request_id or "-",
+        result_code,
+        status_code,
     )
 
 
@@ -473,6 +565,7 @@ def create_app(
     timeout_seconds: float = 5.0,
     monthly_solve_policy: SolverPolicy | None = None,
     diagnostics_directory: Path | None = None,
+    month_plan_dates_path: Path | None = None,
 ) -> FastAPI:
     """Create the rule and scheduling adapter without opening a database."""
 
@@ -486,6 +579,7 @@ def create_app(
         redirect_slashes=False,
     )
     solve_lock = Lock()
+    dates_path = month_plan_dates_path or Path("config/month_plan_dates.json")
 
     async def log_startup():
         _LOGGER.info(
@@ -516,6 +610,79 @@ def create_app(
             active_version_id=response.active_version_id,
             fingerprint=response.rule_set_spec.fingerprint,
             result_code="active_rules_read",
+        )
+        return _json_response(content)
+
+    @application.post(MONTH_PRESET_BIG_ROLLS_PATH, response_class=Response)
+    async def preset_month_big_rolls(request: Request) -> Response:
+        parsed = None
+        try:
+            _require_no_query(request)
+            _require_json_content_type(request, status_code=415)
+            body = await _read_request_body(
+                request,
+                allow_body=True,
+                max_bytes=MAX_MONTH_PLAN_AUXILIARY_REQUEST_BODY_BYTES,
+                too_large_status=413,
+            )
+            parsed = await run_in_threadpool(loads_preset_big_rolls_request, body)
+            content = await run_in_threadpool(dumps_preset_big_rolls_response, parsed)
+        except Exception as error:
+            result, result_code = _mapped_month_auxiliary_error(
+                error,
+                request_id=None if parsed is None else parsed.request_id,
+            )
+            _log_month_auxiliary(
+                "preset_big_rolls",
+                result.status_code,
+                request_id=None if parsed is None else parsed.request_id,
+                result_code=result_code,
+            )
+            return result
+        _log_month_auxiliary(
+            "preset_big_rolls",
+            200,
+            request_id=parsed.request_id,
+            result_code="success",
+        )
+        return _json_response(content)
+
+    @application.post(MONTH_CALCULATE_LATEST_DATES_PATH, response_class=Response)
+    async def calculate_month_latest_dates(request: Request) -> Response:
+        parsed = None
+        try:
+            _require_no_query(request)
+            _require_json_content_type(request, status_code=415)
+            body = await _read_request_body(
+                request,
+                allow_body=True,
+                max_bytes=MAX_MONTH_LATEST_DATES_REQUEST_BODY_BYTES,
+                too_large_status=413,
+            )
+            parsed = await run_in_threadpool(loads_calculate_latest_dates_request, body)
+            content = await run_in_threadpool(
+                dumps_calculate_latest_dates_response,
+                parsed,
+                dates_path,
+            )
+        except Exception as error:
+            result, result_code = _mapped_month_auxiliary_error(
+                error,
+                request_id=None if parsed is None else parsed.request_id,
+                invalid_message="日期计算输入未通过校验。",
+            )
+            _log_month_auxiliary(
+                "calculate_latest_dates",
+                result.status_code,
+                request_id=None if parsed is None else parsed.request_id,
+                result_code=result_code,
+            )
+            return result
+        _log_month_auxiliary(
+            "calculate_latest_dates",
+            200,
+            request_id=parsed.request_id,
+            result_code="success",
         )
         return _json_response(content)
 
@@ -770,12 +937,15 @@ def run_server(
     """Run the local service from one fully validated configuration."""
 
     configuration = load_service_configuration(configuration_path)
+    service_configuration_path = Path(configuration_path).resolve()
+    month_plan_dates_path = service_configuration_path.parent / "month_plan_dates.json"
     log_config = log_configuration(configuration.diagnostics_directory)
     application = create_app(
         configuration.database_path,
         timeout_seconds=configuration.database_timeout_seconds,
         monthly_solve_policy=configuration.monthly_solve_policy,
         diagnostics_directory=configuration.diagnostics_directory,
+        month_plan_dates_path=month_plan_dates_path,
     )
     uvicorn.run(
         application,
@@ -811,8 +981,12 @@ __all__ = [
     "DEFAULT_LISTEN_HOST",
     "DEFAULT_LISTEN_PORT",
     "GET_ACTIVE_RULES_PATH",
+    "MAX_MONTH_LATEST_DATES_REQUEST_BODY_BYTES",
+    "MAX_MONTH_PLAN_AUXILIARY_REQUEST_BODY_BYTES",
     "MAX_REQUEST_BODY_BYTES",
     "MAX_MONTH_SOLVE_REQUEST_BODY_BYTES",
+    "MONTH_CALCULATE_LATEST_DATES_PATH",
+    "MONTH_PRESET_BIG_ROLLS_PATH",
     "MONTH_SOLVE_PATH",
     "SET_ACTIVE_RULES_PATH",
     "create_app",

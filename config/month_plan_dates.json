@@ -1,0 +1,13 @@
+{
+  "time_zone": "Asia/Shanghai",
+  "lead_days": {
+    "casting": 3,
+    "grinding": 2,
+    "hot_rolling": 4,
+    "tempering": 3,
+    "pickling_rolling": 3
+  },
+  "product_line_process": {
+    "GQGA4": "galvanizing"
+  }
+}
