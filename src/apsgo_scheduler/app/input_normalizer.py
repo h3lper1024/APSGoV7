@@ -14,7 +14,7 @@ from ..core.contracts import (
 )
 from ..core.model import Node, SchedulingProblem, VirtualMaterialPrototype
 from ..core.delivery_timing import normalize_delivery_timing
-from ..core.rules.concrete import WEIGHT_EPSILON, ChainWeightRangeRule
+from ..core.rules.concrete import WEIGHT_EPSILON, ChainWeightRangeRule, DeliveryDuePerformanceRule
 from ..core.rules.rule_set import ProcessRuleSet
 from .rule_set_loader import RuleSetLoadError, load_rule_set
 
@@ -234,6 +234,8 @@ def normalize_input(
                 f"节点属性不满足启用优先级规则：{error}",
                 node.node_id,
             )
+    if any(isinstance(rule, DeliveryDuePerformanceRule) for rule in verified_rules) and normalized.delivery_timing is None:
+        issue("missing_delivery_timing", "delivery_timing", "启用交期目标必须提供完整计时输入。")
     if issues:
         raise InputNormalizationError(tuple(issues))
 

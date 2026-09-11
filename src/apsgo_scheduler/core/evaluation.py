@@ -155,6 +155,7 @@ _REUSABLE_RULE_TYPES = frozenset((
     concrete.LateOriginalPeriodMoveRule,
     concrete.VirtualOutputRatioRule,
     concrete.InterChainWidthGapRule,
+    concrete.DeliveryDuePerformanceRule,
     concrete.FutureFillWeightTargetRule,
     concrete.ControlledOrderSplitRule,
 ))

@@ -7,7 +7,7 @@ from decimal import Context, Decimal, ROUND_HALF_EVEN, localcontext
 from types import MappingProxyType
 from zoneinfo import ZoneInfo
 
-from .contracts import freeze_tuple, require_decimal, require_text
+from .contracts import freeze_tuple, require_decimal, require_text, sum_weights
 
 TIMING_SEMANTICS = "delivery_completion_hours_v1"
 
@@ -133,3 +133,52 @@ def normalize_delivery_timing(value, nodes, prototypes):
             for node in nodes
         }
     return DeliveryTiming(start.isoformat(), orders, rates)
+
+
+@dataclass(frozen=True, slots=True)
+class DeliveryPerformance:
+    newly_late_original_weight: Decimal
+    delivery_wait_tardiness_tonne_hours: Decimal
+    original_completion_hours: Mapping[str, Decimal]
+    node_times: tuple[tuple[str, Decimal, Decimal], ...]
+
+
+def evaluate_delivery(plan, timing, *, details=False):
+    """One ordered scan; split orders complete only at their last real fragment."""
+    if not isinstance(timing, DeliveryTiming):
+        raise ValueError("delivery evaluation requires validated task timing")
+    completion, weights, rows, seen = {}, {}, [], set()
+    with localcontext(_context()):
+        clock = Decimal(0)
+        for chain in plan.chains:
+            for node in chain.nodes:
+                if node.node_id in seen:
+                    raise ValueError("duplicate node in delivery evaluation")
+                seen.add(node.node_id)
+                before = clock
+                if node.virtual_lineage is not None:
+                    rate = timing.virtual_hours_per_tonne.get(node.virtual_lineage.prototype_id)
+                    if rate is None:
+                        raise ValueError("missing virtual prototype timing")
+                else:
+                    order = timing.orders.get(node.source_order_id)
+                    if order is None:
+                        raise ValueError("missing original order timing")
+                    rate = order.hours_per_tonne
+                    weights.setdefault(node.source_order_id, []).append(node.weight)
+                clock += node.weight * rate
+                if node.virtual_lineage is None:
+                    completion[node.source_order_id] = clock
+                if details:
+                    rows.append((node.node_id, before, clock))
+        if set(completion) != set(timing.orders) or any(
+            sum_weights(weights[key]) != order.weight for key, order in timing.orders.items()
+        ):
+            raise ValueError("delivery evaluation requires conserved original order weights")
+        newly_late, burden = Decimal(0), Decimal(0)
+        for key, order in timing.orders.items():
+            finish = completion[key]
+            if order.due_hours > 0 and finish > order.due_hours:
+                newly_late += order.weight
+            burden += order.weight * max(Decimal(0), finish - max(Decimal(0), order.due_hours))
+    return DeliveryPerformance(newly_late, burden, MappingProxyType(completion), tuple(rows))

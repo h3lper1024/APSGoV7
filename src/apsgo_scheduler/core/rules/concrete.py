@@ -8,6 +8,7 @@ from math import isfinite
 
 from ..contracts import ControlledSplitMode, require_decimal, require_int, require_text, sum_weights
 from ..model import MaterialRole
+from ..delivery_timing import evaluate_delivery
 from ..resource_facts import EvaluationResourceView
 from .base import (
     ChainRuleSubject,
@@ -29,6 +30,32 @@ from .base import (
 from .helpers import create_controlled_split_decision
 
 WEIGHT_EPSILON = Decimal("0.000001")
+
+
+@dataclass(frozen=True, slots=True)
+class DeliveryDuePerformanceRule(Rule):
+    supported_scope = RuleScope.PLAN
+
+    def __post_init__(self):
+        Rule.__post_init__(self)
+        if self.enabled and self.parameters:
+            raise ValueError("delivery performance requires empty parameters")
+
+    def required_fields(self):
+        return ()
+
+    def metric_keys(self):
+        return ("newly_late_original_weight", "delivery_wait_tardiness_tonne_hours") if self.enabled else ()
+
+    def evaluate(self, subject, context):
+        if not isinstance(subject, PlanRuleSubject):
+            raise UnsupportedRuleSubjectError(type(subject))
+        if not self.enabled:
+            return RuleContribution((), ())
+        result = evaluate_delivery(subject.plan, context.delivery_timing)
+        return RuleContribution((), tuple(
+            MetricContribution(key, getattr(result, key)) for key in self.metric_keys()
+        ))
 
 
 def _positive_weight_difference(left, right):
