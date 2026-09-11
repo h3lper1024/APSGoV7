@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
 from types import MappingProxyType
@@ -22,6 +22,7 @@ from ..contracts import (
     require_text,
 )
 from ..model import Chain, Node, SchedulePlan
+from ..delivery_timing import DeliveryTiming
 
 if TYPE_CHECKING:
     from ..resource_facts import EvaluationResourceView
@@ -126,6 +127,7 @@ class RuleEvaluationContext:
     period_order: tuple[str, ...]
     period_index: Mapping[str, int]
     virtual_prototype_ids: tuple[str, ...]
+    delivery_timing: DeliveryTiming | None = field(default=None, metadata={"omit_none": True})
 
     def __post_init__(self):
         periods = freeze_tuple(self.period_order, str, "period_order")
@@ -147,6 +149,11 @@ class RuleEvaluationContext:
         object.__setattr__(self, "period_order", periods)
         object.__setattr__(self, "period_index", MappingProxyType(index))
         object.__setattr__(self, "virtual_prototype_ids", prototypes)
+        if self.delivery_timing is not None and (
+            not isinstance(self.delivery_timing, DeliveryTiming)
+            or set(self.delivery_timing.virtual_hours_per_tonne) != set(prototypes)
+        ):
+            raise ValueError("context delivery timing must match virtual prototypes")
 
 
 @dataclass(frozen=True, slots=True)

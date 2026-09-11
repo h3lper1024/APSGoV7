@@ -16,6 +16,7 @@ from ..core.contracts import (
     SolverResult,
     SolveStatus,
     fingerprint,
+    contract_values,
     sum_weights,
 )
 from ..core.model import MaterialRole, SchedulingProblem, VirtualPurpose
@@ -24,9 +25,7 @@ from .result_assembler import DraftSchedulingResult, fingerprint_draft_result
 
 
 def _values(value, omitted=()):
-    return {
-        item.name: getattr(value, item.name) for item in fields(value) if item.name not in omitted
-    }
+    return contract_values(value, omitted)
 
 
 def _same_fields(left, right, names):

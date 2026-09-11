@@ -1,7 +1,7 @@
 """Immutable public input shapes and aggregate, rule-independent validation."""
 
 from collections.abc import Mapping
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from decimal import Decimal
 
 from ..core.contracts import (
@@ -20,6 +20,7 @@ from ..core.contracts import (
     require_int,
 )
 from ..core.model import MaterialRole, Node
+from ..core.delivery_timing import DeliveryTimingInput
 
 
 def _text_fields(instance, *names):
@@ -157,6 +158,7 @@ class SchedulingRequest:
     virtual_prototypes: tuple[VirtualPrototypeInput, ...]
     rule_set_spec: RuleSetSpec
     policy: SolverPolicy
+    delivery_timing: DeliveryTimingInput | None = field(default=None, metadata={"omit_none": True})
 
     def __post_init__(self):
         _text_fields(

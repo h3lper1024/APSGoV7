@@ -21,6 +21,7 @@ from time import perf_counter, process_time
 from uuid import UUID
 
 from apsgo_scheduler.api.json_codec import dumps_exact_json
+from apsgo_scheduler.core.contracts import contract_values
 
 request_context: ContextVar[RunDiagnostics | None] = ContextVar(
     "apsgo_diagnostic_request", default=None
@@ -234,7 +235,7 @@ def _json_values(value):
     if isinstance(value, Enum):
         return value.value
     if is_dataclass(value):
-        return {part.name: _json_values(getattr(value, part.name)) for part in fields(value)}
+        return {key: _json_values(item) for key, item in contract_values(value).items()}
     if isinstance(value, Mapping):
         return {key: _json_values(item) for key, item in value.items()}
     if isinstance(value, (tuple, list)):

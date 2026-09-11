@@ -705,6 +705,7 @@ def audit_core_without_search_cache(
             problem.period_order,
             {period: index for index, period in enumerate(problem.period_order)},
             tuple(prototype.prototype_id for prototype in problem.virtual_prototypes),
+            problem.delivery_timing,
         )
         partitions, counts = _audit_structure(
             candidate.plan, problem, rule_set, context, budget, issues, invariants, authorizations

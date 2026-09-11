@@ -588,6 +588,7 @@ def solve(
             problem.period_order,
             {period: index for index, period in enumerate(problem.period_order)},
             tuple(item.prototype_id for item in problem.virtual_prototypes),
+            problem.delivery_timing,
         )
         cache = RuleEdgeDecisionCache(problem, rule_set, rule_context, policy.numeric_semantics_key)
         factory = VirtualFactory(cache, runtime)

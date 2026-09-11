@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, fields, replace
+from dataclasses import dataclass, field, fields, replace
 from decimal import Decimal
 from enum import Enum
 from typing import TYPE_CHECKING
+from .delivery_timing import DeliveryTiming
 
 from .contracts import (
     ControlledSplitMode,
@@ -196,6 +197,7 @@ class SchedulingProblem:
     period_order: tuple[str, ...]
     virtual_prototypes: tuple[VirtualMaterialPrototype, ...]
     input_fingerprint: str
+    delivery_timing: DeliveryTiming | None = field(default=None, metadata={"omit_none": True})
 
     def __post_init__(self):
         for name in (
@@ -231,6 +233,16 @@ class SchedulingProblem:
         object.__setattr__(self, "nodes", nodes)
         object.__setattr__(self, "period_order", periods)
         object.__setattr__(self, "virtual_prototypes", prototypes)
+        if self.delivery_timing is not None:
+            timing = self.delivery_timing
+            if not isinstance(timing, DeliveryTiming):
+                raise ValueError("delivery_timing must be DeliveryTiming")
+            if set(timing.orders) != {node.source_order_id for node in nodes} or any(
+                timing.orders[node.source_order_id].weight != node.weight for node in nodes
+            ):
+                raise ValueError("delivery timing must bind all original order weights")
+            if set(timing.virtual_hours_per_tonne) != {p.prototype_id for p in prototypes}:
+                raise ValueError("delivery timing must bind all virtual prototypes")
 
 
 @dataclass(frozen=True, slots=True)

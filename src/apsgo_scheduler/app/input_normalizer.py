@@ -13,6 +13,7 @@ from ..core.contracts import (
     sum_weights,
 )
 from ..core.model import Node, SchedulingProblem, VirtualMaterialPrototype
+from ..core.delivery_timing import normalize_delivery_timing
 from ..core.rules.concrete import WEIGHT_EPSILON, ChainWeightRangeRule
 from ..core.rules.rule_set import ProcessRuleSet
 from .rule_set_loader import RuleSetLoadError, load_rule_set
@@ -251,6 +252,14 @@ def normalize_input(
             for item in normalized.virtual_prototypes
         ),
     )
+    if normalized.delivery_timing is not None:
+        try:
+            values["delivery_timing"] = normalize_delivery_timing(
+                normalized.delivery_timing, values["nodes"], values["virtual_prototypes"]
+            )
+        except (ValueError, OverflowError) as error:
+            issue("invalid_delivery_timing", "delivery_timing", str(error), None)
+            raise InputNormalizationError(tuple(issues)) from error
     return SchedulingProblem(
         problem_id=request.request_id,
         input_fingerprint=fingerprint(values),

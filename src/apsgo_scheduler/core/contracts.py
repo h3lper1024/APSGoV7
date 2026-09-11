@@ -25,6 +25,16 @@ CONSTRUCTION_ORDER_KEY = "solverpy_stable_order_v1"
 NUMERIC_SEMANTICS_KEY = "solverpy_float_epsilon_1e_9"
 
 
+def contract_values(value, omitted=()):
+    """Only explicitly optional extensions disappear from historical projections."""
+    return {
+        part.name: getattr(value, part.name)
+        for part in fields(value)
+        if part.name not in omitted
+        and not (part.metadata.get("omit_none") and getattr(value, part.name) is None)
+    }
+
+
 def canonical_json(value) -> str:
     """Encode value contracts deterministically, without floats or ambient rounding."""
 
@@ -41,7 +51,7 @@ def canonical_json(value) -> str:
                 return ["decimal", 0, "0", 0]
             return ["decimal", sign, coefficient, exponent + len(digits) - len(coefficient)]
         if is_dataclass(item) and not isinstance(item, type):
-            item = {part.name: getattr(item, part.name) for part in fields(item)}
+            item = contract_values(item)
         if isinstance(item, Mapping):
             if any(not isinstance(key, str) for key in item):
                 raise ValueError("canonical mapping keys must be text")
