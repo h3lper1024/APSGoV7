@@ -1,5 +1,9 @@
 """Derive chain-order behavior from the existing rule and quality declarations."""
 
+from decimal import Context, ROUND_HALF_EVEN, localcontext
+from itertools import zip_longest
+
+from .delivery_timing import evaluate_delivery
 from .model import SchedulePlan
 from .rules.base import NumericProjection, QualityAggregation, QualityDirection
 from .rules.concrete import DeliveryDuePerformanceRule, InterChainWidthGapRule
@@ -23,6 +27,32 @@ def delivery_chain_indices(chains, timing):
         max(0, timing.orders[node.source_order_id].due_hours)
         for node in chains[index].nodes if node.virtual_lineage is None
     )))
+
+
+def delivery_node_positions(plan, timing):
+    """Rank original orders, then last fragments first; never change the score."""
+    completion = evaluate_delivery(plan, timing).original_completion_hours
+    positions = {}
+    for i, chain in enumerate(plan.chains):
+        for j, node in enumerate(chain.nodes):
+            if node.virtual_lineage is None:
+                positions.setdefault(node.source_order_id, []).append((i, j))
+    with localcontext(Context(prec=28, rounding=ROUND_HALF_EVEN)):
+        slack = {key: order.due_hours - completion[key] for key, order in timing.orders.items()}
+        late = sorted(
+            (key for key, order in timing.orders.items() if order.due_hours > 0 and slack[key] < 0),
+            key=lambda key: (slack[key], timing.orders[key].due_hours),
+        )
+        on_time = sorted(
+            (key for key, order in timing.orders.items() if order.due_hours > 0 and slack[key] >= 0),
+            key=slack.__getitem__,
+        )
+        backlog = sorted(
+            (key for key, order in timing.orders.items() if order.due_hours <= 0),
+            key=lambda key: -(timing.orders[key].weight * completion[key]),
+        )
+    ordered = late + [key for pair in zip_longest(on_time, backlog) for key in pair if key is not None]
+    return tuple(position for key in ordered for position in reversed(positions[key]))
 
 
 def chain_order_objective_index(rule_set) -> int | None:

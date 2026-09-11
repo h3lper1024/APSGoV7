@@ -278,3 +278,4 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
 |---|---|---|
 | 文档准备 | `8942d18` | 仅文档；历史记录见第 8 节 |
 | 0 | 冻结完成，提交由 Git 历史标识 | 只读核验原请求、三组输出、规则库与配置哈希；[证据](evidence/apsgo_v7_urgent_order_search/README.md)。未重复求解或业务测试 |
+| 1 | 排序辅助已实现，阶段 0 提交 `19173fe` | 复用完整时间扫描，晚交余量优先、准交/旧欠交替、最后片段优先；暂不接入生产枚举。3 个用例待阶段 2 集中运行 |
