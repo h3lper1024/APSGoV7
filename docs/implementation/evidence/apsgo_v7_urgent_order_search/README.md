@@ -117,3 +117,20 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m 
 4. 九级前四项保护未改变，可能限制部分结构重组，但这次不能量化其机会成本。若后续希望增加较大动作机会，应先讨论阶段预算/重访策略，或单独讨论交期优先级与欠重容忍，不能用本次结果直接授权放宽。
 
 本阶段已完成按计划复测与证据记录；继续阶段 6 集中回归，不再自动扩大本专项。正式零欠重和历史 180 秒/20 对性能门仍未通过，本次没有 Windows EXE 或部署验证。
+
+## 阶段 6：最终集中回归与完成边界
+
+阶段 5 提交 `fa83370`，`git write-tree` 为 `f67740af04a6a480074d88251a4a66a8b1af53aa`；工作树和暂存树一致。`git archive HEAD` 导出至新目录 `/tmp/apsgov7-urgent-verified.fWffyA`，不包含工作区残留。生产源码与实际复测代码 `ba1577d` 一致，`git diff ba1577d -- src tests` 为空。
+
+| 验证 | 实际命令 / 结果 |
+|---|---|
+| 精确树累计回归 | 导出目录 `PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m pytest -p no:cacheprovider tests/architecture tests/api tests/app tests/core tests/service -q --tb=short`；**3886 passed in 53.05s**，退出 0 |
+| 干净导出残留检查 | 同环境 `python tools/check_workspace_residuals.py --verify`；`status=pass, mode=clean_export`，退出 0 |
+| 语法检查 | 导出目录 `python -m compileall -q src`；退出 0，仅导出目录产生字节码 |
+| Python 包 | 导出目录 `python -m pip wheel --no-deps --no-build-isolation --no-index --wheel-dir /tmp/apsgov7-urgent-verified.fWffyA/wheels .`；退出 0，wheel 194160 字节；未联网或安装依赖 |
+| 保护文件 | 项目 Python 只读核对阶段 0 的 7 个文件、三组结果的 9 个产物哈希及原 Excel；全部一致，退出 0 |
+| 文档 / 提交范围 | 仅本计划、AGENTS 与专项证据补最终记录；`git diff --check` 通过。最终提交身份见 Git 历史，不在内容中自引用 |
+
+原 Excel SHA-256 仍为 `a9321ef3abcc307b0a96e5af7174ae22f60b61871892c489e911e5c337c09ff0`。源码/测试集中验证后未改，最终只补文档，不重复第二套全量测试或墙钟截断求解。阶段 0～6 均独立中文提交；没有修改正式目标、规则库、预算、接口和前端，没有服务启停、部署、合并或推送。
+
+**完成的是已授权的实现与验证，不是全部业务目标已达到。**仍 11 单晚交、1 条欠重，性能单样本约 301 秒。后续搜索分配或目标优先级改动需另行讨论确认；保留本次不理想结果，不删除失败边界或反向修改验收门槛。
