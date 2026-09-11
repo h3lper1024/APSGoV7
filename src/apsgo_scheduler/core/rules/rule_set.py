@@ -73,12 +73,13 @@ class ProcessRuleSet:
             require_text(code, "allowed_final_deviation_code")
         enabled = tuple(rule for rule in rules if rule.enabled)
         if any(isinstance(rule, DeliveryDuePerformanceRule) for rule in enabled):
-            expected = (
+            prefix = (
                 *PROHIBITED_METRIC_KEYS, "underweight_chain_count", "underweight_total_gap",
                 "newly_late_original_weight", "delivery_wait_tardiness_tonne_hours",
-                "inter_chain_width_gap", "generated_virtual_weight", "chain_count",
             )
-            if tuple(item.metric_key for item in criteria) != expected or any(
+            keys = tuple(item.metric_key for item in criteria)
+            suffix = tuple(key for key in ("inter_chain_width_gap", "generated_virtual_weight", "chain_count") if key in keys)
+            if keys != (*prefix, *suffix) or any(
                 item.direction is not QualityDirection.MINIMIZE for item in criteria
             ) or any(
                 item.aggregation is not QualityAggregation.SUM

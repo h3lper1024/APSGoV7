@@ -4,7 +4,7 @@ from dataclasses import replace
 from decimal import Decimal
 from itertools import pairwise, permutations, zip_longest
 
-from .chain_order import chain_order_objective_index, stable_group_plan
+from .chain_order import chain_order_objective_index, stable_group_plan, has_delivery_objective, delivery_chain_indices
 from .contracts import SearchStopReason, fingerprint, sum_weights
 from .model import MaterialRole, SchedulePlan
 from .neighborhoods import (
@@ -28,6 +28,8 @@ def _width_boundaries(plan, context):
 
 def _ranked_chain_indices(state, context):
     chains = state.current_plan.chains
+    if has_delivery_objective(context.factory.cache.rule_set):
+        return delivery_chain_indices(chains, context.factory.cache.context.delivery_timing)
     priorities = {chain.chain_id: Decimal(0) for chain in chains}
     for left, right, contribution in _width_boundaries(state.current_plan, context):
         priorities[left] = max(priorities[left], contribution.value)
@@ -124,6 +126,8 @@ def _width_improves(chains, state, context):
     index = chain_order_objective_index(cache.rule_set)
     if index is None or not context.factory.budget.allows_search():
         return False
+    if has_delivery_objective(cache.rule_set):
+        return True
     plan = stable_group_plan(SchedulePlan(chains), cache.context.period_index)
     width = sum_weights(item.value for _, _, item in _width_boundaries(plan, context))
     return width < state.current_evaluation.quality_key[index]
@@ -266,7 +270,8 @@ def _alternate_recipes(first, second):
 
 def _order_recipes(state, context):
     chains = state.current_plan.chains
-    for source in range(len(chains)):
+    sources = _ranked_chain_indices(state, context) if has_delivery_objective(context.factory.cache.rule_set) else range(len(chains))
+    for source in sources:
         for position in _chain_order_positions(chains, source):
             yield ("width_chain_order_relocation", source, position)
 

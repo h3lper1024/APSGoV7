@@ -5,7 +5,7 @@ from math import isfinite
 from time import perf_counter
 
 from .budget import SolveRuntimeBudget
-from .chain_order import has_inter_chain_width_rule, stable_group_plan
+from .chain_order import has_production_order_rule, stable_group_plan
 from .compatibility import ConstructionDAG, RuleEdgeDecisionCache
 from .contracts import (
     CoreCandidateSnapshot,
@@ -154,7 +154,7 @@ def construct_initial_plan(
     plan = SchedulePlan(tuple(chains))
     if tuple(node.node_id for chain in plan.chains for node in chain.nodes) != path_nodes:
         raise ValueError("initial plan changed the ordered input cover")
-    if has_inter_chain_width_rule(rules):
+    if has_production_order_rule(rules):
         if not budget.allows_search():
             return interrupted()
         plan = stable_group_plan(plan, context.period_index)

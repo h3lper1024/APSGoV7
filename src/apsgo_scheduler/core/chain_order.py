@@ -2,21 +2,38 @@
 
 from .model import SchedulePlan
 from .rules.base import NumericProjection, QualityAggregation, QualityDirection
-from .rules.concrete import InterChainWidthGapRule
+from .rules.concrete import DeliveryDuePerformanceRule, InterChainWidthGapRule
 
 
 def has_inter_chain_width_rule(rule_set) -> bool:
     return any(isinstance(rule, InterChainWidthGapRule) for rule in rule_set.rules)
 
 
+def has_delivery_objective(rule_set) -> bool:
+    return any(isinstance(rule, DeliveryDuePerformanceRule) for rule in rule_set.rules)
+
+
+def has_production_order_rule(rule_set) -> bool:
+    return has_inter_chain_width_rule(rule_set) or has_delivery_objective(rule_set)
+
+
+def delivery_chain_indices(chains, timing):
+    """Earliest effective due date first, stable ties; this is enumeration, not a score."""
+    return tuple(sorted(range(len(chains)), key=lambda index: min(
+        max(0, timing.orders[node.source_order_id].due_hours)
+        for node in chains[index].nodes if node.virtual_lineage is None
+    )))
+
+
 def chain_order_objective_index(rule_set) -> int | None:
-    if not has_inter_chain_width_rule(rule_set):
+    if not has_production_order_rule(rule_set):
         return None
+    metric = "newly_late_original_weight" if has_delivery_objective(rule_set) else "inter_chain_width_gap"
     return next(
         (
             index
             for index, item in enumerate(rule_set.quality_spec)
-            if item.metric_key == "inter_chain_width_gap"
+            if item.metric_key == metric
             and item.direction is QualityDirection.MINIMIZE
             and item.aggregation is QualityAggregation.SUM
             and item.numeric_projection is NumericProjection.EXACT_DECIMAL

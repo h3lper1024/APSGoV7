@@ -8,7 +8,9 @@ from math import ceil
 
 from .chain_order import (
     chain_order_objective_index,
-    has_inter_chain_width_rule,
+    has_production_order_rule,
+    has_delivery_objective,
+    delivery_chain_indices,
     stable_group_plan,
 )
 from .contracts import (
@@ -533,7 +535,7 @@ def try_complete_candidate(
     if width_optimization_only and not _width_candidate_nodes_valid(plan, before, after, context):
         return False
     # Split authorization consumes the local append order; group only after all locks pass.
-    if has_inter_chain_width_rule(cache.rule_set):
+    if has_production_order_rule(cache.rule_set):
         if not budget.allows_search():
             return False
         plan = stable_group_plan(plan, cache.context.period_index)
@@ -554,12 +556,14 @@ def try_complete_candidate(
         return False
     if width_optimization_only and evaluation.violations:
         return False
-    if (chain_order_only or width_optimization_only) and (
-        evaluation.quality_key[:order_index] != state.current_evaluation.quality_key[:order_index]
-        or evaluation.quality_key[order_index] >= state.current_evaluation.quality_key[order_index]
-    ):
-        # Width-only changes must preserve every higher-priority objective exactly.
-        return False
+    if chain_order_only or width_optimization_only:
+        if evaluation.quality_key[:order_index] != state.current_evaluation.quality_key[:order_index]:
+            return False
+        if not has_delivery_objective(cache.rule_set) and (
+            evaluation.quality_key[order_index] >= state.current_evaluation.quality_key[order_index]
+        ):
+            # Delivery already passed full lexicographic comparison; width need not improve.
+            return False
     sources = tuple(
         dict.fromkeys(
             node.source_order_id
@@ -1010,7 +1014,9 @@ def improve_chain_order(state: SearchState, context: SearchContext) -> SearchSta
     while budget.allows_search():
         chains = state.current_plan.chains
         accepted = False
-        for source_index, moved in enumerate(chains):
+        sources = delivery_chain_indices(chains, cache.context.delivery_timing) if has_delivery_objective(cache.rule_set) else range(len(chains))
+        for source_index in sources:
+            moved = chains[source_index]
             if not budget.allows_search():
                 return state
             for position in _chain_order_positions(chains, source_index):
