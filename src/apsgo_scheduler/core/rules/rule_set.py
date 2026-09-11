@@ -73,19 +73,18 @@ class ProcessRuleSet:
             require_text(code, "allowed_final_deviation_code")
         enabled = tuple(rule for rule in rules if rule.enabled)
         if any(isinstance(rule, DeliveryDuePerformanceRule) for rule in enabled):
-            underweight = ("underweight_chain_count", "underweight_total_gap")
-            delivery = ("newly_late_original_weight", "delivery_wait_tardiness_tonne_hours")
+            prefix = (
+                *PROHIBITED_METRIC_KEYS, "underweight_chain_count", "underweight_total_gap",
+                "newly_late_original_weight", "delivery_wait_tardiness_tonne_hours",
+            )
             keys = tuple(item.metric_key for item in criteria)
             suffix = tuple(key for key in ("inter_chain_width_gap", "generated_virtual_weight", "chain_count") if key in keys)
-            if keys not in (
-                (*PROHIBITED_METRIC_KEYS, *underweight, *delivery, *suffix),
-                (*PROHIBITED_METRIC_KEYS, *delivery, *underweight, *suffix),
-            ) or any(
+            if keys != (*prefix, *suffix) or any(
                 item.direction is not QualityDirection.MINIMIZE for item in criteria
             ) or any(
                 item.aggregation is not QualityAggregation.SUM
                 or item.numeric_projection is not NumericProjection.EXACT_DECIMAL
-                for item in criteria if item.metric_key in delivery
+                for item in criteria[4:6]
             ):
                 raise ValueError("delivery optimization requires the approved nine-level quality order")
         producers = set(STRUCTURAL_METRIC_KEYS)

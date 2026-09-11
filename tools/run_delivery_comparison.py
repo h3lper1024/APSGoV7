@@ -23,7 +23,7 @@ from tools.profile_solver_search import load_request, measure
 from tools.verify_solver_diagnostics import _code_identity, _sha256, _write_json
 
 
-def prepare(source_request, timing_source, start, virtual_speed, *, delivery_first=False):
+def prepare(source_request, timing_source, start, virtual_speed):
     old = load_request(source_request)
     raw = json.loads(timing_source.read_text(encoding="utf-8"))
     rows = {item["source_order_id"]: item for item in raw["orders"]}
@@ -38,7 +38,7 @@ def prepare(source_request, timing_source, start, virtual_speed, *, delivery_fir
             key: values[key] if key == "due_date" or values[key] is None else Decimal(values[key])
             for key in ("due_date", "furnace_speed_mpm", "process_speed_mpm")
         }
-    new = prepare_delivery_request(old, schedule_start_at=start, order_timing=timing, virtual_speed_mpm=virtual_speed, delivery_first=delivery_first)
+    new = prepare_delivery_request(old, schedule_start_at=start, order_timing=timing, virtual_speed_mpm=virtual_speed)
     return old, new
 
 
@@ -48,11 +48,10 @@ def main():
     parser.add_argument("--timing-source", type=Path, required=True)
     parser.add_argument("--start", required=True)
     parser.add_argument("--virtual-speed", type=Decimal, required=True)
-    parser.add_argument("--variant", choices=("old", "delivery", "delivery-first", "prepare"), required=True)
+    parser.add_argument("--variant", choices=("old", "delivery", "prepare"), required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
-    old, new = prepare(args.prepared_request, args.timing_source, args.start, args.virtual_speed,
-                       delivery_first=args.variant == "delivery-first")
+    old, new = prepare(args.prepared_request, args.timing_source, args.start, args.virtual_speed)
     request = old if args.variant == "old" else new
     args.output_dir.mkdir(parents=True, exist_ok=False)
     metadata = dict(variant=args.variant, code=_code_identity(ROOT),
@@ -75,7 +74,7 @@ def main():
             observation = measure(request, scope="full", result_observer=results.append)
             _write_json(args.output_dir / "measurement.json", observation)
             result = results[0]
-            if args.variant in ("delivery", "delivery-first"):
+            if args.variant == "delivery":
                 report = build_delivery_report(request, result)
             else:
                 plan = result.release.plan if result.release else result.diagnostic_candidate.plan

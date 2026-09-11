@@ -11,9 +11,7 @@ from .input_normalizer import normalize_input
 from .rule_set_loader import fingerprint_rule_set_spec, load_rule_set
 
 
-def with_delivery_objective(spec, *, delivery_first=False):
-    if not isinstance(delivery_first, bool):
-        raise ValueError("delivery_first must be a boolean")
+def with_delivery_objective(spec):
     load_rule_set(spec)
     expected = (
         "prohibited_violation_count", "prohibited_violation_severity",
@@ -25,21 +23,20 @@ def with_delivery_objective(spec, *, delivery_first=False):
     criteria = tuple(QualityCriterionSpec(key, key, "minimize", "sum", "exact_decimal") for key in (
         "newly_late_original_weight", "delivery_wait_tardiness_tonne_hours",
     ))
-    position = 2 if delivery_first else 4
     result = replace(
-        spec, version=spec.version + ("+delivery-first-v1" if delivery_first else "+delivery-v1"),
+        spec, version=spec.version + "+delivery-v1",
         rules=(*spec.rules, RuleDefinitionSpec(
             "delivery_due_performance", "DeliveryDuePerformanceRule", "交期表现",
             RuleScope.PLAN, True, "1", {},
         )),
-        quality_spec=(*spec.quality_spec[:position], *criteria, *spec.quality_spec[position:]),
+        quality_spec=(*spec.quality_spec[:4], *criteria, *spec.quality_spec[4:]),
     )
     result = replace(result, fingerprint=fingerprint_rule_set_spec(result))
     load_rule_set(result)
     return result
 
 
-def prepare_delivery_request(request, *, schedule_start_at, order_timing, virtual_speed_mpm, delivery_first=False):
+def prepare_delivery_request(request, *, schedule_start_at, order_timing, virtual_speed_mpm):
     """Typed backend input: speed selection happens once, before any search."""
     problem = normalize_input(request)
     if not isinstance(order_timing, Mapping) or set(order_timing) != {n.source_order_id for n in problem.nodes}:
@@ -62,6 +59,6 @@ def prepare_delivery_request(request, *, schedule_start_at, order_timing, virtua
         for item in problem.virtual_prototypes
     })
     result = replace(request, contract_version="delivery-backend-v1", delivery_timing=timing,
-                     rule_set_spec=with_delivery_objective(request.rule_set_spec, delivery_first=delivery_first))
+                     rule_set_spec=with_delivery_objective(request.rule_set_spec))
     normalize_input(result)
     return result

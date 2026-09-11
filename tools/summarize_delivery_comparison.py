@@ -21,33 +21,26 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--old", type=Path, required=True)
     parser.add_argument("--new", type=Path, required=True)
-    parser.add_argument("--repeat", type=Path)
+    parser.add_argument("--repeat", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    paths = [args.old, args.new] + ([args.repeat] if args.repeat else [])
-    runs = [read(path / "measurement.json") for path in paths]
-    reports = [read(path / "delivery_report.json") for path in paths]
-    requests = [read(path / "prepared_request.json")["request"] for path in paths]
-    deterministic = {}
-    if args.repeat:
-        new, repeat = runs[1:]
-        deterministic = {
-            key: new["final_search"][key] == repeat["final_search"][key]
-            for key in ("plan", "evaluation", "trace", "candidate_check_count", "complete_candidate_evaluation_count", "accepted_move_count", "stop_reason")
-        }
-        deterministic["delivery_report"] = reports[1] == reports[2]
+    runs = [read(path / "measurement.json") for path in (args.old, args.new, args.repeat)]
+    reports = [read(path / "delivery_report.json") for path in (args.old, args.new, args.repeat)]
+    new, repeat = runs[1:]
+    deterministic = {
+        key: new["final_search"][key] == repeat["final_search"][key]
+        for key in ("plan", "evaluation", "trace", "candidate_check_count", "complete_candidate_evaluation_count", "accepted_move_count", "stop_reason")
+    }
+    deterministic["delivery_report"] = reports[1] == reports[2]
     summaries = []
-    for run, report, request in zip(runs, reports, requests):
+    for run, report in zip(runs, reports):
         result = run["result"]
         release = result["release"]
-        candidate = release or result["diagnostic_candidate"]
-        evaluation = candidate["evaluation"] if release else candidate["search_evaluation"]
-        nodes = [n for chain in candidate["plan"]["chains"] for n in chain["nodes"]]
+        nodes = [n for chain in release["plan"]["chains"] for n in chain["nodes"]]
         real = sum_weights(n["weight"] for n in nodes if n["material_role"] != "virtual_sphc")
         virtual = sum_weights(n["weight"] for n in nodes if n["material_role"] == "virtual_sphc")
-        quality = evaluation["quality_key"]
-        metrics = dict(zip((item["metric_key"] for item in request["rule_set_spec"]["quality_spec"]), quality))
-        gate = release is not None and metrics["prohibited_violation_count"] == 0 and metrics["underweight_chain_count"] == 0 and virtual / (real + virtual) <= Decimal("0.05") and result["core_audit"]["passed"] and result["audit_report"]["passed"]
+        quality = release["evaluation"]["quality_key"]
+        gate = quality[0] == 0 and quality[2] == 0 and virtual / (real + virtual) <= Decimal("0.05") and result["core_audit"]["passed"] and result["audit_report"]["passed"]
         daily = defaultdict(list)
         for order in report["delivery_orders"]:
             if order["was_backlog_at_start"]:
@@ -61,7 +54,7 @@ def main():
             stage_seconds=result["run_manifest"]["stage_duration_seconds"],
             first_search_functions=run["first_search_timing"]["functions"],
             accepted_action_counts=dict(Counter(item["action_name"] for item in run["final_search"]["trace"])),
-            violations=evaluation["violations"],
+            violations=release["evaluation"]["violations"],
             old_backlog_completed_weight_by_date={day: sum_weights(weights) for day, weights in sorted(daily.items())},
             **report["delivery_summary"],
         ))
@@ -78,7 +71,7 @@ def main():
         ))
     output = dict(summaries=summaries, deterministic=deterministic,
                   changed_original_order_counts=dict(Counter(item["change"] for item in changes)), order_changes=changes,
-                  acceptance="PASS" if summaries[1]["quality_gate"] == "PASS" and deterministic and all(deterministic.values()) else "BEST_EFFORT")
+                  acceptance="PASS" if summaries[1]["quality_gate"] == "PASS" and all(deterministic.values()) else "BEST_EFFORT")
     with args.output.open("x", encoding="utf-8") as stream:
         stream.write(dumps_exact_json(output) + "\n")
     print(dumps_exact_json({key: value for key, value in output.items() if key not in ("summaries", "order_changes")}))
