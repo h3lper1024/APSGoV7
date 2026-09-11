@@ -9,6 +9,7 @@ from apsgo_scheduler.core.chain_order import delivery_node_positions, refinement
 from apsgo_scheduler.core.evaluation import evaluate_plan
 from apsgo_scheduler.core.rules.base import RuleDisposition
 from apsgo_scheduler.core.width_optimization import run_width_optimization
+from apsgo_scheduler.core.width_optimization import _intra_recipes, _try_intra_move, _delivery_node_recipes, _try_segment_edit
 from apsgo_scheduler.core.model import Chain, SchedulePlan
 from tests.core.test_delivery_search_audit import search_case
 
@@ -89,3 +90,29 @@ def test_other_or_prohibited_deviation_cannot_enter():
     violation = evaluation.violations[0]
     for item in (replace(violation, reason_code="other"), replace(violation, disposition=RuleDisposition.PROHIBITED)):
         assert not refinement_admissible(replace(evaluation, violations=(item,)), context.factory.cache.rule_set)
+
+
+def test_intra_move_advances_order_and_preserves_all_nodes():
+    _, state, context = search_case()
+    a, b, c = (chain.nodes[0] for chain in state.current_plan.chains)
+    plan = SchedulePlan((Chain("ab", (a, b), "P0"), Chain("c", (c,), "P0")))
+    state.current_plan = plan
+    state.current_evaluation = evaluate_plan(plan, context.factory.cache.rule_set, context.factory.cache.context)
+    positions = delivery_node_positions(plan, context.factory.cache.context.delivery_timing)
+    recipe = next(_intra_recipes(state, positions))
+    assert recipe == ("delivery_intra_move", 0, 1, 0)
+    assert _try_intra_move(state, context, recipe)
+    assert state.current_plan.chains[0].nodes == (b, a)
+    assert state.current_evaluation.quality_key[4] == 0
+    assert not _try_intra_move(state, context, ("delivery_intra_move", 0, 0, 0))
+
+
+def test_directed_exchange_can_target_a_non_underweight_chain():
+    _, state, context = search_case()
+    positions = delivery_node_positions(state.current_plan, context.factory.cache.context.delivery_timing)
+    recipes = list(_delivery_node_recipes(state, positions))
+    swap = next(r for r in recipes if r[:4] == ("width_node_exchange", 1, 0, 0))
+    assert _try_segment_edit(state, context, swap)
+    assert state.current_evaluation.quality_key[4] == 0
+    swaps = [tuple(sorted(((r[1], r[3]), (r[2], r[5])))) for r in recipes if r[0] == "width_node_exchange"]
+    assert len(swaps) == len(set(swaps)) == 3

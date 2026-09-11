@@ -65,6 +65,72 @@ def _node_recipes(state, context):
     yield from _alternate_recipes(moves(), exchanges())
 
 
+def _intra_recipes(state, positions):
+    for i, start in positions:
+        for position in range(start):
+            yield ("delivery_intra_move", i, start, position)
+
+
+def _delivery_node_recipes(state, positions):
+    """Try earlier slots first; late-deadline exchange partners are only a heuristic."""
+    chains = state.current_plan.chains
+    ranks = {position: rank for rank, position in enumerate(positions)}
+
+    def moves():
+        for i, start in positions:
+            if len(chains[i].nodes) < 2:
+                continue
+            for j in (*range(i), *range(i + 1, len(chains))):
+                for slot in range(len(chains[j].nodes) + 1):
+                    yield ("width_node_move", i, j, start, start + 1, slot, slot)
+
+    def exchanges():
+        seen = set()
+        for i, start in positions:
+            partners = sorted(
+                ((j, k) for j, k in positions if j != i),
+                key=lambda p: (p[0] >= i, -ranks[p], p),
+            )
+            for j, slot in partners:
+                pair = tuple(sorted(((i, start), (j, slot))))
+                if pair in seen:
+                    continue
+                seen.add(pair)
+                yield ("width_node_exchange", i, j, start, start + 1, slot, slot + 1)
+
+    yield from _alternate_recipes(moves(), exchanges())
+
+
+def _try_intra_move(state, context, recipe):
+    """Remove and reinsert in one chain; repair both exposed interfaces atomically."""
+    budget = context.factory.budget
+    if not budget.allows_search():
+        return False
+    action, i, start, position = recipe
+    old = state.current_plan.chains[i]
+    if not 0 <= position < start < len(old.nodes):
+        return False
+    moved = old.nodes[start:start + 1]
+    if not _has_real(moved):
+        return False
+    pieces = (old.nodes[:position], moved, old.nodes[position:start], old.nodes[start + 1:])
+    nodes, sequence = (), state.virtual_sequence
+    for piece in pieces:
+        joined = _boundary_join(nodes, piece, context, sequence)
+        if joined is None:
+            return False
+        nodes, sequence = joined
+    changed = replace(old, nodes=nodes)
+    if _weight_rejects(changed, context):
+        return False
+    candidate = list(state.current_plan.chains)
+    candidate[i] = changed
+    return try_complete_candidate(
+        state, context, tuple(candidate), affected_chain_ids=(old.chain_id,),
+        virtual_sequence=sequence, action_name=action, width_optimization_only=True,
+    )
+
+
 def _has_real(nodes):
     return any(node.material_role is not MaterialRole.GENERATED_VIRTUAL for node in nodes)
 
@@ -299,6 +365,8 @@ def _try_chain_order(state, context, recipe):
 
 def _try_width_recipe(state, context, recipe):
     action = recipe[0]
+    if action == "delivery_intra_move":
+        return _try_intra_move(state, context, recipe)
     if action in (
         "width_node_move",
         "width_node_exchange",
