@@ -11,6 +11,18 @@ from apsgo_scheduler.core.rules.base import RuleDisposition
 from apsgo_scheduler.core.width_optimization import run_width_optimization
 from apsgo_scheduler.core.width_optimization import _intra_recipes, _try_intra_move, _delivery_node_recipes, _try_segment_edit
 from apsgo_scheduler.core.model import Chain, SchedulePlan
+from apsgo_scheduler.core.model import SearchState
+from apsgo_scheduler.core.contracts import CoreCandidateSnapshot
+from apsgo_scheduler.core.final_audit import audit_core_without_search_cache
+from apsgo_scheduler.core.delivery_timing import DeliveryTimingInput, OrderTimingInput
+from apsgo_scheduler.core.compatibility import RuleEdgeDecisionCache
+from apsgo_scheduler.core.neighborhoods import SearchContext
+from apsgo_scheduler.core.virtual_material import VirtualFactory
+from apsgo_scheduler.core.rules.base import RuleEvaluationContext
+from apsgo_scheduler.app.input_normalizer import normalize_input
+from apsgo_scheduler.app.rule_set_loader import load_rule_set
+from tests.app.test_input_normalizer import make_order, make_spec
+from tests.core.graph.test_bipartite_matching import budget
 from tests.core.test_delivery_search_audit import search_case
 
 
@@ -116,3 +128,81 @@ def test_directed_exchange_can_target_a_non_underweight_chain():
     assert state.current_evaluation.quality_key[4] == 0
     swaps = [tuple(sorted(((r[1], r[3]), (r[2], r[5])))) for r in recipes if r[0] == "width_node_exchange"]
     assert len(swaps) == len(set(swaps)) == 3
+
+
+def audited_case(*, cross_period=False):
+    request, _, _ = search_case(allow_underweight=True)
+    rules = tuple(replace(r, parameters={"min_weight": D(700), "max_weight": D(2000), "target_weight": D(1200)})
+                  if r.rule_type == "ChainWeightRangeRule" else r for r in request.rule_set_spec.rules)
+    spec = make_spec(rules=rules, quality_spec=request.rule_set_spec.quality_spec,
+                     allowed_final_deviation_codes=("chain_weight_below_minimum",))
+    orders = tuple(make_order(i, weight=D(300 if i == 4 else 400), width=D(1000),
+                              source_period="P1" if cross_period and i in (2, 3) else "P0") for i in range(5))
+    timing = DeliveryTimingInput("2026-06-01T00:00:00+08:00", tuple(
+        OrderTimingInput(o.source_order_id, "2026-06-01" if i == (2 if cross_period else 1) else "2026-06-30", D(20))
+        for i, o in enumerate(orders)), {})
+    request = replace(request, orders=orders, rule_set_spec=spec, delivery_timing=timing)
+    problem = normalize_input(request)
+    active = load_rule_set(spec)
+    rule_context = RuleEvaluationContext(problem.period_order, {p: i for i, p in enumerate(problem.period_order)}, (), problem.delivery_timing)
+    from apsgo_scheduler.core.chain_order import stable_group_plan
+    plan = stable_group_plan(SchedulePlan((Chain("a", problem.nodes[:2], "P0"),
+                         Chain("b", problem.nodes[2:4], "P1" if cross_period else "P0"),
+                         Chain("c", problem.nodes[4:], "P0"))), rule_context.period_index)
+    state = SearchState(plan, evaluate_plan(plan, active, rule_context))
+    context = SearchContext(VirtualFactory(RuleEdgeDecisionCache(problem, active, rule_context), budget(candidate_check_limit=100)), request.policy)
+    return request, state, context
+
+
+def test_directed_scan_with_underweight_finishes_with_independent_audit():
+    _, state, context = audited_case()
+    before = state.current_evaluation.quality_key
+    run_width_optimization(state, context)
+    assert any(t.action_name == "delivery_intra_move" for t in context.accepted_move_traces)
+    assert state.current_evaluation.quality_key < before
+    assert all(t.quality_after[2] <= t.quality_before[2] and t.quality_after[3] <= t.quality_before[3]
+               for t in context.accepted_move_traces)
+    audit = audit_core_without_search_cache(CoreCandidateSnapshot(state.current_plan, state.current_evaluation),
+                                           context.factory.cache.problem, context.factory.cache.rule_set, budget())
+    assert audit.report.passed
+    assert context.factory.budget.candidate_check_count <= 100
+
+
+def test_cross_period_exchange_preserves_original_sources_and_audits():
+    _, state, context = audited_case(cross_period=True)
+    # Chain b is third after stable period grouping. Exchange its urgent head
+    # with an ordinary first-period node; normalization may bring both into P0.
+    assert _try_segment_edit(state, context, ("width_node_exchange", 2, 0, 0, 1, 0, 1))
+    audit = audit_core_without_search_cache(CoreCandidateSnapshot(state.current_plan, state.current_evaluation),
+                                           context.factory.cache.problem, context.factory.cache.rule_set, budget())
+    assert audit.report.passed
+
+
+def test_directed_blocks_cover_legacy_shapes_without_duplicate_pairs():
+    from apsgo_scheduler.core.width_optimization import _block_recipes, _delivery_block_recipes
+    from tests.core.search.test_width_optimization_blocks import block_case
+    state, context = block_case(((1600, 300), (1400, 300), (1200, 300), (800, 300)),
+                                ((1500, 300), (1300, 300), (1100, 300), (900, 300)))
+    positions = tuple((i, j) for i in range(2) for j in range(3, -1, -1))
+    def canonical(r):
+        action, i, j, start, stop, other_start, other_stop = r
+        if action == "width_block_move":
+            return r
+        return (action, *sorted(((i, start, stop), (j, other_start, other_stop))))
+    old = {canonical(r) for r in _block_recipes(state, context)}
+    new = [canonical(r) for r in _delivery_block_recipes(state, positions)]
+    assert len(new) == len(set(new))
+    assert set(new) == old
+
+
+def test_intra_failed_seam_and_cancellation_leave_state_untouched(monkeypatch):
+    _, state, context = audited_case()
+    before = state.current_plan
+    monkeypatch.setattr(VirtualFactory, "bridge", lambda *a, **kw: None)
+    assert not _try_intra_move(state, context, ("delivery_intra_move", 0, 1, 0))
+    assert state.current_plan is before and state.accepted_move_count == 0
+    from apsgo_scheduler.core.contracts import SearchStopReason
+    context.factory.budget.stop_reason = SearchStopReason.USER_CANCELLED
+    run_width_optimization(state, context)
+    assert context.factory.budget.stop_reason is SearchStopReason.USER_CANCELLED
+    assert state.current_plan is before

@@ -4,7 +4,7 @@ from dataclasses import replace
 from decimal import Decimal
 from itertools import pairwise, permutations, zip_longest
 
-from .chain_order import chain_order_objective_index, stable_group_plan, has_delivery_objective, delivery_chain_indices, refinement_admissible
+from .chain_order import chain_order_objective_index, stable_group_plan, has_delivery_objective, delivery_chain_indices, delivery_node_positions, refinement_admissible
 from .contracts import SearchStopReason, fingerprint, sum_weights
 from .model import MaterialRole, SchedulePlan
 from .neighborhoods import (
@@ -185,6 +185,60 @@ def _block_recipes(state, context):
                                 )
 
     yield from _alternate_recipes(moves(), exchanges())
+
+
+def _delivery_block_recipes(state, positions):
+    """Short intact blocks around ranked real nodes; de-duplicate only this scan."""
+    chains = state.current_plan.chains
+    seen_blocks, seen_exchanges = set(), set()
+    for i, anchor in positions:
+        for length in range(2, len(chains[i].nodes)):
+            for start in range(max(0, anchor - length + 1), min(anchor + 1, len(chains[i].nodes) - length + 1)):
+                block = (i, start, start + length)
+                if block in seen_blocks:
+                    continue
+                seen_blocks.add(block)
+                for j in (*range(i), *range(i + 1, len(chains))):
+                    def moves():
+                        for slot in range(len(chains[j].nodes) + 1):
+                            yield ("width_block_move", i, j, start, start + length, slot, slot)
+
+                    def exchanges():
+                        # Single-for-block is included here by symmetry; single-for-single
+                        # is already covered by the node family.
+                        for size in range(1, len(chains[j].nodes)):
+                            for slot in range(len(chains[j].nodes) - size + 1):
+                                pair = tuple(sorted((block, (j, slot, slot + size))))
+                                if pair in seen_exchanges:
+                                    continue
+                                seen_exchanges.add(pair)
+                                yield ("width_block_exchange", i, j, start, start + length, slot, slot + size)
+
+                    yield from _alternate_recipes(moves(), exchanges())
+
+
+def _delivery_iterators(state, context):
+    """One timing scan per accepted plan, shared by all five refinement families."""
+    timing = context.factory.cache.context.delivery_timing
+    positions = delivery_node_positions(state.current_plan, timing)
+    ranked = tuple(dict.fromkeys(i for i, _ in positions))
+
+    def cuts():
+        for source in ranked:
+            size = len(state.current_plan.chains[source].nodes)
+            anchors = [j for i, j in positions if i == source]
+            ordered = dict.fromkeys(cut for j in anchors for cut in (j, j + 1) if 0 < cut < size)
+            for cut in (*ordered, *(cut for cut in range(1, size) if cut not in ordered)):
+                for prefix, suffix in permutations(range(len(state.current_plan.chains) + 1), 2):
+                    yield ("width_chain_cut", source, cut, prefix, suffix)
+
+    def orders():
+        for source in ranked:
+            for position in _chain_order_positions(state.current_plan.chains, source):
+                yield ("width_chain_order_relocation", source, position)
+
+    return [iter(_intra_recipes(state, positions)), iter(_delivery_node_recipes(state, positions)),
+            iter(_delivery_block_recipes(state, positions)), iter(cuts()), iter(orders())]
 
 
 def _width_improves(chains, state, context):
@@ -398,7 +452,7 @@ def _scan_width_batch(state, context, recipes, try_recipe, allowance):
     return False, False
 
 
-def _scan_width_families(state, context, family_factories, try_recipe):
+def _scan_width_families(state, context, family_factories, try_recipe, *, delivery_directed=False):
     """Share remaining checks, resume rejected scans and restart after a real commit.
 
     Factories only enumerate index/range/placement recipes. The private callback
@@ -409,7 +463,8 @@ def _scan_width_families(state, context, family_factories, try_recipe):
     _validate_search(state, context)
     budget = context.factory.budget
     while budget.allows_search():
-        pending = [iter(factory(state, context)) for factory in family_factories]
+        pending = (_delivery_iterators(state, context) if delivery_directed else
+                   [iter(factory(state, context)) for factory in family_factories])
         accepted = False
         while pending and budget.allows_search():
             remaining = budget.candidate_check_limit - budget.candidate_check_count
@@ -450,4 +505,5 @@ def run_width_optimization(state, context):
         context,
         (_node_recipes, _block_recipes, _cut_recipes, _order_recipes),
         _try_width_recipe,
+        delivery_directed=has_delivery_objective(context.factory.cache.rule_set),
     )
