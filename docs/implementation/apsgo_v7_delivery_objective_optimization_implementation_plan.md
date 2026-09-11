@@ -209,6 +209,8 @@ Windows 使用同名 Conda 环境，不照搬 macOS 路径。新增测试、被�
 
 实施时按实际追加，不覆盖旧失败、试算或未验证记录。
 
+- 用户确认清理（实施前 `2e3f5ff`）：只删除未被正式入口调用的 `src/apsgo_scheduler/app/_candidate_worker.py` 及 `tests/app/test_candidate_worker.py`，保留 Git 历史可恢复；二者引用的 `_candidate_payload` 原已不存在。不恢复并行试验、不修改正式求解。Conda 环境执行 `pytest -p no:cacheprovider tests/architecture -q`：81 通过，0.59 秒，退出 0；关闭上述唯一历史架构失败。此清理单独提交。
+
 - 阶段 2（实施前 `dc1da4b`）：一个方案级规则扫描计算两个指标；拆单按最后片段完成/原订单重量归并，虚拟材只占时，校验完整来源重量。复用原评价器及未变链缓存，方案级计时每次重算；后端显式七级转九级帮助函数仅生成新配置身份，不改正式库。19 项新增计时/评分用例首次执行 17 通过、2 项测试写法错误（重复节点先被既有模型拒绝；质量键实际为 tuple），修正后连同既有归一化/规则加载/指纹/精度/宽差与架构检查共 420 通过、1 失败，1.25 秒；命令使用 `PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m pytest -p no:cacheprovider tests/core/test_delivery_timing.py tests/core/test_delivery_objective.py tests/app/test_input_normalizer.py tests/app/test_rule_set_loader.py tests/core/test_problem_fingerprint.py tests/core/test_reference_numeric_projection.py tests/core/rules/test_inter_chain_width_gap.py tests/architecture -q`。唯一失败为原有 `_candidate_worker.py` 引用缺失 `_candidate_payload`；Git 历史确认遗留自 `c6cc724`，与本项无关，已向用户单独询问清理权限，不跳过或放宽断言。计时/评分业务检查通过，继续阶段 3；不宣称架构或全量验收通过。
 
 - 阶段 1（实施前 `0138939`）：新增独立计时输入与不可变任务计时表，使用带时区起点、交期当天结束、28 位 HALF_EVEN Decimal 工时；按原订单与虚拟原型一一绑定，不改节点物理属性。请求/问题/上下文的新增可空扩展使用显式省略元数据，旧请求的空扩展不进入指纹和诊断 JSON，旧字段的 None 编码不变。共用投影也接入应用审计；求解与最终审计分别传入问题计时数据。已写计时边界用例，按确认安排在阶段 2 运行；本提交仅差异检查，不宣称测试或真实求解通过。
@@ -222,6 +224,7 @@ Windows 使用同名 Conda 环境，不照搬 macOS 路径。新增测试、被�
 | 阶段 0 冻结收口 | `#feat 冻结交期优化输入与验收口径` | `0138939` | 复核既有源哈希及用户参数，不重复跑业务测试 | 输入来源与参数冻结完成，工时派生在后续实现 |
 | 阶段 1 | `#feat 建立交期计时输入与工时计算` | `dc1da4b` | 计时用例已在阶段 2 通过 | 计时与身份扩展已实现 |
 | 阶段 2 | `#feat 增加交期目标与九级方案评价` | 本次提交以 Git 历史为准 | 420 通过；1 项历史架构失败另记 | 计时/评分完成，搜索及完整验收未完成 |
+| 用户授权清理 | `#fix 清理失效并行试验代码与测试` | 本次提交以 Git 历史为准 | 架构 81 项通过 | 删除两个失效文件，可从 Git 恢复 |
 | 阶段 3 | `#feat 接入交期驱动的候选搜索与采纳` | — | 计划与阶段 4 合并验证 | 未开始 |
 | 阶段 4 | `#feat 完成交期独立审计与结果明细` | — | 未执行 | 未开始 |
 | 阶段 5 后端 / 客户端 | `#feat 接入月计划交期契约与规则版本` | — | 未执行；各仓库独立记录 | 未开始 |
