@@ -35,6 +35,7 @@ from apsgo_scheduler.app.service import solve_request  # noqa: E402
 from apsgo_scheduler.core import neighborhoods, solver  # noqa: E402
 from apsgo_scheduler.core.contracts import RuleScope, SolverPolicy, fingerprint  # noqa: E402
 from apsgo_scheduler.core.model import MaterialRole  # noqa: E402
+from apsgo_scheduler.core.delivery_timing import DeliveryTimingInput, OrderTimingInput  # noqa: E402
 from apsgo_v7_service.diagnostics import _json_values  # noqa: E402
 from tools.verify_solver_diagnostics import _code_identity, _sha256, _write_json  # noqa: E402
 
@@ -60,6 +61,13 @@ def load_request(source: Path | bytes):
     spec["quality_spec"] = tuple(QualityCriterionSpec(**item) for item in spec["quality_spec"])
     raw["rule_set_spec"] = RuleSetSpec(**spec)
     raw["policy"] = SolverPolicy(**raw["policy"])
+    if raw.get("delivery_timing") is not None:
+        timing = raw["delivery_timing"]
+        raw["delivery_timing"] = DeliveryTimingInput(**{
+            **timing,
+            "orders": tuple(OrderTimingInput(**{**item, "duration_hours": Decimal(item["duration_hours"])}) for item in timing["orders"]),
+            "virtual_hours_per_tonne": {key: Decimal(value) for key, value in timing["virtual_hours_per_tonne"].items()},
+        })
     request = SchedulingRequest(**raw)
     if fingerprint_public_request(request) != data["request_fingerprint"]:
         raise ValueError("bound request fingerprint mismatch")
@@ -103,7 +111,7 @@ class FirstSearchComplete(BaseException):
     """Diagnostic escape before split/replay/audits; never a production result."""
 
 
-def measure(request, *, scope="first", profile=None):
+def measure(request, *, scope="first", profile=None, result_observer=None):
     if scope not in {"first", "full"}:
         raise ValueError("scope must be first or full")
     report, functions, observed = {}, [], []
@@ -168,6 +176,8 @@ def measure(request, *, scope="first", profile=None):
                 report["final_search"] = _snapshot(*observed[0])
     report["public_call_wall_seconds"] = Decimal(str(perf_counter() - started))
     report["public_call_cpu_seconds"] = Decimal(str(process_time() - cpu_started))
+    if result_observer is not None and "result" in report:
+        result_observer(result)
     report["measurement_scope"] = (
         "first_local_search_only_no_release" if scope == "first" else "full_public_solve_with_observation"
     )

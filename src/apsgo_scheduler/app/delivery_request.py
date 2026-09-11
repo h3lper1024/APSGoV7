@@ -1,9 +1,13 @@
 """Opt-in backend delivery specification; never mutate the active rules database."""
 
 from dataclasses import replace
+from collections.abc import Mapping
+from decimal import Decimal
 
 from ..api.request import QualityCriterionSpec, RuleDefinitionSpec
-from ..core.contracts import RuleScope
+from ..core.contracts import RuleScope, require_decimal
+from ..core.delivery_timing import DeliveryTimingInput, OrderTimingInput, production_hours
+from .input_normalizer import normalize_input
 from .rule_set_loader import fingerprint_rule_set_spec, load_rule_set
 
 
@@ -29,4 +33,32 @@ def with_delivery_objective(spec):
     )
     result = replace(result, fingerprint=fingerprint_rule_set_spec(result))
     load_rule_set(result)
+    return result
+
+
+def prepare_delivery_request(request, *, schedule_start_at, order_timing, virtual_speed_mpm):
+    """Typed backend input: speed selection happens once, before any search."""
+    problem = normalize_input(request)
+    if not isinstance(order_timing, Mapping) or set(order_timing) != {n.source_order_id for n in problem.nodes}:
+        raise ValueError("order_timing must match all original order identities")
+    require_decimal(virtual_speed_mpm, "virtual_speed_mpm", positive=True)
+    inputs = []
+    for node in problem.nodes:
+        values = order_timing[node.source_order_id]
+        if not isinstance(values, Mapping) or set(values) != {"due_date", "furnace_speed_mpm", "process_speed_mpm"}:
+            raise ValueError(f"{node.source_order_id}: timing requires due_date and both speed fields")
+        speeds = (values["furnace_speed_mpm"], values["process_speed_mpm"])
+        for name, value in zip(("furnace_speed_mpm", "process_speed_mpm"), speeds):
+            require_decimal(value, f"{node.source_order_id}.{name}", allow_none=True)
+        speed = next((value for value in speeds if value is not None and value > 0), None)
+        if speed is None:
+            raise ValueError(f"{node.source_order_id}: no positive production speed")
+        inputs.append(OrderTimingInput(node.source_order_id, values["due_date"], production_hours(node.weight, node.width, node.thickness, speed)))
+    timing = DeliveryTimingInput(schedule_start_at, tuple(inputs), {
+        item.prototype_id: production_hours(Decimal(1), item.width, item.thickness, virtual_speed_mpm)
+        for item in problem.virtual_prototypes
+    })
+    result = replace(request, contract_version="delivery-backend-v1", delivery_timing=timing,
+                     rule_set_spec=with_delivery_objective(request.rule_set_spec))
+    normalize_input(result)
     return result
