@@ -5,8 +5,9 @@ from itertools import zip_longest
 
 from .delivery_timing import evaluate_delivery
 from .model import SchedulePlan
-from .rules.base import NumericProjection, QualityAggregation, QualityDirection
-from .rules.concrete import DeliveryDuePerformanceRule, InterChainWidthGapRule
+from .contracts import RuleScope
+from .rules.base import NumericProjection, QualityAggregation, QualityDirection, RuleDisposition
+from .rules.concrete import ChainWeightRangeRule, DeliveryDuePerformanceRule, InterChainWidthGapRule
 
 
 def has_inter_chain_width_rule(rule_set) -> bool:
@@ -19,6 +20,33 @@ def has_delivery_objective(rule_set) -> bool:
 
 def has_production_order_rule(rule_set) -> bool:
     return has_inter_chain_width_rule(rule_set) or has_delivery_objective(rule_set)
+
+
+def refinement_admissible(evaluation, rule_set):
+    """Only the explicitly publishable chain-weight deviation may enter delivery refinement."""
+    if not evaluation.violations:
+        return True
+    if not has_delivery_objective(rule_set):
+        return False
+    weight_ids = {rule.rule_id for rule in rule_set.rules if type(rule) is ChainWeightRangeRule}
+    return all(
+        item.rule_id in weight_ids
+        and item.scope is RuleScope.CHAIN
+        and item.disposition is RuleDisposition.ALLOWED_FINAL_DEVIATION
+        and item.reason_code == "chain_weight_below_minimum"
+        and item.reason_code in rule_set.allowed_final_deviation_codes
+        for item in evaluation.violations
+    )
+
+
+def refinement_candidate_allowed(before, after, rule_set):
+    if not refinement_admissible(after, rule_set):
+        return False
+    return all(
+        after.quality_key[i] <= before.quality_key[i]
+        for i, criterion in enumerate(rule_set.quality_spec)
+        if criterion.metric_key in ("underweight_chain_count", "underweight_total_gap")
+    )
 
 
 def delivery_chain_indices(chains, timing):

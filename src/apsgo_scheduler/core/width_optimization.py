@@ -4,7 +4,7 @@ from dataclasses import replace
 from decimal import Decimal
 from itertools import pairwise, permutations, zip_longest
 
-from .chain_order import chain_order_objective_index, stable_group_plan, has_delivery_objective, delivery_chain_indices
+from .chain_order import chain_order_objective_index, stable_group_plan, has_delivery_objective, delivery_chain_indices, refinement_admissible
 from .contracts import SearchStopReason, fingerprint, sum_weights
 from .model import MaterialRole, SchedulePlan
 from .neighborhoods import (
@@ -201,7 +201,8 @@ def _weight_rejects(chain, context, *, before_bridge=False):
     # A necessary interface bridge can supply the remaining few tonnes, but cannot
     # reduce excess weight. Do not reject its potential final chain as underweight.
     return any(
-        not before_bridge or violation.disposition is RuleDisposition.PROHIBITED
+        (not before_bridge and not has_delivery_objective(cache.rule_set))
+        or violation.disposition is RuleDisposition.PROHIBITED
         for violation in contribution.violations
     )
 
@@ -370,7 +371,7 @@ def run_width_optimization(state, context):
     _validate_search(state, context)
     if (
         chain_order_objective_index(context.factory.cache.rule_set) is None
-        or state.current_evaluation.violations
+        or not refinement_admissible(state.current_evaluation, context.factory.cache.rule_set)
     ):
         return state
     budget = context.factory.budget

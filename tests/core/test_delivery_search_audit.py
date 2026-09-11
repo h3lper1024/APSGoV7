@@ -27,13 +27,14 @@ from tests.core.graph.test_bipartite_matching import budget
 D = Decimal
 
 
-def search_case(*, delivery=True, width=True):
+def search_case(*, delivery=True, width=True, allow_underweight=False):
     seven = read_gqga4_spec("gqga4_rule_set_spec.json")
     definitions = (
         RuleDefinitionSpec("weight", "ChainWeightRangeRule", "重量", RuleScope.CHAIN, True, "1", {"min_weight": D(1), "max_weight": D(2000), "target_weight": D(1200)}),
         RuleDefinitionSpec("width", "InterChainWidthGapRule", "宽差", RuleScope.PLAN, True, "1", {}),
     )
-    spec = make_spec(rules=definitions, quality_spec=seven.quality_spec)
+    spec = make_spec(rules=definitions, quality_spec=seven.quality_spec,
+                     allowed_final_deviation_codes=("chain_weight_below_minimum",) if allow_underweight else ())
     if delivery:
         spec = with_delivery_objective(spec)
     if not width:

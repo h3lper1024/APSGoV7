@@ -12,6 +12,8 @@ from .chain_order import (
     has_delivery_objective,
     delivery_chain_indices,
     stable_group_plan,
+    refinement_admissible,
+    refinement_candidate_allowed,
 )
 from .contracts import (
     ControlledSplitMode,
@@ -460,7 +462,8 @@ def try_complete_candidate(
     ):
         return False
     if width_optimization_only and (
-        order_index is None or split_subject is not None or state.current_evaluation.violations
+        order_index is None or split_subject is not None
+        or not refinement_admissible(state.current_evaluation, cache.rule_set)
     ):
         return False
     if not budget.allows_search():
@@ -554,10 +557,14 @@ def try_complete_candidate(
         or not evaluation.quality_key < state.current_evaluation.quality_key
     ):
         return False
-    if width_optimization_only and evaluation.violations:
+    if width_optimization_only and not refinement_candidate_allowed(
+        state.current_evaluation, evaluation, cache.rule_set
+    ):
         return False
     if chain_order_only or width_optimization_only:
-        if evaluation.quality_key[:order_index] != state.current_evaluation.quality_key[:order_index]:
+        if not (width_optimization_only and has_delivery_objective(cache.rule_set)) and (
+            evaluation.quality_key[:order_index] != state.current_evaluation.quality_key[:order_index]
+        ):
             return False
         if not has_delivery_objective(cache.rule_set) and (
             evaluation.quality_key[order_index] >= state.current_evaluation.quality_key[order_index]

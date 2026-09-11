@@ -19,3 +19,17 @@
 参数固定为种子 590531、200000 次候选、310 秒总时间 / 10 秒收尾、六月一日 0 点 +08:00、截止当天 24 点、虚拟速度 100 米/分钟。执行命令复用[计划第 6 节](../../apsgo_v7_urgent_order_search_implementation_plan.md)，新结果使用独立目录，不覆盖任何旧结果。
 
 实际检查：`git status --short --branch`、`git log -2 --oneline`、`uname -s`、项目 Python `-B -` 只读 JSON/哈希核对，均退出 0。没有业务测试、求解、数据库写入或服务操作。后续阶段追加记录，不能把本阶段称为算法收益。
+
+## 阶段 1～2：排序与准入检查点
+
+阶段 0 `19173fe`，阶段 1 `238e7c3`；后者仅排序辅助和用例，未改变前置局部搜索的链序。阶段 2 改动准入、单链重量预筛及完整候选接受五处，共用判断只允许规则明示的链重下限偏差，按质量声明名称分别保护欠重数和两位缺口；最终审计未改。
+
+实际命令（项目环境、无字节码和 pytest 缓存）：
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m pytest -p no:cacheprovider \
+  tests/core/test_urgent_order_search.py tests/core/test_delivery_search_audit.py \
+  tests/core/search tests/core/audit tests/architecture -q --tb=short
+```
+
+首次 1019 通过 / 4 失败，31.50 秒：新增用例错误修改截止小时却未同步日期；旧合成夹具默认没有允许欠重的代码清单。修正夹具而非放松生产校验，最终同范围 **1023 通过，31.41 秒，退出 0**。原七级测试继续通过；没有真实排程或收益结论。独立用例同时验证不增加数量和缺口、其他偏差拒绝、已有欠重可执行精修。

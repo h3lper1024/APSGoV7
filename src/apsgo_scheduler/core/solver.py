@@ -6,7 +6,7 @@ from decimal import Decimal
 from time import perf_counter
 
 from .budget import SolveRuntimeBudget
-from .chain_order import chain_order_objective_index
+from .chain_order import chain_order_objective_index, refinement_admissible
 from .compatibility import RuleEdgeDecisionCache, _finite_projection, build_construction_dag
 from .contracts import (
     AuditedCoreRelease,
@@ -675,7 +675,7 @@ def solve(
         width_objective = chain_order_objective_index(rule_set)
         if (
             width_objective is not None
-            and not state.current_evaluation.violations
+            and refinement_admissible(state.current_evaluation, rule_set)
             and runtime.stop_reason in (None, SearchStopReason.LOCAL_SEARCH_COMPLETE)
         ):
             phase, started = "width_optimization", perf_counter()
