@@ -4,8 +4,8 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.8 / 2026-09-12 |
-| 当前状态 | 用户要求回到 11 单晚交版本；代码恢复 `b1ab8af`，验证与回退记录见第 12 节；第 10～11 节试验保留为历史 |
+| 版本 / 日期 | v0.9 / 2026-09-12 |
+| 当前状态 | 已回退且完成 40 万次/300 秒复测，最终仍为相同的 11 单晚交方案；实际 192551 次后因时限停止，见第 13 节 |
 | 仓库 / 分支 | `/Users/miles/dev/dev-py/APSGOV7` / `codex/delivery-objective-optimization` |
 | 编写前基线 | `96c6475`，工作树干净；不新建或切换分支 |
 | 平台 / 运行环境 | 已核验 macOS；运行和测试使用 Conda `aps_3.10.18` |
@@ -346,3 +346,27 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
 实际执行：`git write-tree` 得到 `afb5370d565fe9f7d386debdda6dc4ab83392144`，导出 `/tmp/apsgov7-rollback-eleven.6hqWpO`。在导出目录使用项目 Python，`PYTHONDONTWRITEBYTECODE=1 python -m pytest -p no:cacheprovider tests/architecture tests/api tests/app tests/core tests/service -q --tb=short` 为 **3886 passed in 52.57s，退出 0**；残留检查 `status=pass, mode=clean_export`、`compileall -q src` 和离线 `pip wheel --no-deps --no-build-isolation --no-index` 均退出 0，wheel 194160 字节。随后仅回填文档，源码/测试/工具不改。
 
 实际 `git diff --cached b1ab8af -- src tests tools` 为空；`candidate_01` 原 20 万次输入指纹回读、规则加载与交期第 5/6 位核对通过，原冻结文件及三份对照引用的全部诊断文件哈希未变。最终文档、暂存树一致性和空白检查后独立提交。删除的唯一文件是已撤回功能的 6 项专用测试文件，可从 `deec648` 等历史提交恢复；3886 比 3892 少 6 项来自明确回退，不是跳过失败测试。当前工作完成，不启动服务、不部署、不合并或推送。
+
+## 13. 回退版本的 40 万次 / 300 秒试验（2026-09-12）
+
+用户在恢复 11 单晚交后要求候选上限 400000、时间限制 300 秒再试。按既有口径为搜索 300 秒、另预留 10 秒收尾，总策略 310 秒；起点、速度、种子和规则不变。基线 `4162a88`，源码/测试/工具与 `b1ab8af` 相同，macOS / Conda `aps_3.10.18`。
+
+直接复用已校验的独立输入 `diagnostics/urgent_order_search/input_budget400000.json`，但本轮使用恢复后的 **`--variant delivery`**，不是已撤回的 `delivery-first`。新准备请求与 11 单基线 `candidate_01` 逐字段对比，只有候选上限 200000→400000，规则顺序仍欠重第 3/4 位、交期第 5/6 位，后置欠重数量和缺口分别不增加。正式配置和数据库不改。
+
+| 阶段 | 完整名称 / 依据 | 依赖 | 计划提交 | 当前状态 |
+|---|---|---|---|---|
+| 12 | 回退版本 40 万次/300 秒复测及对照；用户追加要求 / 本节 | 阶段 11 回退完成，`4162a88` | `#feat 记录回退版本四十万次复测` | 试验完成；完整运行退出 0，记录提交由 Git 历史标识 |
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/run_delivery_comparison.py \
+  --prepared-request diagnostics/urgent_order_search/input_budget400000.json \
+  --timing-source diagnostics/delivery_objective/timing_source.json \
+  --start 2026-06-01T00:00:00+08:00 --virtual-speed 100 \
+  --variant delivery --output-dir diagnostics/urgent_order_search/restored_delivery_400000_01
+```
+
+对比原 20 万次 `candidate_01`，保留所有新结果和原始报告；上轮交期优先 40 万次只能作不同目标口径参考。原基线已在约 192021 次因搜索时限停止，提高候选上限不保证增加有效搜索，最终以实际停止原因和轨迹为准。不修改算法、不自动增加时限或追加重复样本；无源码变化不重复全量回归。
+
+实际 301.167615 秒/CPU 300.710441 秒，192551 次候选、68269 次完整评价、369 次接受，`search_time_limit_reached`。双审计通过，完整有序方案、评价、采纳轨迹、531 单日期和交期摘要与原 `candidate_01` 逐值相同；晚交仍 11 单/288.89 吨、欠重 1 条/41.01 吨、零禁止。请求指纹及报告指纹随预算改变，不能称整个报告文件相同。两次拆单分别为同期间和未来借入归还各 1 次；后置精修本轮约 100.841274 秒，同样只接受 28 次链内前移。原基线 192021 次和本轮 192551 次均未用满 20 万上限，因此本次实际限制是 300 秒时间，单纯提高候选额度没有产生新结果。
+
+详细命令、耗时、精确相等性和文件哈希见 [回退版本 40 万次报告](evidence/apsgo_v7_urgent_order_search/restored_budget400000.md) 与同目录 JSON。正式质量仍 BEST_EFFORT；不重复未改代码的 3886 项回归，不额外运行性能样本或自动改时限。仅文档及证据提交。
