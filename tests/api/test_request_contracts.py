@@ -118,7 +118,7 @@ def request(**changes):
         (
             SchedulingRequest,
             "contract_version request_id product_line_code process_code scenario "
-            "orders periods virtual_prototypes rule_set_spec policy",
+            "orders periods virtual_prototypes rule_set_spec policy delivery_timing",
         ),
     ],
 )

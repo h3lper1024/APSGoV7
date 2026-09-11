@@ -36,6 +36,7 @@ def resign_problem(problem, **changes):
         item.name: getattr(problem, item.name)
         for item in fields(problem)
         if item.name not in {"problem_id", "input_fingerprint"}
+        and not (item.name == "delivery_timing" and problem.delivery_timing is None)
     }
     return replace(problem, input_fingerprint=fingerprint(values))
 
