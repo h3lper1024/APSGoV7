@@ -26,6 +26,7 @@ def main():
     args = parser.parse_args()
     runs = [read(path / "measurement.json") for path in (args.old, args.new, args.repeat)]
     reports = [read(path / "delivery_report.json") for path in (args.old, args.new, args.repeat)]
+    requests = [read(path / "prepared_request.json")["request"] for path in (args.old, args.new, args.repeat)]
     new, repeat = runs[1:]
     deterministic = {
         key: new["final_search"][key] == repeat["final_search"][key]
@@ -33,14 +34,15 @@ def main():
     }
     deterministic["delivery_report"] = reports[1] == reports[2]
     summaries = []
-    for run, report in zip(runs, reports):
+    for run, report, request in zip(runs, reports, requests):
         result = run["result"]
         release = result["release"]
         nodes = [n for chain in release["plan"]["chains"] for n in chain["nodes"]]
         real = sum_weights(n["weight"] for n in nodes if n["material_role"] != "virtual_sphc")
         virtual = sum_weights(n["weight"] for n in nodes if n["material_role"] == "virtual_sphc")
         quality = release["evaluation"]["quality_key"]
-        gate = quality[0] == 0 and quality[2] == 0 and virtual / (real + virtual) <= Decimal("0.05") and result["core_audit"]["passed"] and result["audit_report"]["passed"]
+        metrics = dict(zip((item["metric_key"] for item in request["rule_set_spec"]["quality_spec"]), quality))
+        gate = metrics["prohibited_violation_count"] == 0 and metrics["underweight_chain_count"] == 0 and virtual / (real + virtual) <= Decimal("0.05") and result["core_audit"]["passed"] and result["audit_report"]["passed"]
         daily = defaultdict(list)
         for order in report["delivery_orders"]:
             if order["was_backlog_at_start"]:

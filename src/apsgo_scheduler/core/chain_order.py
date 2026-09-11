@@ -42,6 +42,10 @@ def refinement_admissible(evaluation, rule_set):
 def refinement_candidate_allowed(before, after, rule_set):
     if not refinement_admissible(after, rule_set):
         return False
+    # In the explicitly approved delivery-first order, full lexicographic
+    # comparison already decides whether extra underweight buys enough benefit.
+    if has_delivery_objective(rule_set) and chain_order_objective_index(rule_set) == 2:
+        return True
     return all(
         after.quality_key[i] <= before.quality_key[i]
         for i, criterion in enumerate(rule_set.quality_spec)

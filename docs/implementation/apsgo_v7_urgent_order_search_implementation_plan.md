@@ -297,10 +297,12 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
 
 | 阶段 | 完整名称 / 主要依据 | 依赖 | 计划提交 | 状态 / 执行记录 |
 |---|---|---|---|---|
-| 7 | 同步交期优先与允许欠重代价语义；本节及用户确认 | `b1ab8af` 干净树，macOS / Conda `aps_3.10.18` | `#feat 明确交期优先对照试验口径` | 文档同步；无代码/求解 |
-| 8 | 接入新顺序、按顺序适配保护及报告；同一输入准备与审计 | 阶段 7 | `#feat 支持交期优先并允许欠重代价` | 待实施；集中测试旧新顺序、严格接受、禁止保护、独立审计和输入身份 |
+| 7 | 同步交期优先与允许欠重代价语义；本节及用户确认 | `b1ab8af` 干净树，macOS / Conda `aps_3.10.18` | `#feat 明确交期优先对照试验口径` | 完成 `7d7b54a`；文档同步，无代码/求解 |
+| 8 | 接入新顺序、按顺序适配保护及报告；同一输入准备与审计 | 阶段 7 | `#feat 支持交期优先并允许欠重代价` | 实现及专项 44 项通过，1.04 秒；提交以 Git 历史为准，待真实复测 |
 | 9 | 同输入全流程复测、三组逐项比较与最终集中回归 | 阶段 8 测试通过 | `#feat 记录交期优先复测与回归结果` | 待执行；阶段记录包含实际提交、命令、退出码、耗时及质量代价 |
 
 复测使用第 6.1 节同一命令，只改 `--variant delivery-first`、新输出目录 `diagnostics/urgent_order_search/delivery_first_01`。原订单、起点、截止日界、虚拟速度、种子和 200000 次/310 秒总预算均不变；输入身份因目标顺序和规则版本变化重新生成，物理/计时/策略逐项核对。与前次 `candidate_01` 及原九级 `delivery_01` 比较，旧七级作参考；禁止用评分位置 3 误判欠重门，报告按指标名称查找。
 
 在同一精确源码树集中执行 `tests/architecture tests/api tests/app tests/core tests/service`，干净导出语法/包检查；不在每个小改动重复全量。若真实时限截断，不声称有序确定性重复；若未截断且有改善，按原计划重复一次。保留全部新结果，禁止覆盖旧证据。
+
+阶段 8 实际验证：项目环境 `python -m pytest -p no:cacheprovider tests/core/test_delivery_first_priority.py tests/core/test_urgent_order_search.py tests/core/test_delivery_objective.py tests/core/test_delivery_search_audit.py tests/app/test_delivery_preparation.py -q --tb=short`，设置 `PYTHONDONTWRITEBYTECODE=1`。首次 43 通过/1 失败，1.13 秒：新测试仅创建配置却未调用加载校验，修正为真实加载后同范围 44 通过，1.04 秒，退出 0。真实受控候选测试证实“急单提前+欠重增加”新顺序接受并通过独立审计，旧顺序拒绝；无交期收益的额外欠重拒绝，其他偏差和禁止超重拒绝。未改评价公式或回放次数。
