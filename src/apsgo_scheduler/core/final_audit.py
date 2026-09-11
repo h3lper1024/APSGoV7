@@ -6,7 +6,7 @@ from dataclasses import dataclass, fields, replace
 from math import isfinite
 
 from .budget import SolveRuntimeBudget
-from .chain_order import has_inter_chain_width_rule
+from .chain_order import has_production_order_rule
 from .contracts import (
     ControlledSplitMode,
     CoreAuditReport,
@@ -273,7 +273,7 @@ def _audit_structure(plan, problem, rule_set, context, budget, issues, invariant
     prototypes = {item.prototype_id: item for item in problem.virtual_prototypes}
     present, assigned, groups, separators = {}, {}, defaultdict(list), defaultdict(list)
     real, virtual, virtual_sequences = [], [], set()
-    ordered_chains = has_inter_chain_width_rule(rule_set)
+    ordered_chains = has_production_order_rule(rule_set)
     previous_period = -1
     if not plan.chains:
         _record(issues, invariants, "empty_plan", "最终方案没有排产链。")
@@ -719,7 +719,7 @@ def audit_core_without_search_cache(
             candidate.search_evaluation,
             audited,
             issues,
-            ordered_chains=has_inter_chain_width_rule(rule_set),
+            ordered_chains=has_production_order_rule(rule_set),
         )
         _publication_issues(audited, rule_set, issues)
         facts = None

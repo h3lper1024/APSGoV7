@@ -20,6 +20,7 @@ from ..core.contracts import (
     sum_weights,
 )
 from ..core.model import MaterialRole, SchedulingProblem, VirtualPurpose
+from ..core.delivery_timing import normalize_delivery_timing
 from ..core.rules.base import RuleDisposition
 from .result_assembler import DraftSchedulingResult, fingerprint_draft_result
 
@@ -33,6 +34,13 @@ def _same_fields(left, right, names):
 
 
 def _request_binding(request, problem, check, runtime):
+    try:
+        timing = None if request.delivery_timing is None else normalize_delivery_timing(
+            request.delivery_timing, problem.nodes, problem.virtual_prototypes
+        )
+        check(timing == problem.delivery_timing, "request_problem_timing_mismatch")
+    except (ValueError, OverflowError):
+        check(False, "request_problem_timing_mismatch")
     check(
         _same_fields(request, problem, ("product_line_code", "process_code", "scenario")),
         "request_problem_mapping_mismatch",

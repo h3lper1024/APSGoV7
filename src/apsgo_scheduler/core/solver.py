@@ -22,6 +22,7 @@ from .contracts import (
     SolverResult,
     SolveStatus,
     fingerprint,
+    contract_values,
     freeze_tuple,
     sum_weights,
 )
@@ -42,9 +43,7 @@ logger = logging.getLogger(__name__)
 
 
 def _values(value, excluded=()):
-    return {
-        part.name: getattr(value, part.name) for part in fields(value) if part.name not in excluded
-    }
+    return contract_values(value, excluded)
 
 
 def _issue(code, message, *, phase=DiagnosticPhase.CONSTRUCTION, path=None, subject=None):

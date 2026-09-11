@@ -122,6 +122,7 @@ class RuleEdgeDecisionCache:
                 raise ValueError(f"edge cache {name} does not match its rule set")
         if (
             self.context.period_order != self.problem.period_order
+            or self.context.delivery_timing != self.problem.delivery_timing
             or self.context.virtual_prototype_ids
             != tuple(item.prototype_id for item in self.problem.virtual_prototypes)
         ):
