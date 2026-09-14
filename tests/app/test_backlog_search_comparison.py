@@ -89,6 +89,34 @@ def test_snapshot_compatibility_does_not_hide_present_sequence_mismatch():
     assert not snapshots_equal({"plan": 1, "virtual_sequence": 8}, {"plan": 1, "virtual_sequence": 9})
 
 
+@pytest.mark.parametrize("tamper", [None, "purpose", "weight", "sequence", "reuse", "final"])
+def test_virtual_change_observations_reconcile_retirement_and_fresh_generation(tamper):
+    from tools.compare_backlog_search_runs import verify_virtual_changes
+    def snapshot(identity, sequence):
+        return dict(virtual_sequence=sequence, accepted_move_count=10, trace=[dict(sequence=11, action_name="move")],
+                    plan=dict(chains=[dict(nodes=[dict(node_id=identity, weight=Decimal(20),
+                                virtual_lineage=dict(accepted_sequence=sequence, purpose="edge_bridge", related_partition_id=None))])]))
+    measurement = dict(pre_refinement=snapshot("old", 9), final_search=snapshot("new", 10))
+    event = dict(accepted_sequence=11, action="move", virtual_sequence=10,
+        removed=[dict(node_id="old", purpose="edge_bridge", weight=Decimal(20))],
+        added=[dict(node_id="new", sequence=10, weight=Decimal(20))])
+    if tamper in ("purpose", "weight"):
+        event["removed"][0][tamper] = "split_separator" if tamper == "purpose" else Decimal(21)
+    elif tamper == "sequence":
+        event["added"][0]["sequence"] = 9
+    elif tamper == "reuse":
+        event["added"][0]["node_id"] = "old"
+    elif tamper == "final":
+        measurement["final_search"]["virtual_sequence"] = 11
+    if tamper:
+        with pytest.raises(ValueError):
+            verify_virtual_changes(measurement, dict(virtual_changes=[event]))
+    else:
+        result = verify_virtual_changes(measurement, dict(virtual_changes=[event]))
+        assert result["inventory_and_sequence_reconciled"]
+        assert result["removed_weight"] == result["added_weight"] == 20
+
+
 def test_tail_includes_ties_without_mutating_input():
     rows = [order(str(i), "1", "10") for i in range(12)] + [order("early", "1", "01")]
     assert len(backlog_summary(rows)["tail"]) == 12

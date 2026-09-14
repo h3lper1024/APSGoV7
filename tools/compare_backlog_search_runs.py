@@ -50,6 +50,49 @@ def backlog_summary(orders):
                 tail=[row for row in backlog if row["completion_hours"] >= cutoff])
 
 
+def verify_virtual_changes(measurement, opportunities):
+    """Reconcile accepted deletion/generation observations with both actual snapshots."""
+    start, final = measurement["pre_refinement"], measurement["final_search"]
+    def inventory(snapshot):
+        return {n["node_id"]: (n["weight"], n["virtual_lineage"]["accepted_sequence"],
+                              n["virtual_lineage"]["purpose"], n["virtual_lineage"]["related_partition_id"])
+                for c in snapshot["plan"]["chains"] for n in c["nodes"] if n["virtual_lineage"]}
+    current, issued = inventory(start), set(inventory(start))
+    sequence, previous_acceptance = start["virtual_sequence"], start["accepted_move_count"]
+    traces = {row["sequence"]: row for row in final["trace"]}
+    removed_weights, added_weights, removed_ids = [], [], []
+    for event in opportunities.get("virtual_changes", ()):
+        accepted = event["accepted_sequence"]
+        if accepted <= previous_acceptance or traces[accepted]["action_name"] != event["action"]:
+            raise ValueError("virtual changes do not follow the accepted trace")
+        previous_acceptance = accepted
+        for row in event["removed"]:
+            key = row["node_id"]
+            if (row["purpose"] != "edge_bridge" or key not in current or current[key][0] != row["weight"]
+                    or current[key][2:] != ("edge_bridge", None)):
+                raise ValueError("virtual reclamation identity, purpose or weight differs")
+            del current[key]
+            removed_weights.append(row["weight"])
+            removed_ids.append(key)
+        added = sorted(event["added"], key=lambda row: row["sequence"])
+        for row in added:
+            sequence += 1
+            if row["sequence"] != sequence or row["node_id"] in issued:
+                raise ValueError("accepted virtual sequence was reused or skipped")
+            # The post-refinement acceptance guard permits only fresh ordinary interface bridges.
+            current[row["node_id"]] = (row["weight"], sequence, "edge_bridge", None)
+            issued.add(row["node_id"])
+            added_weights.append(row["weight"])
+        if event["virtual_sequence"] != sequence:
+            raise ValueError("accepted virtual high watermark differs")
+    if current != inventory(final) or sequence != final["virtual_sequence"]:
+        raise ValueError("virtual changes do not reconcile with the final snapshot")
+    return dict(removed_count=len(removed_ids), removed_weight=sum_weights(removed_weights),
+                added_count=len(added_weights), added_weight=sum_weights(added_weights),
+                removed_node_ids=removed_ids, initial_virtual_sequence=start["virtual_sequence"],
+                final_virtual_sequence=sequence, inventory_and_sequence_reconciled=True)
+
+
 def read_run(path, *, allow_diagnostic=False):
     measurement = read_json(path / "measurement.json")
     result, final = measurement["result"], measurement["final_search"]
@@ -130,6 +173,8 @@ def read_run(path, *, allow_diagnostic=False):
                 raise ValueError(f"post-refinement lane counters do not close: {field}")
         summary["search_opportunities"] = opportunities
         summary["hashes"]["search_opportunities.json"] = _sha256(path / "search_opportunities.json")
+        if "pre_refinement" in measurement:
+            summary["bridge_reclamation"] = verify_virtual_changes(measurement, opportunities)
     return request, measurement, report, summary
 
 
