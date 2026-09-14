@@ -64,7 +64,7 @@ def test_tracked_default_configuration_points_to_the_v7_database():
         - result.monthly_solve_policy.finalization_reserve_seconds
         == Decimal("300")
     )
-    assert result.monthly_solve_policy.candidate_check_limit == 200000
+    assert result.monthly_solve_policy.candidate_check_limit == 400000
     assert result.monthly_solve_policy.construction_order_key == CONSTRUCTION_ORDER_KEY
     assert result.monthly_solve_policy.numeric_semantics_key == NUMERIC_SEMANTICS_KEY
     assert result.monthly_solve_policy.whole_chain_pair_scan_slack_weight == Decimal("40")

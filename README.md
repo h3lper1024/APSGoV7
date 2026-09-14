@@ -26,7 +26,7 @@ monthly_solve:
   seed: 590531
   total_time_limit_seconds: 310
   finalization_reserve_seconds: 10
-  candidate_check_limit: 200000
+  candidate_check_limit: 400000
   whole_chain_pair_scan_slack_weight: 40
   maximum_virtual_bridge_nodes: 2
 diagnostics:
@@ -40,7 +40,7 @@ diagnostics:
 不可读、不是 UTF-8、YAML 非法、键重复或任一值非法时，命令在数据库操作或服务器启动前失败。
 V7 不再读取 `APSGO_V7_RULE_DB_PATH`。
 
-当前总时限 310 秒由 **300 秒搜索时间 + 10 秒收尾预留**组成；候选检查上限仍为 200000 次，先到达任一上限即停止搜索。
+当前总时限 310 秒由 **300 秒搜索时间 + 10 秒收尾预留**组成；候选检查上限为 400000 次，先到达任一上限即停止搜索。40 万次是上限，不保证在 300 秒内用完；一分钟是下一步优化目标，当前未改为 60 秒截断。
 
 ## 求解日志与人工诊断
 

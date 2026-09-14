@@ -9,6 +9,6 @@ monthly_solve:
   seed: 590531
   total_time_limit_seconds: 310
   finalization_reserve_seconds: 10
-  candidate_check_limit: 200000
+  candidate_check_limit: 400000
   whole_chain_pair_scan_slack_weight: 40
   maximum_virtual_bridge_nodes: 2
