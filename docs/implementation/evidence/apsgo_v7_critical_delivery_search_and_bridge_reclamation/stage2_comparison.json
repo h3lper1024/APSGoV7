@@ -1,0 +1,455 @@
+{
+  "common_accepted_prefix": 414,
+  "completion_changes": {
+    "backlog": {
+      "earlier": 58,
+      "later": 38
+    },
+    "not_backlog": {
+      "earlier": 229,
+      "later": 206
+    }
+  },
+  "delivery_report_equal": false,
+  "final_search_equal": false,
+  "first_different_acceptance": {
+    "new": {
+      "action_name": "width_node_move",
+      "affected_chain_ids": [
+        "initial-000003",
+        "initial-000016"
+      ],
+      "candidate_check_count": 193693,
+      "quality_after": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "585.5994444444444444444444444",
+        "1108872.460375",
+        "12210.0",
+        "460.0",
+        23
+      ],
+      "quality_before": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "585.5994444444444444444444444",
+        "1115393.037444444444444444444",
+        "12210.0",
+        "460.0",
+        23
+      ],
+      "sequence": 415
+    },
+    "old": {
+      "action_name": "width_node_move",
+      "affected_chain_ids": [
+        "initial-000003",
+        "initial-000016"
+      ],
+      "candidate_check_count": 193633,
+      "quality_after": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "585.5994444444444444444444444",
+        "1108872.460375",
+        "12210.0",
+        "460.0",
+        23
+      ],
+      "quality_before": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "585.5994444444444444444444444",
+        "1115393.037444444444444444444",
+        "12210.0",
+        "460.0",
+        23
+      ],
+      "sequence": 415
+    }
+  },
+  "first_search_equal": true,
+  "identical_request": true,
+  "order_changes_sha256": "32ffec9d28ff17444f058c766c2884c6613aeca052298b5233f9d64e4ee59937",
+  "regressed_order_ids": [
+    "0030122066-000020",
+    "0030121690-000040",
+    "0030121196-000030",
+    "0030120940-000030",
+    "0030120757-000040",
+    "0030120757-000020"
+  ],
+  "rescued_order_ids": [
+    "0030121327-000010",
+    "0030120940-000110",
+    "0030120865-000010"
+  ],
+  "runs": [
+    {
+      "accepted_actions": {
+        "chain_order_relocation": 366,
+        "controlled_order_split": 2,
+        "delivery_intra_move": 61,
+        "real_node_relocation": 22,
+        "virtual_weight_fill": 14,
+        "whole_chain_append": 5,
+        "whole_chain_insertion": 2,
+        "whole_chain_prepend": 3,
+        "width_block_exchange": 9,
+        "width_block_move": 19,
+        "width_chain_cut": 2,
+        "width_chain_order_relocation": 138,
+        "width_node_exchange": 24,
+        "width_node_move": 213
+      },
+      "backlog": {
+        "burden_tonne_hours": "585042.00178281014441197649978308",
+        "clearance": {
+          "100": {
+            "completed_original_weight": "5386.03",
+            "completion_at": "2026-06-22T01:11:45.225439+08:00",
+            "completion_hours": "505.1958959552454752831519665"
+          },
+          "50": {
+            "completed_original_weight": "2718.36",
+            "completion_at": "2026-06-04T02:28:59.586943+08:00",
+            "completion_hours": "74.48321859521614876873004038"
+          },
+          "90": {
+            "completed_original_weight": "4862.45",
+            "completion_at": "2026-06-11T00:44:22.144304+08:00",
+            "completion_hours": "240.7394845289589879390354437"
+          }
+        },
+        "completed_original_weight_by_date": {
+          "2026-06-01": "710.04",
+          "2026-06-02": "1102.66",
+          "2026-06-03": "612.27",
+          "2026-06-04": "690.69",
+          "2026-06-05": "336.73",
+          "2026-06-06": "455.09",
+          "2026-06-07": "223.67",
+          "2026-06-08": "380.91",
+          "2026-06-09": "221.91",
+          "2026-06-10": "103.88",
+          "2026-06-11": "56.18",
+          "2026-06-12": "176.36",
+          "2026-06-13": "72.89",
+          "2026-06-14": "55.08",
+          "2026-06-15": "18.71",
+          "2026-06-16": "39.62",
+          "2026-06-17": "42.48",
+          "2026-06-18": "13.01",
+          "2026-06-19": "13.15",
+          "2026-06-21": "8.14",
+          "2026-06-22": "52.56"
+        },
+        "order_count": 96,
+        "original_weight": "5386.03",
+        "weighted_mean_wait_hours": "108.6221208910477929777547655"
+      },
+      "both_audits_passed": true,
+      "code": {
+        "git_available": true,
+        "git_commit": "5b0c66244345bb48ccd1715576e09c8e42bf94ce",
+        "git_status": "",
+        "production_source_sha256": "5d078e03baf3b961843e948c8d6556dae762efd84e97686f77ed6b1ddd78b382"
+      },
+      "counters": {
+        "accepted_future_borrow_return_count": 1,
+        "accepted_move_count": 880,
+        "accepted_same_period_split_count": 1,
+        "accepted_split_count": 2,
+        "candidate_check_count": 400000,
+        "complete_candidate_evaluation_count": 178216,
+        "final_chain_count": 25,
+        "graph_allowed_edge_count": 32536,
+        "graph_edge_check_count": 140715,
+        "initial_chain_count": 31,
+        "matching_edge_count": 514,
+        "path_count": 17
+      },
+      "cpu_seconds": "1177.1980959999999",
+      "delivery": {
+        "delivery_score_rounding": "half_even",
+        "delivery_score_time_unit": "second",
+        "delivery_wait_tardiness_tonne_hours": "754357.112475",
+        "maximum_actual_tardiness_hours": "505.1958959552454752831519665",
+        "newly_late_order_count": 12,
+        "newly_late_original_weight": "653.9",
+        "newly_late_weight": "653.9",
+        "old_backlog_last_completion_at": "2026-06-22T01:11:45.225439+08:00",
+        "old_backlog_last_completion_hours": "505.1958333333333333333333333",
+        "old_backlog_order_count": 96,
+        "old_backlog_weight": "5386.03",
+        "production_end_at": "2026-06-27T19:02:44.061496+08:00",
+        "production_end_hours": "643.0455726376568216796695317",
+        "raw_old_backlog_last_completion_hours": "505.1958959552454752831519665",
+        "schedule_start_at": "2026-06-01T00:00:00+08:00",
+        "score_wait_tardiness_tonne_seconds": "2715685604.91",
+        "timezone": "Asia/Shanghai",
+        "timing_input_complete": true,
+        "timing_semantics": "delivery_completion_hours_v1",
+        "total_late_order_count": 108,
+        "total_late_weight": "6039.93"
+      },
+      "due_groups": {
+        "2026-06-05": {
+          "newly_late_count": 3,
+          "newly_late_weight": "348.0",
+          "order_count": 6,
+          "tardiness_tonne_hours": "137411.4860490372331201022124424"
+        },
+        "2026-06-10": {
+          "newly_late_count": 8,
+          "newly_late_weight": "257.9",
+          "order_count": 20,
+          "tardiness_tonne_hours": "30617.7402537782891267781676265"
+        },
+        "2026-06-15": {
+          "newly_late_count": 1,
+          "newly_late_weight": "48.0",
+          "order_count": 5,
+          "tardiness_tonne_hours": "1286.024209440398848654536322"
+        },
+        "2026-06-30": {
+          "newly_late_count": 0,
+          "newly_late_weight": "0.0",
+          "order_count": 404,
+          "tardiness_tonne_hours": "0.0"
+        }
+      },
+      "hashes": {
+        "delivery_report.json": "2d5105789ad15afb368d4fe2e0afa8c5e0c478429d720a691a3e566e0d7591e6",
+        "execution.log": "f660e3cf64afea383052e18350796c8e866416e659ce5e37a6b7175744dd64c5",
+        "input_binding.json": "4253aba63cf4e11e2c2adc1adabf7f5cbe9127765c13052ba0a2702ad1c53125",
+        "measurement.json": "edf29ca0e849db8ea2ba5c8e40c80f6df31f34f4d76093c01a151820afede526",
+        "prepared_request.json": "b94d979b3d5d6545a0b7bac9a01b49b89f4feda0582914a4ff07d4d35088ae6b"
+      },
+      "path": "diagnostics/critical_delivery_search_and_bridge_reclamation/baseline_400000_01",
+      "quality": {
+        "chain_count": 25,
+        "delivery_wait_tardiness_tonne_hours": "754357.112475",
+        "generated_virtual_weight": "580.0",
+        "inter_chain_width_gap": "15210.0",
+        "old_backlog_last_completion_hours": "505.1958333333333333333333333",
+        "prohibited_violation_count": 0,
+        "prohibited_violation_severity": "0.0",
+        "underweight_chain_count": 0,
+        "underweight_total_gap": "0.0"
+      },
+      "quality_gate": "PASS",
+      "source_conservation_passed": true,
+      "stage_seconds": {
+        "construction_graph": "2.1481009170020116",
+        "controlled_split_and_replay": "248.01943379199656",
+        "core_audit": "0.08111312499386258",
+        "core_solve": "1180.4923939590008",
+        "initial_solution": "0.22299308299989207",
+        "input_normalization": "0.047922749996359926",
+        "input_validation": "0.023505249999288935",
+        "local_search": "156.0749095420033",
+        "minimum_path_cover": "0.39058983299764805",
+        "request_preparation": "0.00026987500314135104",
+        "result_assembly": "0.185387792000256",
+        "result_contract_audit": "0.4610219170062919",
+        "result_sealing": "0.26624258299852954",
+        "rule_loading": "0.0008867079959600233",
+        "service_to_result_audit_seconds": "1181.2075836250006",
+        "width_optimization": "773.2119447500008"
+      },
+      "status": "success",
+      "stop_reason": "candidate_limit_reached",
+      "violations": [],
+      "virtual_count": 29,
+      "virtual_ratio": "0.01938897322349368571343565585",
+      "virtual_weight": "580.0",
+      "wall_seconds": "1181.7608834589992"
+    },
+    {
+      "accepted_actions": {
+        "chain_order_relocation": 366,
+        "controlled_order_split": 2,
+        "delivery_intra_move": 69,
+        "real_node_relocation": 22,
+        "virtual_weight_fill": 14,
+        "whole_chain_append": 5,
+        "whole_chain_insertion": 2,
+        "whole_chain_prepend": 3,
+        "width_block_exchange": 15,
+        "width_block_move": 10,
+        "width_chain_cut": 2,
+        "width_chain_order_relocation": 105,
+        "width_node_exchange": 18,
+        "width_node_move": 193
+      },
+      "backlog": {
+        "burden_tonne_hours": "464698.434725205514732076800176866",
+        "clearance": {
+          "100": {
+            "completed_original_weight": "5386.03",
+            "completion_at": "2026-06-16T12:27:38.541713+08:00",
+            "completion_hours": "372.4607060313176635891940269"
+          },
+          "50": {
+            "completed_original_weight": "2702.9",
+            "completion_at": "2026-06-03T17:40:51.380013+08:00",
+            "completion_hours": "65.68093889258125178750087642"
+          },
+          "90": {
+            "completed_original_weight": "4848.35",
+            "completion_at": "2026-06-08T05:13:50.120553+08:00",
+            "completion_hours": "173.2305890425277430634867612"
+          }
+        },
+        "completed_original_weight_by_date": {
+          "2026-06-01": "1009.57",
+          "2026-06-02": "440.5",
+          "2026-06-03": "1508.83",
+          "2026-06-04": "764.29",
+          "2026-06-05": "245.17",
+          "2026-06-06": "536.3",
+          "2026-06-07": "255.67",
+          "2026-06-08": "164.07",
+          "2026-06-09": "150.12",
+          "2026-06-10": "47.6",
+          "2026-06-11": "94.14",
+          "2026-06-12": "92.67",
+          "2026-06-14": "44.38",
+          "2026-06-15": "3.44",
+          "2026-06-16": "29.28"
+        },
+        "order_count": 96,
+        "original_weight": "5386.03",
+        "weighted_mean_wait_hours": "86.27847129058054164794418155"
+      },
+      "both_audits_passed": true,
+      "code": {
+        "git_available": true,
+        "git_commit": "fe6c54df7ec751a29fe762dbad9994bb603faaa3",
+        "git_status": " M tests/app/test_backlog_search_comparison.py\n M tools/run_delivery_comparison.py\n",
+        "production_source_sha256": "db8189ef38bf0691a637f3fa556aa910fa6c0e210a537d98e84d0baa146d4ff4"
+      },
+      "counters": {
+        "accepted_future_borrow_return_count": 1,
+        "accepted_move_count": 826,
+        "accepted_same_period_split_count": 1,
+        "accepted_split_count": 2,
+        "candidate_check_count": 400000,
+        "complete_candidate_evaluation_count": 158064,
+        "final_chain_count": 25,
+        "graph_allowed_edge_count": 32536,
+        "graph_edge_check_count": 140715,
+        "initial_chain_count": 31,
+        "matching_edge_count": 514,
+        "path_count": 17
+      },
+      "cpu_seconds": "1096.80794",
+      "delivery": {
+        "delivery_score_rounding": "half_even",
+        "delivery_score_time_unit": "second",
+        "delivery_wait_tardiness_tonne_hours": "627944.5167694444444444444444",
+        "maximum_actual_tardiness_hours": "372.4607060313176635891940269",
+        "newly_late_order_count": 15,
+        "newly_late_original_weight": "715.37",
+        "newly_late_weight": "715.37",
+        "old_backlog_last_completion_at": "2026-06-16T12:27:38.541713+08:00",
+        "old_backlog_last_completion_hours": "372.4608333333333333333333333",
+        "old_backlog_order_count": 96,
+        "old_backlog_weight": "5386.03",
+        "production_end_at": "2026-06-28T01:13:51.577419+08:00",
+        "production_end_hours": "649.2309937275365102854727866",
+        "raw_old_backlog_last_completion_hours": "372.4607060313176635891940269",
+        "schedule_start_at": "2026-06-01T00:00:00+08:00",
+        "score_wait_tardiness_tonne_seconds": "2260600260.37",
+        "timezone": "Asia/Shanghai",
+        "timing_input_complete": true,
+        "timing_semantics": "delivery_completion_hours_v1",
+        "total_late_order_count": 111,
+        "total_late_weight": "6101.4"
+      },
+      "due_groups": {
+        "2026-06-05": {
+          "newly_late_count": 5,
+          "newly_late_weight": "391.35",
+          "order_count": 6,
+          "tardiness_tonne_hours": "113312.236220965232337051627254"
+        },
+        "2026-06-10": {
+          "newly_late_count": 8,
+          "newly_late_weight": "252.02",
+          "order_count": 20,
+          "tardiness_tonne_hours": "43951.3599084507872691792009926"
+        },
+        "2026-06-15": {
+          "newly_late_count": 2,
+          "newly_late_weight": "72.0",
+          "order_count": 5,
+          "tardiness_tonne_hours": "5982.3953647051930399834637398"
+        },
+        "2026-06-30": {
+          "newly_late_count": 0,
+          "newly_late_weight": "0.0",
+          "order_count": 404,
+          "tardiness_tonne_hours": "0.0"
+        }
+      },
+      "hashes": {
+        "delivery_report.json": "22e5e2e87681c54a480a6333478d892772d63d51da777b15fcbb1aaead71bd83",
+        "execution.log": "08417c3dadea6fb7c45ddbb61b304043396a3f992b71cabf2941bf4094b72c69",
+        "input_binding.json": "030b52f4f1d43ae5f5718966d27544adc4b9f64c4143cf8ae2f0da0558dd6388",
+        "measurement.json": "23c88eac39e735d228031a9233fce593f958a0cdded946a39c1192f3a3df31f9",
+        "prepared_request.json": "b94d979b3d5d6545a0b7bac9a01b49b89f4feda0582914a4ff07d4d35088ae6b",
+        "search_opportunities.json": "f48f0750427552e1e17b8a6630c04f1b06ca4e24d71f278491818d956761350a"
+      },
+      "path": "diagnostics/critical_delivery_search_and_bridge_reclamation/search_only_01",
+      "quality": {
+        "chain_count": 25,
+        "delivery_wait_tardiness_tonne_hours": "627944.5167694444444444444444",
+        "generated_virtual_weight": "820.0",
+        "inter_chain_width_gap": "14968.0",
+        "old_backlog_last_completion_hours": "372.4608333333333333333333333",
+        "prohibited_violation_count": 0,
+        "prohibited_violation_severity": "0.0",
+        "underweight_chain_count": 0,
+        "underweight_total_gap": "0.0"
+      },
+      "quality_gate": "PASS",
+      "source_conservation_passed": true,
+      "stage_seconds": {
+        "construction_graph": "2.165954584001156",
+        "controlled_split_and_replay": "250.241078250001",
+        "core_audit": "0.07908516700263135",
+        "core_solve": "1099.3881119590005",
+        "initial_solution": "0.21813220899639418",
+        "input_normalization": "0.04696387500007404",
+        "input_validation": "0.02381845899799373",
+        "local_search": "157.69180191699706",
+        "minimum_path_cover": "0.3881012499987264",
+        "request_preparation": "0.0002082920036627911",
+        "result_assembly": "0.16992841599858366",
+        "result_contract_audit": "0.4537425840026117",
+        "result_sealing": "0.27801474999432685",
+        "rule_loading": "0.0007533749958383851",
+        "service_to_result_audit_seconds": "1100.0782844579953",
+        "width_optimization": "688.2599992499963"
+      },
+      "status": "success",
+      "stop_reason": "candidate_limit_reached",
+      "violations": [],
+      "virtual_count": 41,
+      "virtual_ratio": "0.02719381997226893626730331158",
+      "virtual_weight": "820.0",
+      "wall_seconds": "1100.6342854579998"
+    }
+  ],
+  "scope": "same_request_search_only_comparison_not_new_scoring_or_performance_acceptance"
+}

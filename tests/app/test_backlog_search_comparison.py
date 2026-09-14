@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 
 from tools.compare_backlog_search_runs import backlog_summary
-from tools.run_delivery_comparison import observe_recipes
+from tools.run_delivery_comparison import observe_recipes, observe_lane_batches
 
 
 def order(key, weight, hours, backlog=True):
@@ -32,6 +32,24 @@ def test_no_backlog_has_no_clearance_or_average():
     assert result["order_count"] == result["original_weight"] == result["burden_tonne_hours"] == 0
     assert result["clearance"] == {} and result["tail"] == []
     assert result["weighted_mean_wait_hours"] is None
+
+
+def test_lane_observer_preserves_actual_search_and_accounts_all_checks():
+    from tests.core.test_backlog_priority_objective import tradeoff_case
+    from apsgo_scheduler.core.width_optimization import run_width_optimization
+    from apsgo_scheduler.core.contracts import fingerprint
+    _, first, first_context = tradeoff_case(second_precision=True, minimum="1")
+    _, second, second_context = tradeoff_case(second_precision=True, minimum="1")
+    run_width_optimization(first, first_context)
+    observations = {}
+    with observe_lane_batches(observations):
+        run_width_optimization(second, second_context)
+    assert fingerprint(first) == fingerprint(second)
+    assert first_context.factory.budget.candidate_check_count == second_context.factory.budget.candidate_check_count
+    lanes = observations["lanes"]
+    assert set(lanes) == {"critical", "normal"}
+    assert sum(row["candidate_check_count"] for row in lanes.values()) == second_context.factory.budget.candidate_check_count
+    assert sum(row["accepted_move_count"] for row in lanes.values()) == second.accepted_move_count
 
 
 def test_tail_includes_ties_without_mutating_input():

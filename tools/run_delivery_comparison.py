@@ -1,7 +1,7 @@
 """Replay old or delivery objectives with identical physical inputs and budgets."""
 
 import argparse
-from contextlib import nullcontext
+from contextlib import contextmanager, nullcontext
 from decimal import Decimal
 import json
 import logging
@@ -84,6 +84,43 @@ def observe_recipes(original, observations):
     return observed
 
 
+@contextmanager
+def observe_lane_batches(observations):
+    """Diagnostic-only accounting of actual batches, including internal bridge charges."""
+    streams = {}
+    original_iterators = width_optimization._backlog_iterators
+    original_batch = width_optimization._scan_width_batch
+
+    def iterators(*args, **kwargs):
+        result = original_iterators(*args, **kwargs)
+        lane = kwargs.get("critical_lane")
+        if lane is True:
+            streams.clear()
+        if lane is not None:
+            streams.update((stream, "critical" if lane else "normal") for stream in result)
+        return result
+
+    def batch(state, context, recipes, callback, allowance):
+        before = _counters(state, context)
+        attempted = 0
+        def attempt(*args):
+            nonlocal attempted
+            attempted += 1
+            return callback(*args)
+        try:
+            return original_batch(state, context, recipes, attempt, allowance)
+        finally:
+            lane = streams.get(recipes, "other")
+            stats = observations.setdefault("lanes", {}).setdefault(lane, dict(attempted_proposals=0))
+            stats["attempted_proposals"] += attempted
+            for key, value in _counters(state, context).items():
+                stats[key] = stats.get(key, 0) + value - before[key]
+
+    with patch.object(width_optimization, "_backlog_iterators", iterators), \
+         patch.object(width_optimization, "_scan_width_batch", batch):
+        yield
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prepared-request", type=Path, required=True)
@@ -122,7 +159,7 @@ def main():
             opportunities = dict(scope="attempted_post_refinement_recipes_including_bridge_checks_not_prescan_queries")
             observer = (patch.object(width_optimization, "_try_width_recipe", observe_recipes(
                 width_optimization._try_width_recipe, opportunities)) if args.observe_search_opportunities else nullcontext())
-            with observer:
+            with observer, (observe_lane_batches(opportunities) if args.observe_search_opportunities else nullcontext()):
                 observation = measure(request, scope="full", result_observer=results.append)
             _write_json(args.output_dir / "measurement.json", observation)
             if args.observe_search_opportunities:

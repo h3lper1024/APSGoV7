@@ -126,6 +126,8 @@ def read_run(path, *, allow_diagnostic=False):
             start_count = int(re.search(rf"\b{field}=(\d+)", start_line).group(1))
             if sum(item[recorded] for item in opportunities["actions"].values()) != final[field] - start_count:
                 raise ValueError(f"post-refinement observation counters do not close: {field}")
+            if "lanes" in opportunities and sum(item[field] for item in opportunities["lanes"].values()) != final[field] - start_count:
+                raise ValueError(f"post-refinement lane counters do not close: {field}")
         summary["search_opportunities"] = opportunities
         summary["hashes"]["search_opportunities.json"] = _sha256(path / "search_opportunities.json")
     return request, measurement, report, summary
