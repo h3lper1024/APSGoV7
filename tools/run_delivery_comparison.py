@@ -1,12 +1,14 @@
 """Replay old or delivery objectives with identical physical inputs and budgets."""
 
 import argparse
+from contextlib import nullcontext
 from decimal import Decimal
 import json
 import logging
 from pathlib import Path
 import sys
 import traceback
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 for directory in (ROOT, ROOT / "src"):
@@ -18,8 +20,9 @@ from apsgo_scheduler.app.delivery_request import prepare_delivery_request
 from apsgo_scheduler.app.delivery_report import build_delivery_report, delivery_plan_report
 from apsgo_scheduler.app.input_normalizer import normalize_input
 from apsgo_scheduler.core.contracts import fingerprint
+from apsgo_scheduler.core import width_optimization
 from apsgo_v7_service.diagnostics import _json_values
-from tools.profile_solver_search import load_request, measure
+from tools.profile_solver_search import _counters, load_request, measure
 from tools.verify_solver_diagnostics import _code_identity, _sha256, _write_json
 
 
@@ -42,6 +45,42 @@ def prepare(source_request, timing_source, start, virtual_speed):
     return old, new
 
 
+def observe_recipes(original, observations):
+    """Observe attempted post-refinement recipes; the original callback still decides once."""
+    def observed(state, context, recipe):
+        action, source = recipe[:2]
+        chains = state.current_plan.chains
+        nodes = chains[source].nodes
+        if action == "delivery_intra_move":
+            nodes = nodes[recipe[2]:recipe[2] + 1]
+        elif action in ("width_node_move", "width_node_exchange", "width_block_move", "width_block_exchange"):
+            _, _, target, start, stop, other_start, other_stop = recipe
+            nodes = nodes[start:stop] + chains[target].nodes[other_start:other_stop]
+        stats = observations.setdefault("actions", {}).setdefault(action, dict(
+            attempted_proposals=0, candidate_checks=0, complete_evaluations=0, accepted=0, backlog_originals={}))
+        timing = context.factory.cache.context.delivery_timing
+        for node in nodes:
+            key = node.source_order_id
+            if timing is not None and key in timing.orders and timing.orders[key].due_hours <= 0:
+                stats["backlog_originals"][key] = True
+                if action == "width_node_move":
+                    observations.setdefault("first_backlog_node_moves", {}).setdefault(key, dict(
+                        at_candidate_check=context.factory.budget.candidate_check_count,
+                        recipe=recipe, source_chain_id=chains[source].chain_id,
+                        target_chain_id=chains[target].chain_id, node_id=node.node_id))
+        before = _counters(state, context)
+        stats["attempted_proposals"] += 1
+        try:
+            return original(state, context, recipe)
+        finally:
+            after = _counters(state, context)
+            # The scanner charged one attempt before entering this callback; bridges charge inside it.
+            stats["candidate_checks"] += 1 + after["candidate_check_count"] - before["candidate_check_count"]
+            stats["complete_evaluations"] += after["complete_candidate_evaluation_count"] - before["complete_candidate_evaluation_count"]
+            stats["accepted"] += after["accepted_move_count"] - before["accepted_move_count"]
+    return observed
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--prepared-request", type=Path, required=True)
@@ -50,6 +89,8 @@ def main():
     parser.add_argument("--virtual-speed", type=Decimal, required=True)
     parser.add_argument("--variant", choices=("old", "delivery", "prepare"), required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--observe-search-opportunities", action="store_true",
+                        help="Record post-refinement attempts without changing their construction or acceptance")
     args = parser.parse_args()
     old, new = prepare(args.prepared_request, args.timing_source, args.start, args.virtual_speed)
     request = old if args.variant == "old" else new
@@ -58,6 +99,8 @@ def main():
                     source_request_sha256=_sha256(args.prepared_request), timing_source_sha256=_sha256(args.timing_source),
                     start=args.start, virtual_speed_mpm=args.virtual_speed,
                     original_input_order_preserved=old.orders == new.orders, policy_unchanged=old.policy == new.policy)
+    if args.observe_search_opportunities:
+        metadata["search_opportunity_observation"] = True
     _write_json(args.output_dir / "input_binding.json", metadata)
     _write_json(args.output_dir / "prepared_request.json", dict(
         request=_json_values(request), request_fingerprint=fingerprint_public_request(request),
@@ -71,8 +114,14 @@ def main():
         logging.basicConfig(stream=log, level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
         results = []
         try:
-            observation = measure(request, scope="full", result_observer=results.append)
+            opportunities = dict(scope="attempted_post_refinement_recipes_including_bridge_checks_not_prescan_queries")
+            observer = (patch.object(width_optimization, "_try_width_recipe", observe_recipes(
+                width_optimization._try_width_recipe, opportunities)) if args.observe_search_opportunities else nullcontext())
+            with observer:
+                observation = measure(request, scope="full", result_observer=results.append)
             _write_json(args.output_dir / "measurement.json", observation)
+            if args.observe_search_opportunities:
+                _write_json(args.output_dir / "search_opportunities.json", opportunities)
             result = results[0]
             if args.variant == "delivery":
                 report = build_delivery_report(request, result)
