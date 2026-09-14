@@ -5,7 +5,7 @@ from itertools import zip_longest
 
 from .delivery_timing import evaluate_delivery
 from .model import SchedulePlan
-from .contracts import RuleScope
+from .contracts import RuleScope, sum_weights
 from .rules.base import NumericProjection, QualityAggregation, QualityDirection, RuleDisposition
 from .rules.concrete import ChainWeightRangeRule, DeliveryDuePerformanceRule, InterChainWidthGapRule
 
@@ -119,6 +119,51 @@ def chain_order_objective_index(rule_set) -> int | None:
         ),
         None,
     )
+
+
+def critical_delivery_positions(plan, context):
+    """One current-plan timing scan; potential only orders attempts, never scores them."""
+    timing, period_index = context.delivery_timing, context.period_index
+    performance = evaluate_delivery(plan, timing, details=True)
+    completion = performance.original_completion_hours
+    positions, potential = {}, {}
+    with localcontext(Context(prec=28, rounding=ROUND_HALF_EVEN)):
+        durations = {identity: end - start for identity, start, end in performance.node_times}
+        for i, chain in enumerate(plan.chains):
+            real = [node for node in chain.nodes if node.virtual_lineage is None]
+            for j, node in enumerate(chain.nodes):
+                if node.virtual_lineage is None:
+                    positions.setdefault(node.source_order_id, []).append((i, j))
+            earliest = min(period_index[node.source_period] for node in real)
+            owners = {node.source_order_id for node in real if period_index[node.source_period] == earliest}
+            if len(owners) != 1:
+                continue
+            owner = next(iter(owners))
+            remaining = [node for node in chain.nodes if node.source_order_id != owner]
+            real_remaining = [node for node in remaining if node.virtual_lineage is None]
+            if not real_remaining:
+                continue
+            later = min((node.source_period for node in real_remaining), key=period_index.__getitem__)
+            if period_index[later] <= earliest or any(
+                node.split_lineage and node.split_lineage.target_assigned_period != later
+                for node in real_remaining
+            ):
+                continue
+            potential[owner] = max(potential.get(owner, 0), sum_weights(durations[node.node_id] for node in remaining))
+        slack = {key: order.due_hours - completion[key] for key, order in timing.orders.items()}
+        backlog = sorted((key for key, order in timing.orders.items() if order.due_hours <= 0),
+                         key=lambda key: (-completion[key], -timing.orders[key].weight * completion[key]))
+        releasable = sorted((key for key in timing.orders if key in potential),
+                            key=lambda key: (-potential[key], -completion[key]))
+        late = sorted((key for key, order in timing.orders.items() if order.due_hours > 0 and slack[key] < 0),
+                      key=lambda key: (timing.orders[key].weight * slack[key], slack[key]))
+        on_time = sorted((key for key, order in timing.orders.items() if order.due_hours > 0 and slack[key] >= 0),
+                         key=slack.__getitem__)
+    critical = tuple(dict.fromkeys(key for group in zip_longest(backlog, releasable, late)
+                                  for key in group if key is not None))
+    critical_ids = frozenset(critical)
+    ordered = (*critical, *(key for key in on_time if key not in critical_ids))
+    return tuple(position for key in ordered for position in reversed(positions[key])), critical
 
 
 def stable_group_plan(plan: SchedulePlan, period_index) -> SchedulePlan:

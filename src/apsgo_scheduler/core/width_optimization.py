@@ -5,7 +5,7 @@ from collections import deque
 from decimal import Decimal
 from itertools import pairwise, permutations, zip_longest
 
-from .chain_order import chain_order_objective_index, stable_group_plan, has_delivery_objective, delivery_chain_indices, delivery_node_positions, refinement_admissible
+from .chain_order import chain_order_objective_index, stable_group_plan, has_delivery_objective, delivery_chain_indices, delivery_node_positions, refinement_admissible, has_second_precision_delivery, critical_delivery_positions
 from .contracts import SearchStopReason, fingerprint, sum_weights
 from .model import MaterialRole, SchedulePlan
 from .neighborhoods import (
@@ -282,11 +282,26 @@ def _direct_insertion_slots(node, target_nodes, positions, context):
         yield slot
 
 
-def _backlog_iterators(state, context, *, progress=None):
+def _critical_recipe(recipe, plan, critical_ids):
+    action, source = recipe[:2]
+    if action == "delivery_intra_move":
+        return plan.chains[source].nodes[recipe[2]].source_order_id in critical_ids
+    if action not in ("width_node_move", "width_node_exchange", "width_block_move", "width_block_exchange"):
+        return False
+    _, _, target, start, stop, other_start, other_stop = recipe
+    if stop - start > 3 or other_stop - other_start > 3:
+        return False
+    nodes = plan.chains[source].nodes[start:stop] + plan.chains[target].nodes[other_start:other_stop]
+    return any(node.source_order_id in critical_ids for node in nodes)
+
+
+def _backlog_iterators(state, context, *, progress=None, positions=None, critical_ids=frozenset(),
+                       critical_lane=None, revisit=()):
     """One queue slot per original, no candidate plans or rejection cache."""
     chains, budget = state.current_plan.chains, context.factory.budget
-    positions = delivery_node_positions(state.current_plan, context.factory.cache.context.delivery_timing,
-                                        backlog_first=True)
+    if positions is None:
+        positions = delivery_node_positions(state.current_plan, context.factory.cache.context.delivery_timing,
+                                            backlog_first=True)
     ranks = {position: rank for rank, position in enumerate(positions)}
     originals = {}
     for i, j in positions:
@@ -332,7 +347,8 @@ def _backlog_iterators(state, context, *, progress=None):
                  for slot in slots(j, range(len(chains[j].nodes) + 1), hint))
 
         def swaps():
-            for size in range(1, len(chains[j].nodes)):
+            maximum = min(4, len(chains[j].nodes)) if critical_lane else len(chains[j].nodes)
+            for size in range(1, maximum):
                 for slot in slots(j, range(len(chains[j].nodes) - size + 1), hint):
                     if not budget.allows_search():
                         return
@@ -355,7 +371,8 @@ def _backlog_iterators(state, context, *, progress=None):
             elif kind == "node_edit":
                 yield from _round_robin((node_target(i, anchor, j, hint) for j in targets(i, hint)), budget, 2)
             elif kind == "block_edit":
-                for length in range(2, len(chains[i].nodes)):
+                maximum = min(4, len(chains[i].nodes)) if critical_lane else len(chains[i].nodes)
+                for length in range(2, maximum):
                     for start in range(max(0, anchor - length + 1), min(anchor + 1, len(chains[i].nodes) - length + 1)):
                         if not budget.allows_search():
                             return
@@ -381,10 +398,21 @@ def _backlog_iterators(state, context, *, progress=None):
     def family_stream(family, kind):
         cursor = progress[family]
         keys = rotate_after(originals, cursor["after_order"])
+        if critical_lane:
+            keys = tuple(dict.fromkeys((*revisit, *keys)))
+            keys = tuple(key for key in keys if key in originals and
+                         (kind == "block_edit" or key in critical_ids))
+            if kind in ("chain_cut", "chain_order"):
+                return iter(())
 
         def original_stream(key):
             hint = cursor["targets"].get(key)
             for recipe in proposals(kind, originals[key], hint):
+                if critical_lane is not None:
+                    if not budget.allows_search():
+                        return
+                    if _critical_recipe(recipe, state.current_plan, critical_ids) != critical_lane:
+                        continue
                 cursor["after_order"] = key
                 if kind == "intra_move":
                     _, target, _, slot = recipe
@@ -628,6 +656,8 @@ def _scan_width_families(state, context, family_factories, try_recipe, *, delive
     _validate_search(state, context)
     budget = context.factory.budget
     timing = context.factory.cache.context.delivery_timing
+    if delivery_directed and has_second_precision_delivery(context.factory.cache.rule_set):
+        return _scan_critical_families(state, context, try_recipe)
     if delivery_directed and any(order.due_hours <= 0 for order in timing.orders.values()):
         return _scan_backlog_families(state, context, try_recipe)
     while budget.allows_search():
@@ -679,6 +709,50 @@ def _scan_backlog_families(state, context, try_recipe):
                 budget.stop_reason = SearchStopReason.LOCAL_SEARCH_COMPLETE
             return state
         # Every old iterator (including its exhausted flags) is now discarded.
+    return state
+
+
+def _scan_critical_families(state, context, try_recipe):
+    """Alternate bounded lanes; retain visit hints, never old indices or rejections."""
+    budget = context.factory.budget
+    progress = [[dict(after_order=None, targets={}) for _ in range(5)] for _ in range(2)]
+    next_family, next_lane = [0, 0], 0
+    previous_critical, affected = set(), set()
+    while budget.allows_search():
+        before = state.current_plan
+        positions, critical = critical_delivery_positions(before, context.factory.cache.context)
+        critical_ids = frozenset(critical)
+        revisit = tuple(key for key in critical if key in affected or key not in previous_critical)
+        for cursor in progress[0]:
+            for key in revisit:
+                cursor["targets"].pop(key, None)
+        streams = [_backlog_iterators(state, context, progress=progress[lane], positions=positions,
+                                     critical_ids=critical_ids, critical_lane=lane == 0,
+                                     revisit=revisit if lane == 0 else ()) for lane in range(2)]
+        sizes = (3, 5)
+        pending = [deque((next_family[lane] + offset) % size for offset in range(size))
+                   for lane, size in enumerate(sizes)]
+        accepted = False
+        while any(pending) and budget.allows_search():
+            lane = next_lane if pending[next_lane] else 1 - next_lane
+            family = pending[lane].popleft()
+            accepted, exhausted = _scan_width_batch(state, context, streams[lane][family], try_recipe, 64)
+            next_family[lane] = (family + 1) % sizes[lane]
+            next_lane = 1 - lane
+            if accepted:
+                break
+            if not exhausted:
+                pending[lane].append(family)
+        if not accepted:
+            if budget.allows_search():
+                budget.stop_reason = SearchStopReason.LOCAL_SEARCH_COMPLETE
+            return state
+        previous_critical = critical_ids
+        old = {chain.chain_id: chain for chain in before.chains}
+        new = {chain.chain_id: chain for chain in state.current_plan.chains}
+        changed = {key for key in old.keys() | new.keys() if old.get(key) != new.get(key)}
+        affected = {node.source_order_id for chain in (*before.chains, *state.current_plan.chains)
+                    if chain.chain_id in changed for node in chain.nodes if node.virtual_lineage is None}
     return state
 
 
