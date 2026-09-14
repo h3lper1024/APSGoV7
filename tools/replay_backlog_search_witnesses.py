@@ -88,8 +88,8 @@ def load_case(run):
     return state, context
 
 
-def report_with_positions(plan, timing):
-    report = delivery_plan_report(plan, timing)
+def report_with_positions(plan, timing, *, include_backlog_clearance=False):
+    report = delivery_plan_report(plan, timing, include_backlog_clearance=include_backlog_clearance)
     positions = {}
     global_position = 0
     for i, chain in enumerate(plan.chains, 1):

@@ -11,7 +11,9 @@ from .input_normalizer import normalize_input
 from .rule_set_loader import fingerprint_rule_set_spec, load_rule_set
 
 
-def with_delivery_objective(spec):
+def with_delivery_objective(spec, *, include_backlog_clearance=False):
+    if type(include_backlog_clearance) is not bool:
+        raise ValueError("include_backlog_clearance must be boolean")
     load_rule_set(spec)
     expected = (
         "prohibited_violation_count", "prohibited_violation_severity",
@@ -21,22 +23,26 @@ def with_delivery_objective(spec):
     if tuple(item.metric_key for item in spec.quality_spec) != expected:
         raise ValueError("delivery extension requires the existing seven-level quality specification")
     criteria = tuple(QualityCriterionSpec(key, key, "minimize", "sum", "exact_decimal") for key in (
-        "newly_late_original_weight", "delivery_wait_tardiness_tonne_hours",
+        "old_backlog_last_completion_hours" if include_backlog_clearance else "newly_late_original_weight",
+        "delivery_wait_tardiness_tonne_hours",
     ))
     result = replace(
-        spec, version=spec.version + "+delivery-v1",
+        spec, version=spec.version + ("+delivery-backlog-priority-v1" if include_backlog_clearance else "+delivery-v1"),
         rules=(*spec.rules, RuleDefinitionSpec(
             "delivery_due_performance", "DeliveryDuePerformanceRule", "交期表现",
-            RuleScope.PLAN, True, "1", {},
+            RuleScope.PLAN, True, "2" if include_backlog_clearance else "1",
+            {"include_backlog_clearance": True} if include_backlog_clearance else {},
         )),
-        quality_spec=(*spec.quality_spec[:4], *criteria, *spec.quality_spec[4:]),
+        quality_spec=(*spec.quality_spec[:2], *criteria, *spec.quality_spec[2:]) if include_backlog_clearance
+        else (*spec.quality_spec[:4], *criteria, *spec.quality_spec[4:]),
     )
     result = replace(result, fingerprint=fingerprint_rule_set_spec(result))
     load_rule_set(result)
     return result
 
 
-def prepare_delivery_request(request, *, schedule_start_at, order_timing, virtual_speed_mpm):
+def prepare_delivery_request(request, *, schedule_start_at, order_timing, virtual_speed_mpm,
+                             include_backlog_clearance=False):
     """Typed backend input: speed selection happens once, before any search."""
     problem = normalize_input(request)
     if not isinstance(order_timing, Mapping) or set(order_timing) != {n.source_order_id for n in problem.nodes}:
@@ -59,6 +65,7 @@ def prepare_delivery_request(request, *, schedule_start_at, order_timing, virtua
         for item in problem.virtual_prototypes
     })
     result = replace(request, contract_version="delivery-backend-v1", delivery_timing=timing,
-                     rule_set_spec=with_delivery_objective(request.rule_set_spec))
+                     rule_set_spec=with_delivery_objective(request.rule_set_spec,
+                                                         include_backlog_clearance=include_backlog_clearance))
     normalize_input(result)
     return result

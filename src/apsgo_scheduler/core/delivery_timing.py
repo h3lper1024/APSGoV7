@@ -141,6 +141,7 @@ class DeliveryPerformance:
     delivery_wait_tardiness_tonne_hours: Decimal
     original_completion_hours: Mapping[str, Decimal]
     node_times: tuple[tuple[str, Decimal, Decimal], ...]
+    old_backlog_last_completion_hours: Decimal
 
 
 def evaluate_delivery(plan, timing, *, details=False):
@@ -175,10 +176,12 @@ def evaluate_delivery(plan, timing, *, details=False):
             sum_weights(weights[key]) != order.weight for key, order in timing.orders.items()
         ):
             raise ValueError("delivery evaluation requires conserved original order weights")
-        newly_late, burden = Decimal(0), Decimal(0)
+        newly_late, burden, clearance = Decimal(0), Decimal(0), Decimal(0)
         for key, order in timing.orders.items():
             finish = completion[key]
+            if order.due_hours <= 0:
+                clearance = max(clearance, finish)
             if order.due_hours > 0 and finish > order.due_hours:
                 newly_late += order.weight
             burden += order.weight * max(Decimal(0), finish - max(Decimal(0), order.due_hours))
-    return DeliveryPerformance(newly_late, burden, MappingProxyType(completion), tuple(rows))
+    return DeliveryPerformance(newly_late, burden, MappingProxyType(completion), tuple(rows), clearance)

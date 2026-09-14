@@ -73,9 +73,20 @@ class ProcessRuleSet:
             require_text(code, "allowed_final_deviation_code")
         enabled = tuple(rule for rule in rules if rule.enabled)
         if any(isinstance(rule, DeliveryDuePerformanceRule) for rule in enabled):
+            backlog_priority = any(
+                isinstance(rule, DeliveryDuePerformanceRule) and rule.include_backlog_clearance
+                for rule in enabled
+            )
+            delivery_metrics = (
+                "old_backlog_last_completion_hours" if backlog_priority else "newly_late_original_weight",
+                "delivery_wait_tardiness_tonne_hours",
+            )
             prefix = (
+                *PROHIBITED_METRIC_KEYS, *delivery_metrics,
+                "underweight_chain_count", "underweight_total_gap",
+            ) if backlog_priority else (
                 *PROHIBITED_METRIC_KEYS, "underweight_chain_count", "underweight_total_gap",
-                "newly_late_original_weight", "delivery_wait_tardiness_tonne_hours",
+                *delivery_metrics,
             )
             keys = tuple(item.metric_key for item in criteria)
             suffix = tuple(key for key in ("inter_chain_width_gap", "generated_virtual_weight", "chain_count") if key in keys)
@@ -84,7 +95,7 @@ class ProcessRuleSet:
             ) or any(
                 item.aggregation is not QualityAggregation.SUM
                 or item.numeric_projection is not NumericProjection.EXACT_DECIMAL
-                for item in criteria[4:6]
+                for item in criteria if item.metric_key in delivery_metrics
             ):
                 raise ValueError("delivery optimization requires the approved nine-level quality order")
         producers = set(STRUCTURAL_METRIC_KEYS)

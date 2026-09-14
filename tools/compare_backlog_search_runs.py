@@ -14,6 +14,7 @@ for directory in (ROOT, ROOT / "src"):
         sys.path.insert(0, str(directory))
 
 from apsgo_scheduler.core.contracts import sum_weights
+from apsgo_scheduler.core.chain_order import has_backlog_priority
 from tools.profile_solver_search import load_request
 from tools.replay_backlog_search_witnesses import load_case, read_json, report_with_positions
 from tools.verify_solver_diagnostics import _sha256, _write_json
@@ -57,7 +58,8 @@ def read_run(path):
             raise ValueError(f"summary and result counters differ: {key}")
     if result["release"]["plan"] != final["plan"] or result["release"]["evaluation"] != final["evaluation"]:
         raise ValueError(f"release and final search differ: {path}")
-    report = report_with_positions(state.current_plan, context.factory.cache.context.delivery_timing)
+    report = report_with_positions(state.current_plan, context.factory.cache.context.delivery_timing,
+                                   include_backlog_clearance=has_backlog_priority(context.factory.cache.rule_set))
     stored = read_json(path / "delivery_report.json")
     bare_orders = [{key: value for key, value in row.items() if key != "pieces"} for row in report["delivery_orders"]]
     if (bare_orders != stored["delivery_orders"] or report["delivery_summary"] != stored["delivery_summary"]

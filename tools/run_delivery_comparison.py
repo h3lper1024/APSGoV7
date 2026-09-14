@@ -26,7 +26,7 @@ from tools.profile_solver_search import _counters, load_request, measure
 from tools.verify_solver_diagnostics import _code_identity, _sha256, _write_json
 
 
-def prepare(source_request, timing_source, start, virtual_speed):
+def prepare(source_request, timing_source, start, virtual_speed, *, include_backlog_clearance=False):
     old = load_request(source_request)
     raw = json.loads(timing_source.read_text(encoding="utf-8"))
     rows = {item["source_order_id"]: item for item in raw["orders"]}
@@ -41,7 +41,8 @@ def prepare(source_request, timing_source, start, virtual_speed):
             key: values[key] if key == "due_date" or values[key] is None else Decimal(values[key])
             for key in ("due_date", "furnace_speed_mpm", "process_speed_mpm")
         }
-    new = prepare_delivery_request(old, schedule_start_at=start, order_timing=timing, virtual_speed_mpm=virtual_speed)
+    new = prepare_delivery_request(old, schedule_start_at=start, order_timing=timing, virtual_speed_mpm=virtual_speed,
+                                   include_backlog_clearance=include_backlog_clearance)
     return old, new
 
 
@@ -87,12 +88,13 @@ def main():
     parser.add_argument("--timing-source", type=Path, required=True)
     parser.add_argument("--start", required=True)
     parser.add_argument("--virtual-speed", type=Decimal, required=True)
-    parser.add_argument("--variant", choices=("old", "delivery", "prepare"), required=True)
+    parser.add_argument("--variant", choices=("old", "delivery", "delivery-backlog-priority", "prepare"), required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--observe-search-opportunities", action="store_true",
                         help="Record post-refinement attempts without changing their construction or acceptance")
     args = parser.parse_args()
-    old, new = prepare(args.prepared_request, args.timing_source, args.start, args.virtual_speed)
+    old, new = prepare(args.prepared_request, args.timing_source, args.start, args.virtual_speed,
+                       include_backlog_clearance=args.variant == "delivery-backlog-priority")
     request = old if args.variant == "old" else new
     args.output_dir.mkdir(parents=True, exist_ok=False)
     metadata = dict(variant=args.variant, code=_code_identity(ROOT),
@@ -123,7 +125,7 @@ def main():
             if args.observe_search_opportunities:
                 _write_json(args.output_dir / "search_opportunities.json", opportunities)
             result = results[0]
-            if args.variant == "delivery":
+            if args.variant in ("delivery", "delivery-backlog-priority"):
                 report = build_delivery_report(request, result)
             else:
                 plan = result.release.plan if result.release else result.diagnostic_candidate.plan

@@ -4,14 +4,14 @@ from datetime import datetime, timedelta
 from decimal import Context, Decimal, ROUND_HALF_EVEN, localcontext
 
 from ..api.request import fingerprint_public_request
-from ..core.chain_order import has_delivery_objective
+from ..core.chain_order import has_backlog_priority, has_delivery_objective
 from ..core.contracts import fingerprint, sum_weights
 from ..core.delivery_timing import evaluate_delivery
 from .input_normalizer import normalize_input
 from .rule_set_loader import load_rule_set
 
 
-def delivery_plan_report(plan, timing):
+def delivery_plan_report(plan, timing, *, include_backlog_clearance=False):
     """Also usable for a clearly labelled historical-plan comparison, not publication."""
     performance = evaluate_delivery(plan, timing, details=True)
     start = datetime.fromisoformat(timing.schedule_start_at)
@@ -50,6 +50,8 @@ def delivery_plan_report(plan, timing):
             production_end_at=nodes[-1]["completion_at"],
             production_end_hours=nodes[-1]["completion_hours"],
         )
+        if include_backlog_clearance:
+            summary["old_backlog_last_completion_hours"] = performance.old_backlog_last_completion_hours
         for name, field in (("old_backlog", "was_backlog_at_start"), ("newly_late", "newly_late"), ("total_late", "is_late")):
             group = [row for row in orders if row[field]]
             summary[name + "_order_count"] = len(group)
@@ -77,11 +79,25 @@ def build_delivery_report(request, result):
         kind = "diagnostic_candidate_not_publishable"
     else:
         return None
-    report = delivery_plan_report(plan, problem.delivery_timing)
+    backlog_priority = has_backlog_priority(rules)
+    report = delivery_plan_report(plan, problem.delivery_timing,
+                                  include_backlog_clearance=backlog_priority)
+    delivery_metrics = ("newly_late_original_weight", "delivery_wait_tardiness_tonne_hours") + (
+        ("old_backlog_last_completion_hours",) if backlog_priority else ()
+    )
+    # Raw statistics remain audited even when the configured score deliberately omits them.
+    for key in delivery_metrics:
+        if report["delivery_summary"][key] != evaluation.metrics.get(key):
+            raise ValueError("delivery report differs from the returned statistics")
     for index, metric in enumerate(rules.quality_spec):
-        if metric.metric_key in ("newly_late_original_weight", "delivery_wait_tardiness_tonne_hours"):
+        if metric.metric_key in delivery_metrics:
             if report["delivery_summary"][metric.metric_key] != evaluation.quality_key[index]:
                 raise ValueError("delivery report differs from the returned evaluation")
+    if backlog_priority:
+        scored = {metric.metric_key for metric in rules.quality_spec}
+        report["delivery_metric_roles"] = {
+            key: "score" if key in scored else "statistics_only" for key in delivery_metrics
+        }
     report.update(kind=kind, request_fingerprint=fingerprint_public_request(request),
                   problem_fingerprint=problem.input_fingerprint, rule_set_fingerprint=rules.fingerprint,
                   plan_fingerprint=fingerprint(plan))

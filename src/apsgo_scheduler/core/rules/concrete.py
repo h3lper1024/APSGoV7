@@ -38,14 +38,25 @@ class DeliveryDuePerformanceRule(Rule):
 
     def __post_init__(self):
         Rule.__post_init__(self)
-        if self.enabled and self.parameters:
-            raise ValueError("delivery performance requires empty parameters")
+        if self.enabled and (
+            set(self.parameters) - {"include_backlog_clearance"}
+            or type(self.parameters.get("include_backlog_clearance", False)) is not bool
+        ):
+            raise ValueError("delivery performance only accepts boolean include_backlog_clearance")
+
+    @property
+    def include_backlog_clearance(self):
+        return self.enabled and self.parameters.get("include_backlog_clearance", False)
 
     def required_fields(self):
         return ()
 
     def metric_keys(self):
-        return ("newly_late_original_weight", "delivery_wait_tardiness_tonne_hours") if self.enabled else ()
+        if not self.enabled:
+            return ()
+        return ("newly_late_original_weight", "delivery_wait_tardiness_tonne_hours") + (
+            ("old_backlog_last_completion_hours",) if self.include_backlog_clearance else ()
+        )
 
     def evaluate(self, subject, context):
         if not isinstance(subject, PlanRuleSubject):

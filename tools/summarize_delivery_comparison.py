@@ -8,9 +8,11 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "src"))
 from apsgo_scheduler.api.json_codec import dumps_exact_json
 from apsgo_scheduler.core.contracts import sum_weights
+from tools.profile_solver_search import load_request
 
 
 def read(path):
@@ -24,8 +26,9 @@ def main():
     parser.add_argument("--repeat", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    runs = [read(path / "measurement.json") for path in (args.old, args.new, args.repeat)]
-    reports = [read(path / "delivery_report.json") for path in (args.old, args.new, args.repeat)]
+    paths = (args.old, args.new, args.repeat)
+    runs = [read(path / "measurement.json") for path in paths]
+    reports = [read(path / "delivery_report.json") for path in paths]
     new, repeat = runs[1:]
     deterministic = {
         key: new["final_search"][key] == repeat["final_search"][key]
@@ -33,21 +36,24 @@ def main():
     }
     deterministic["delivery_report"] = reports[1] == reports[2]
     summaries = []
-    for run, report in zip(runs, reports):
+    for path, run, report in zip(paths, runs, reports):
         result = run["result"]
         release = result["release"]
         nodes = [n for chain in release["plan"]["chains"] for n in chain["nodes"]]
         real = sum_weights(n["weight"] for n in nodes if n["material_role"] != "virtual_sphc")
         virtual = sum_weights(n["weight"] for n in nodes if n["material_role"] == "virtual_sphc")
         quality = release["evaluation"]["quality_key"]
-        gate = quality[0] == 0 and quality[2] == 0 and virtual / (real + virtual) <= Decimal("0.05") and result["core_audit"]["passed"] and result["audit_report"]["passed"]
+        spec = load_request(path / "prepared_request.json").rule_set_spec
+        named_quality = dict(zip((c.metric_key for c in spec.quality_spec), quality, strict=True))
+        gate = named_quality["prohibited_violation_count"] == 0 and named_quality["underweight_chain_count"] == 0 and virtual / (real + virtual) <= Decimal("0.05") and result["core_audit"]["passed"] and result["audit_report"]["passed"]
         daily = defaultdict(list)
         for order in report["delivery_orders"]:
             if order["was_backlog_at_start"]:
                 daily[order["completion_at"][:10]].append(order["original_weight"])
         summaries.append(dict(
             public_status=result["status"], quality_gate="PASS" if gate else "BEST_EFFORT",
-            quality=quality, wall_seconds=run["public_call_wall_seconds"], cpu_seconds=run["public_call_cpu_seconds"],
+            quality=quality, named_quality=named_quality, rule_set_fingerprint=spec.fingerprint,
+            wall_seconds=run["public_call_wall_seconds"], cpu_seconds=run["public_call_cpu_seconds"],
             **{key: run["final_search"][key] for key in ("candidate_check_count", "complete_candidate_evaluation_count", "accepted_move_count", "stop_reason")},
             both_audits_passed=result["core_audit"]["passed"] and result["audit_report"]["passed"],
             real_weight=real, virtual_weight=virtual, virtual_ratio=virtual / (real + virtual),

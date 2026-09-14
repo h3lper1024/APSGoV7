@@ -18,6 +18,11 @@ def has_delivery_objective(rule_set) -> bool:
     return any(isinstance(rule, DeliveryDuePerformanceRule) for rule in rule_set.rules)
 
 
+def has_backlog_priority(rule_set) -> bool:
+    return any(isinstance(rule, DeliveryDuePerformanceRule) and rule.include_backlog_clearance
+               for rule in rule_set.rules)
+
+
 def has_production_order_rule(rule_set) -> bool:
     return has_inter_chain_width_rule(rule_set) or has_delivery_objective(rule_set)
 
@@ -42,6 +47,9 @@ def refinement_admissible(evaluation, rule_set):
 def refinement_candidate_allowed(before, after, rule_set):
     if not refinement_admissible(after, rule_set):
         return False
+    if has_backlog_priority(rule_set):
+        # The complete quality comparison owns the confirmed delivery/underweight tradeoff.
+        return True
     return all(
         after.quality_key[i] <= before.quality_key[i]
         for i, criterion in enumerate(rule_set.quality_spec)
@@ -93,7 +101,8 @@ def delivery_node_positions(plan, timing, *, backlog_first=False):
 def chain_order_objective_index(rule_set) -> int | None:
     if not has_production_order_rule(rule_set):
         return None
-    metric = "newly_late_original_weight" if has_delivery_objective(rule_set) else "inter_chain_width_gap"
+    metric = ("old_backlog_last_completion_hours" if has_backlog_priority(rule_set) else
+              "newly_late_original_weight" if has_delivery_objective(rule_set) else "inter_chain_width_gap")
     return next(
         (
             index
