@@ -195,3 +195,35 @@ def test_failed_candidate_construction_is_counted_without_publishing_partial_sta
     assert fingerprint(state) == before
     assert context.factory.budget.candidate_check_count == 1
     assert context.accepted_move_traces == ()
+
+
+def test_small_batches_resume_all_streams_and_skip_empty_ones():
+    from apsgo_scheduler.core.width_optimization import _round_robin
+    _, context = scan_case(100)
+    assert list(_round_robin((iter(range(7)), iter(()), iter(range(10, 16))), context.factory.budget)) == [
+        0, 1, 2, 3, 10, 11, 12, 13, 4, 5, 6, 14, 15,
+    ]
+    assert context.factory.budget.candidate_check_count == 0  # Enumeration is not execution.
+
+
+def test_backlog_families_retain_complete_shapes_and_unique_exchange_ownership(monkeypatch):
+    from apsgo_scheduler.core import width_optimization as width
+    from tests.core.search.test_width_optimization_blocks import block_case
+    state, context = block_case(((1600, 300), (1400, 300), (1200, 300), (800, 300)),
+                                ((1500, 300), (1300, 300), (1100, 300), (900, 300)))
+    positions = tuple((i, j) for i in range(2) for j in range(3, -1, -1))
+    monkeypatch.setattr(width, "delivery_node_positions", lambda *a, **kw: positions)
+
+    def canonical(recipe):
+        if recipe[0] not in ("width_node_exchange", "width_block_exchange"):
+            return recipe
+        action, i, j, start, stop, other_start, other_stop = recipe
+        return (action, *sorted(((i, start, stop), (j, other_start, other_stop))))
+
+    old = width._delivery_iterators(state, context)
+    new = width._backlog_iterators(state, context)
+    for before, after in zip(old, new):
+        expected = {canonical(recipe) for recipe in before}
+        actual = [canonical(recipe) for recipe in after]
+        assert set(actual) == expected
+        assert len(actual) == len(set(actual))

@@ -59,6 +59,29 @@ def test_zero_slack_is_on_time_and_backlog_interleaves():
     assert delivery_node_positions(state.current_plan, timing) == ((1, 0), (0, 0), (2, 0))
 
 
+def test_backlog_tail_first_and_three_groups_interleave_without_changing_default():
+    _, state, context = search_case()
+    timing = context.factory.cache.context.delivery_timing
+    keys = tuple(timing.orders)
+    timing = replace(timing, orders={k: replace(v, due_date="2026-05-31", due_hours=D(0))
+                                    if k != keys[1] else v for k, v in timing.orders.items()})
+    # The late current-month order, then latest backlog, then earlier backlog.
+    assert delivery_node_positions(state.current_plan, timing, backlog_first=True) == ((1, 0), (2, 0), (0, 0))
+    _, ordinary, bound = search_case()
+    timing = bound.factory.cache.context.delivery_timing
+    assert delivery_node_positions(ordinary.current_plan, timing, backlog_first=True) == delivery_node_positions(ordinary.current_plan, timing)
+
+
+def test_backlog_priority_does_not_reward_a_split_original_with_extra_queue_slots():
+    _, state, context = search_case()
+    timing = context.factory.cache.context.delivery_timing
+    timing = replace(timing, orders={k: replace(v, due_date="2026-05-31", due_hours=D(0)) for k, v in timing.orders.items()})
+    a, b, c = (chain.nodes[0] for chain in state.current_plan.chains)
+    plan = SchedulePlan((Chain("one", (replace(a, node_id="first", weight=D(799)), b, c,
+                                        replace(a, node_id="last", weight=D(1))), "P0"),))
+    assert delivery_node_positions(plan, timing, backlog_first=True) == ((0, 3), (0, 0), (0, 2), (0, 1))
+
+
 def test_last_fragment_ranked_first_without_duplicate_original_priority():
     _, state, context = search_case()
     timing = context.factory.cache.context.delivery_timing

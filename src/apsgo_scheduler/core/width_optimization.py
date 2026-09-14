@@ -1,6 +1,7 @@
 """Private, deterministic scanning for the post-repair width optimization phase."""
 
 from dataclasses import replace
+from collections import deque
 from decimal import Decimal
 from itertools import pairwise, permutations, zip_longest
 
@@ -239,6 +240,110 @@ def _delivery_iterators(state, context):
 
     return [iter(_intra_recipes(state, positions)), iter(_delivery_node_recipes(state, positions)),
             iter(_delivery_block_recipes(state, positions)), iter(cuts()), iter(orders())]
+
+
+def _round_robin(streams, budget, allowance=4):
+    """Keep lazy proposal cursors, including empty streams, under the shared stop clock."""
+    pending = deque(iter(stream) for stream in streams)
+    while pending and budget.allows_search():
+        stream = pending.popleft()
+        for _ in range(allowance):
+            if not budget.allows_search():
+                return
+            try:
+                recipe = next(stream)
+            except StopIteration:
+                break
+            yield recipe
+        else:
+            pending.append(stream)
+
+
+def _backlog_iterators(state, context, *, after_order=None):
+    """One queue slot per original, no candidate plans or rejection cache."""
+    chains, budget = state.current_plan.chains, context.factory.budget
+    positions = delivery_node_positions(state.current_plan, context.factory.cache.context.delivery_timing,
+                                        backlog_first=True)
+    ranks = {position: rank for rank, position in enumerate(positions)}
+    originals = {}
+    for i, j in positions:
+        originals.setdefault(chains[i].nodes[j].source_order_id, []).append((i, j))
+    keys = list(originals)
+    if after_order in originals:
+        offset = keys.index(after_order) + 1
+        keys = keys[offset:] + keys[:offset]
+    chain_owners = {}
+    for position in positions:
+        chain_owners.setdefault(position[0], position)
+
+    def targets(i):
+        return (*range(i), *range(i + 1, len(chains)))
+
+    def node_target(i, anchor, j):
+        moves = (("width_node_move", i, j, anchor, anchor + 1, slot, slot)
+                 for slot in range(len(chains[j].nodes) + 1) if len(chains[i].nodes) > 1)
+        # Canonical ownership replaces an ever-growing set of visited exchange pairs.
+        partners = sorted((slot for source, slot in positions if source == j
+                           and ranks[(i, anchor)] < ranks[(j, slot)]),
+                          key=lambda slot: -ranks[(j, slot)])
+        swaps = (("width_node_exchange", i, j, anchor, anchor + 1, slot, slot + 1) for slot in partners)
+        yield from _alternate_recipes(moves, swaps)
+
+    def block_owner(i, start, stop):
+        return min((ranks[(i, j)] for j in range(start, stop) if (i, j) in ranks), default=len(ranks))
+
+    def block_target(i, start, stop, j):
+        moves = (("width_block_move", i, j, start, stop, slot, slot)
+                 for slot in range(len(chains[j].nodes) + 1))
+
+        def swaps():
+            for size in range(1, len(chains[j].nodes)):
+                for slot in range(len(chains[j].nodes) - size + 1):
+                    if not budget.allows_search():
+                        return
+                    # A singleton cannot be a source block; otherwise only the
+                    # earlier canonical block owns this symmetric exchange.
+                    if size > 1 and (block_owner(i, start, stop), i, start, stop) > (
+                        block_owner(j, slot, slot + size), j, slot, slot + size
+                    ):
+                        continue
+                    yield ("width_block_exchange", i, j, start, stop, slot, slot + size)
+        yield from _alternate_recipes(moves, swaps())
+
+    def proposals(family, anchors):
+        for i, anchor in anchors:
+            if not budget.allows_search():
+                return
+            if family == 0:
+                yield from _intra_recipes(state, ((i, anchor),))
+            elif family == 1:
+                yield from _round_robin((node_target(i, anchor, j) for j in targets(i)), budget, 2)
+            elif family == 2:
+                for length in range(2, len(chains[i].nodes)):
+                    for start in range(max(0, anchor - length + 1), min(anchor + 1, len(chains[i].nodes) - length + 1)):
+                        if not budget.allows_search():
+                            return
+                        if block_owner(i, start, start + length) == ranks[(i, anchor)]:
+                            yield from _round_robin((block_target(i, start, start + length, j)
+                                                    for j in targets(i)), budget, 2)
+            elif chain_owners[i] == (i, anchor):
+                if family == 3:
+                    size = len(chains[i].nodes)
+                    ordered = dict.fromkeys(cut for source, j in positions if source == i
+                                            for cut in (j, j + 1) if 0 < cut < size)
+                    for cut in (*ordered, *(cut for cut in range(1, size) if cut not in ordered)):
+                        for prefix, suffix in permutations(range(len(chains) + 1), 2):
+                            if not budget.allows_search():
+                                return
+                            yield ("width_chain_cut", i, cut, prefix, suffix)
+                else:
+                    for position in _chain_order_positions(chains, i):
+                        yield ("width_chain_order_relocation", i, position)
+
+    def family_stream(family):
+        return _round_robin((proposals(family, originals[key]) for key in keys), budget)
+
+    return [family_stream(family) for family in range(5)]
 
 
 def _width_improves(chains, state, context):

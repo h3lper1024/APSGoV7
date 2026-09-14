@@ -57,7 +57,7 @@ def delivery_chain_indices(chains, timing):
     )))
 
 
-def delivery_node_positions(plan, timing):
+def delivery_node_positions(plan, timing, *, backlog_first=False):
     """Rank original orders, then last fragments first; never change the score."""
     completion = evaluate_delivery(plan, timing).original_completion_hours
     positions = {}
@@ -77,9 +77,16 @@ def delivery_node_positions(plan, timing):
         )
         backlog = sorted(
             (key for key, order in timing.orders.items() if order.due_hours <= 0),
-            key=lambda key: -(timing.orders[key].weight * completion[key]),
+            key=lambda key: (
+                (-completion[key], -(timing.orders[key].weight * completion[key]))
+                if backlog_first else -(timing.orders[key].weight * completion[key])
+            ),
         )
-    ordered = late + [key for pair in zip_longest(on_time, backlog) for key in pair if key is not None]
+    ordered = (
+        [key for group in zip_longest(late, backlog, on_time) for key in group if key is not None]
+        if backlog_first and backlog else
+        late + [key for pair in zip_longest(on_time, backlog) for key in pair if key is not None]
+    )
     return tuple(position for key in ordered for position in reversed(positions[key]))
 
 
