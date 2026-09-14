@@ -259,6 +259,29 @@ def _round_robin(streams, budget, allowance=4):
             pending.append(stream)
 
 
+def _direct_insertion_slots(node, target_nodes, positions, context):
+    """Stable direct-first ordering, not a feasibility filter or a second evaluator."""
+    cache, budget = context.factory.cache, context.factory.budget
+    deferred = []
+    for slot in positions:
+        if not budget.allows_search():
+            return
+        left_allowed = slot == 0 or cache.allows(target_nodes[slot - 1], node)
+        if not budget.allows_search():
+            return
+        direct = left_allowed and (slot == len(target_nodes) or cache.allows(node, target_nodes[slot]))
+        if not budget.allows_search():
+            return
+        if direct:
+            yield slot
+        else:
+            deferred.append(slot)
+    for slot in deferred:
+        if not budget.allows_search():
+            return
+        yield slot
+
+
 def _backlog_iterators(state, context, *, progress=None):
     """One queue slot per original, no candidate plans or rejection cache."""
     chains, budget = state.current_plan.chains, context.factory.budget
@@ -289,8 +312,11 @@ def _backlog_iterators(state, context, *, progress=None):
         return rotate_after(values, previous)
 
     def node_target(i, anchor, j, hint):
+        move_slots = (_direct_insertion_slots(chains[i].nodes[anchor], chains[j].nodes,
+                      slots(j, range(len(chains[j].nodes) + 1), hint), context)
+                      if len(chains[i].nodes) > 1 else ())
         moves = (("width_node_move", i, j, anchor, anchor + 1, slot, slot)
-                 for slot in slots(j, range(len(chains[j].nodes) + 1), hint) if len(chains[i].nodes) > 1)
+                 for slot in move_slots)
         # Canonical ownership replaces an ever-growing set of visited exchange pairs.
         partners = sorted((slot for source, slot in positions if source == j
                            and ranks[(i, anchor)] < ranks[(j, slot)]),
@@ -319,16 +345,16 @@ def _backlog_iterators(state, context, *, progress=None):
                     yield ("width_block_exchange", i, j, start, stop, slot, slot + size)
         yield from _alternate_recipes(moves, swaps())
 
-    def proposals(family, anchors, hint):
+    def proposals(kind, anchors, hint):
         for i, anchor in anchors:
             if not budget.allows_search():
                 return
-            if family == 0:
+            if kind == "intra_move":
                 for slot in slots(i, range(anchor), hint):
                     yield ("delivery_intra_move", i, anchor, slot)
-            elif family == 1:
+            elif kind == "node_edit":
                 yield from _round_robin((node_target(i, anchor, j, hint) for j in targets(i, hint)), budget, 2)
-            elif family == 2:
+            elif kind == "block_edit":
                 for length in range(2, len(chains[i].nodes)):
                     for start in range(max(0, anchor - length + 1), min(anchor + 1, len(chains[i].nodes) - length + 1)):
                         if not budget.allows_search():
@@ -337,7 +363,7 @@ def _backlog_iterators(state, context, *, progress=None):
                             yield from _round_robin((block_target(i, start, start + length, j, hint)
                                                     for j in targets(i, hint)), budget, 2)
             elif chain_owners[i] == (i, anchor):
-                if family == 3:
+                if kind == "chain_cut":
                     size = len(chains[i].nodes)
                     ordered = dict.fromkeys(cut for source, j in positions if source == i
                                             for cut in (j, j + 1) if 0 < cut < size)
@@ -352,27 +378,32 @@ def _backlog_iterators(state, context, *, progress=None):
                     for position in rotate_after(_chain_order_positions(chains, i), previous):
                         yield ("width_chain_order_relocation", i, position)
 
-    def family_stream(family):
+    def family_stream(family, kind):
         cursor = progress[family]
         keys = rotate_after(originals, cursor["after_order"])
 
         def original_stream(key):
             hint = cursor["targets"].get(key)
-            for recipe in proposals(family, originals[key], hint):
+            for recipe in proposals(kind, originals[key], hint):
                 cursor["after_order"] = key
-                if family < 3:
-                    target, slot = (recipe[1], recipe[3]) if family == 0 else (recipe[2], recipe[5])
-                    nodes = chains[target].nodes
-                    cursor["targets"][key] = (chains[target].chain_id, nodes[slot].node_id if slot < len(nodes) else None)
-                elif family == 3:
-                    cursor["targets"][key] = (chains[recipe[1]].chain_id, chains[recipe[1]].nodes[recipe[2]].node_id)
+                if kind == "intra_move":
+                    _, target, _, slot = recipe
+                elif kind in ("node_edit", "block_edit"):
+                    _, _, target, _, _, slot, _ = recipe
+                elif kind == "chain_cut":
+                    _, target, slot, _, _ = recipe
                 else:
-                    cursor["targets"][key] = (chains[recipe[2]].chain_id, None)
+                    _, _, target = recipe
+                    slot = len(chains[target].nodes)
+                nodes = chains[target].nodes
+                cursor["targets"][key] = (chains[target].chain_id, nodes[slot].node_id if slot < len(nodes) else None)
                 yield recipe
 
         return _round_robin((original_stream(key) for key in keys), budget)
 
-    return [family_stream(family) for family in range(5)]
+    return [family_stream(index, kind) for index, kind in enumerate(
+        ("intra_move", "node_edit", "block_edit", "chain_cut", "chain_order")
+    )]
 
 
 def _width_improves(chains, state, context):

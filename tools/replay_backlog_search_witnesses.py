@@ -115,12 +115,24 @@ def probe_opportunities(run):
         destination = next(i for i, c in enumerate(state.current_plan.chains) if c.chain_id == "initial-000003")
         targets[("width_node_move", source, destination, node, node + 1, slot, slot)] = key
     ranks = delivery_node_positions(state.current_plan, context.factory.cache.context.delivery_timing, backlog_first=True)
+    original_ranks = delivery_node_positions(state.current_plan, context.factory.cache.context.delivery_timing)
+    original_ordinals = {}
+    for ordinal, recipe in enumerate(_delivery_node_recipes(state, original_ranks), 1):
+        if recipe in targets:
+            original_ordinals[targets[recipe]] = ordinal
+        if len(original_ordinals) == len(targets):
+            break
     node_ordinals = {}
+    started, cpu = perf_counter(), process_time()
     for ordinal, recipe in enumerate(_backlog_iterators(state, context)[1], 1):
         if recipe in targets:
             node_ordinals[targets[recipe]] = ordinal
         if len(node_ordinals) == len(targets):
             break
+    node_scan_cost = dict(wall_seconds=Decimal(str(perf_counter() - started)),
+                         cpu_seconds=Decimal(str(process_time() - cpu)),
+                         edge_cache_hits=context.factory.cache.hit_count,
+                         edge_cache_misses=context.factory.cache.miss_count)
     state, context = load_case(run)
     family_counts, found = {}, {}
 
@@ -130,7 +142,12 @@ def probe_opportunities(run):
             found[targets[recipe]] = bound.factory.budget.candidate_check_count
         return False
 
+    started, cpu = perf_counter(), process_time()
     _scan_backlog_families(state, context, observe)
+    all_family_scan_cost = dict(wall_seconds=Decimal(str(perf_counter() - started)),
+                               cpu_seconds=Decimal(str(process_time() - cpu)),
+                               edge_cache_hits=context.factory.cache.hit_count,
+                               edge_cache_misses=context.factory.cache.miss_count)
     direct_slots = {}
     for recipe, key in targets.items():
         _, i, j, start, _, witness_slot, _ = recipe
@@ -143,6 +160,10 @@ def probe_opportunities(run):
                                  witness_rank_among_direct_slots=eligible.index(witness_slot) + 1)
     return dict(scope="enumeration_only_no_candidate_construction_no_quality_comparison",
                 code=_code_identity(ROOT), node_family_ordinals=node_ordinals,
+                original_node_family_ordinals=original_ordinals,
+                opportunity_gate_passed=all(key in node_ordinals and key in found
+                    and node_ordinals[key] < original_ordinals[key] for key in targets.values()),
+                node_scan_cost=node_scan_cost, all_family_scan_cost=all_family_scan_cost,
                 source_ranks={key: ranks.index((recipe[1], recipe[3])) + 1 for recipe, key in targets.items()},
                 all_family_found_at_check=found, proposals_by_action=family_counts,
                 read_only_direct_connection_diagnosis=direct_slots,
