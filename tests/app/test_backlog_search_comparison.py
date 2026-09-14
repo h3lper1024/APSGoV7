@@ -1,6 +1,7 @@
 """Small checks for read-only original-order clearance statistics."""
 
 from decimal import Decimal
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
@@ -106,3 +107,102 @@ def test_real_small_audited_run_is_recomputed_and_inconsistent_summaries_rejecte
         restored, _, actual, summary = read_run(tmp_path)
         assert restored == request and len(actual["delivery_orders"]) == len(request.orders)
         assert summary["both_audits_passed"] and summary["source_conservation_passed"]
+
+
+@pytest.mark.parametrize("change", [None, "budget", "identity", "order", "rule", "version"])
+def test_score_comparison_only_accepts_the_exact_approved_change(change):
+    from apsgo_scheduler.app.delivery_request import with_delivery_objective
+    from apsgo_scheduler.app.rule_set_loader import fingerprint_rule_set_spec
+    from tests.core.test_delivery_search_audit import search_case
+    from tools.compare_backlog_search_runs import verify_comparison_requests
+    request, _, _ = search_case(delivery=False)
+    old = replace(request, rule_set_spec=with_delivery_objective(request.rule_set_spec))
+    new = replace(request, rule_set_spec=with_delivery_objective(request.rule_set_spec, include_backlog_clearance=True))
+    if change == "budget":
+        new = replace(new, policy=replace(new.policy, candidate_check_limit=101))
+    elif change == "identity":
+        new = replace(new, request_id="another-request")
+    elif change == "order":
+        new = replace(new, orders=tuple(reversed(new.orders)))
+    elif change in ("rule", "version"):
+        spec = new.rule_set_spec
+        if change == "rule":
+            spec = replace(spec, rules=(replace(spec.rules[0], parameters={**spec.rules[0].parameters, "min_weight": Decimal(2)}), *spec.rules[1:]))
+        else:
+            spec = replace(spec, version="unapproved-version")
+        new = replace(new, rule_set_spec=replace(spec, fingerprint=fingerprint_rule_set_spec(spec)))
+    with pytest.raises(ValueError):
+        verify_comparison_requests(old, new)
+    if change:
+        with pytest.raises(ValueError):
+            verify_comparison_requests(old, new, backlog_priority=True)
+    else:
+        verify_comparison_requests(old, new, backlog_priority=True)
+        verify_comparison_requests(new, new)
+
+
+@pytest.mark.parametrize("tamper", [None, "label", "candidate", "score"])
+def test_nonpublishable_comparison_is_explicit_and_never_claims_passing_audits(tmp_path, tamper):
+    from apsgo_scheduler.api.request import RuleDefinitionSpec
+    from apsgo_scheduler.core.contracts import RuleScope
+    from apsgo_scheduler.app.rule_set_loader import fingerprint_rule_set_spec
+    from tests.core.test_backlog_priority_objective import tradeoff_case
+    from tests.app.test_backlog_priority_preparation import save_run
+    from tools.compare_backlog_search_runs import read_run, compare
+    from tools.replay_backlog_search_witnesses import read_json
+    from tools.profile_solver_search import load_request
+    from tools.verify_solver_diagnostics import _write_json
+    from apsgo_v7_service.diagnostics import _json_values
+    from apsgo_scheduler.api.request import fingerprint_public_request
+    from apsgo_scheduler.api.json_codec import dumps_exact_json
+    request, _, _ = tradeoff_case()
+    spec = replace(request.rule_set_spec, rules=(*request.rule_set_spec.rules, RuleDefinitionSpec(
+        "narrow", "ContinuousNarrowSteelWeightRule", "窄钢连续", RuleScope.CHAIN, True, "1",
+        {"grade_class": "IF", "width_upper_exclusive": Decimal(1200), "max_real_weight": Decimal(500)})))
+    request = replace(request, rule_set_spec=replace(spec, fingerprint=fingerprint_rule_set_spec(spec)),
+                      orders=tuple(replace(o, rule_attributes={**o.rule_attributes, "grade_class": "IF"}) for o in request.orders))
+    # Mirror the actual CLI's stored-request boundary, including numeric rendering in violation messages.
+    canonical = tmp_path / "canonical.json"
+    _write_json(canonical, dict(request=_json_values(request), request_fingerprint=fingerprint_public_request(request),
+                               rule_set_fingerprint=request.rule_set_spec.fingerprint))
+    request = load_request(canonical)
+    path = tmp_path / "failed"
+    save_run(path, request)
+    with pytest.raises(ValueError, match="audits must pass"):
+        read_run(path)
+    if tamper == "label":
+        report = read_json(path / "delivery_report.json")
+        report["kind"] = "audited_release"
+        (path / "delivery_report.json").write_text(dumps_exact_json(report), encoding="utf-8")
+    elif tamper:
+        run = read_json(path / "measurement.json")
+        if tamper == "candidate":
+            run["result"]["diagnostic_candidate"] = None
+        else:
+            run["final_search"]["quality"][0] = 0
+        (path / "measurement.json").write_text(dumps_exact_json(run), encoding="utf-8")
+    if tamper:
+        with pytest.raises(ValueError):
+            read_run(path, allow_diagnostic=True)
+    else:
+        restored, _, _, summary = read_run(path, allow_diagnostic=True)
+        assert restored == request and summary["quality_gate"] == "NOT_PUBLISHABLE"
+        assert not summary["both_audits_passed"] and summary["source_conservation_passed"]
+        repeated, _ = compare(path, path, allow_diagnostic=True)
+        assert repeated["includes_non_publishable_diagnostic"] and repeated["final_search_equal"]
+
+
+def test_scoring_comparison_projects_by_name_without_rewriting_old_score(tmp_path):
+    from tests.app.test_backlog_priority_preparation import save_run
+    from tests.core.test_backlog_priority_objective import tradeoff_case, CLEARANCE, NEW_KEYS
+    from tools.compare_backlog_search_runs import compare
+    old, _, _ = tradeoff_case(backlog_priority=False)
+    new, _, _ = tradeoff_case()
+    save_run(tmp_path / "old", old)
+    save_run(tmp_path / "new", new)
+    summary, changes = compare(tmp_path / "old", tmp_path / "new", backlog_priority=True)
+    assert not summary["identical_request"] and len(changes) == 4
+    a, b = summary["runs"]
+    assert CLEARANCE not in a["quality"]
+    assert tuple(a["backlog_priority_projection_not_original_score"]) == NEW_KEYS
+    assert b["backlog_priority_projection_not_original_score"] == b["quality"]

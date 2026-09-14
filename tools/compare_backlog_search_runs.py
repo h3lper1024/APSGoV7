@@ -1,7 +1,8 @@
-"""Compare two audited runs with identical requests; never run or change a solver."""
+"""Compare frozen runs; policy changes and non-publishable diagnostics require explicit opt-in."""
 
 import argparse
 from collections import Counter, defaultdict
+from dataclasses import replace
 from decimal import Decimal
 from itertools import groupby
 from pathlib import Path
@@ -15,6 +16,8 @@ for directory in (ROOT, ROOT / "src"):
 
 from apsgo_scheduler.core.contracts import sum_weights
 from apsgo_scheduler.core.chain_order import has_backlog_priority
+from apsgo_scheduler.app.delivery_request import with_delivery_objective
+from apsgo_scheduler.app.rule_set_loader import fingerprint_rule_set_spec
 from tools.profile_solver_search import load_request
 from tools.replay_backlog_search_witnesses import load_case, read_json, report_with_positions
 from tools.verify_solver_diagnostics import _sha256, _write_json
@@ -45,22 +48,30 @@ def backlog_summary(orders):
                 tail=[row for row in backlog if row["completion_hours"] >= cutoff])
 
 
-def read_run(path):
+def read_run(path, *, allow_diagnostic=False):
     measurement = read_json(path / "measurement.json")
     result, final = measurement["result"], measurement["final_search"]
-    if not result["release"] or not result["core_audit"]["passed"] or not result["audit_report"]["passed"]:
+    published = bool(result["release"])
+    both_audits = result["core_audit"]["passed"] and result["audit_report"]["passed"]
+    if (published and not both_audits) or (not published and not allow_diagnostic):
         raise ValueError(f"both release audits must pass: {path}")
+    candidate = result["release"] if published else result["diagnostic_candidate"]
+    if candidate is None:
+        raise ValueError(f"comparison requires an actual candidate: {path}")
     state, context = load_case(path)  # Recompute the complete evaluation and verify its frozen identity.
     if tuple(final["quality"]) != state.current_evaluation.quality_key:
         raise ValueError(f"summary quality differs from recomputed evaluation: {path}")
     for key in ("candidate_check_count", "complete_candidate_evaluation_count", "accepted_move_count"):
         if final[key] != result["run_manifest"]["counters"][key]:
             raise ValueError(f"summary and result counters differ: {key}")
-    if result["release"]["plan"] != final["plan"] or result["release"]["evaluation"] != final["evaluation"]:
-        raise ValueError(f"release and final search differ: {path}")
+    if candidate["plan"] != final["plan"] or candidate["evaluation" if published else "search_evaluation"] != final["evaluation"]:
+        raise ValueError(f"returned candidate and final search differ: {path}")
     report = report_with_positions(state.current_plan, context.factory.cache.context.delivery_timing,
                                    include_backlog_clearance=has_backlog_priority(context.factory.cache.rule_set))
     stored = read_json(path / "delivery_report.json")
+    expected_kind = "audited_release" if published else "diagnostic_candidate_not_publishable"
+    if stored.get("kind") != expected_kind:
+        raise ValueError(f"report publication label differs: {path}")
     bare_orders = [{key: value for key, value in row.items() if key != "pieces"} for row in report["delivery_orders"]]
     if (bare_orders != stored["delivery_orders"] or report["delivery_summary"] != stored["delivery_summary"]
             or report["delivery_nodes"] != stored["delivery_nodes"]):
@@ -85,21 +96,23 @@ def read_run(path):
         path=str(path), hashes={name: _sha256(path / name) for name in (
             "input_binding.json", "prepared_request.json", "execution.log", "measurement.json", "delivery_report.json")},
         code=read_json(path / "input_binding.json")["code"], status=result["status"], quality=quality,
-        both_audits_passed=True, source_conservation_passed=True,
-        quality_gate="PASS" if quality["prohibited_violation_count"] == quality["underweight_chain_count"] == 0
+        both_audits_passed=both_audits, source_conservation_passed=True,
+        quality_gate="NOT_PUBLISHABLE" if not published else "PASS" if quality["prohibited_violation_count"] == quality["underweight_chain_count"] == 0
             and virtual_weight / total <= Decimal("0.05") else "BEST_EFFORT",
         wall_seconds=measurement["public_call_wall_seconds"], cpu_seconds=measurement["public_call_cpu_seconds"],
         stage_seconds=result["run_manifest"]["stage_duration_seconds"],
         counters=result["run_manifest"]["counters"], stop_reason=final["stop_reason"],
         accepted_actions=dict(Counter(row["action_name"] for row in final["trace"])),
         virtual_count=len(virtual), virtual_weight=virtual_weight, virtual_ratio=virtual_weight / total,
-        violations=result["release"]["evaluation"]["violations"],
+        violations=final["evaluation"]["violations"],
         backlog=backlog_summary(report["delivery_orders"]), delivery=report["delivery_summary"],
         due_groups={day: dict(order_count=len(rows), newly_late_count=sum(row["newly_late"] for row in rows),
                     newly_late_weight=sum_weights(row["original_weight"] for row in rows if row["newly_late"]),
                     tardiness_tonne_hours=sum_weights(row["delivery_wait_tardiness_tonne_hours"] for row in rows))
                     for day, rows in sorted(due_groups.items())},
     )
+    if not published:
+        summary.update(kind=expected_kind, core_audit=result["core_audit"], application_audit=result["audit_report"])
     if (path / "search_opportunities.json").exists():
         opportunities = read_json(path / "search_opportunities.json")
         start_line = next(line for line in (path / "execution.log").read_text().splitlines()
@@ -115,11 +128,26 @@ def read_run(path):
     return request, measurement, report, summary
 
 
-def compare(old_path, new_path):
-    old_request, old, old_report, old_summary = read_run(old_path)
-    new_request, new, new_report, new_summary = read_run(new_path)
-    if old_request != new_request:
+def verify_comparison_requests(old, new, *, backlog_priority=False):
+    if not backlog_priority:
+        if old == new:
+            return
         raise ValueError("comparison requires identical typed requests, rules, timing and budgets")
+    if replace(new, rule_set_spec=old.rule_set_spec) != old:
+        raise ValueError("backlog-priority comparison may change only the rule-set extension")
+    # Reuse the production preparation contract instead of accepting arbitrary rule/priority differences.
+    spec = old.rule_set_spec
+    seven = replace(spec, version=spec.version.removesuffix("+delivery-v1"), rules=spec.rules[:-1],
+                    quality_spec=(*spec.quality_spec[:4], *spec.quality_spec[6:]))
+    seven = replace(seven, fingerprint=fingerprint_rule_set_spec(seven))
+    if with_delivery_objective(seven) != spec or with_delivery_objective(seven, include_backlog_clearance=True) != new.rule_set_spec:
+        raise ValueError("comparison requires the exact approved backlog-priority extension")
+
+
+def compare(old_path, new_path, *, backlog_priority=False, allow_diagnostic=False):
+    old_request, old, old_report, old_summary = read_run(old_path, allow_diagnostic=allow_diagnostic)
+    new_request, new, new_report, new_summary = read_run(new_path, allow_diagnostic=allow_diagnostic)
+    verify_comparison_requests(old_request, new_request, backlog_priority=backlog_priority)
     before = {row["source_order_id"]: row for row in old_report["delivery_orders"]}
     changes = []
     for row in new_report["delivery_orders"]:
@@ -135,7 +163,7 @@ def compare(old_path, new_path):
             break
         common += 1
     summary = dict(scope="same_request_search_only_comparison_not_new_scoring_or_performance_acceptance",
-        identical_request=True, first_search_equal=old["first_search"] == new["first_search"],
+        identical_request=old_request == new_request, first_search_equal=old["first_search"] == new["first_search"],
         final_search_equal=old["final_search"] == new["final_search"],
         delivery_report_equal=old_report == new_report,
         common_accepted_prefix=common,
@@ -148,6 +176,26 @@ def compare(old_path, new_path):
         rescued_order_ids=[row["source_order_id"] for row in changes if row["old"]["newly_late"] and not row["new"]["newly_late"]],
         regressed_order_ids=[row["source_order_id"] for row in changes if not row["old"]["newly_late"] and row["new"]["newly_late"]],
     )
+    if backlog_priority:
+        summary["scope"] = "same_input_approved_backlog_priority_extension_not_performance_acceptance"
+        summary["initial_plan_equal"] = old["first_search"]["initial"]["plan"] == new["first_search"]["initial"]["plan"]
+        for item in summary["runs"]:
+            named = {**item["quality"], "old_backlog_last_completion_hours":
+                     item["backlog"]["clearance"].get("100", {}).get("completion_hours", Decimal(0))}
+            item["backlog_priority_projection_not_original_score"] = {
+                criterion.metric_key: named[criterion.metric_key] for criterion in new_request.rule_set_spec.quality_spec}
+        without_scores = [[{k: v for k, v in row.items() if k not in ("quality_before", "quality_after")}
+                           for row in trace] for trace in traces]
+        count = 0
+        for a, b in zip(*without_scores):
+            if a != b:
+                break
+            count += 1
+        summary["common_acceptance_prefix_excluding_scores"] = count
+        summary["first_different_acceptance_excluding_scores"] = {
+            name: trace[count] if count < len(trace) else None for name, trace in zip(("old", "new"), traces)}
+    if allow_diagnostic:
+        summary["includes_non_publishable_diagnostic"] = any(not row["both_audits_passed"] for row in summary["runs"])
     return summary, changes
 
 
@@ -157,8 +205,10 @@ def main():
     parser.add_argument("--new", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--observed-repeat", type=Path)
+    parser.add_argument("--backlog-priority", action="store_true", help="Permit only the approved scoring extension")
+    parser.add_argument("--allow-diagnostic", action="store_true", help="Label non-publishable candidates; never mark their audits passed")
     args = parser.parse_args()
-    summary, changes = compare(args.old, args.new)
+    summary, changes = compare(args.old, args.new, backlog_priority=args.backlog_priority, allow_diagnostic=args.allow_diagnostic)
     if args.observed_repeat is not None:
         repeated, _ = compare(args.new, args.observed_repeat)
         checks = {key: repeated[key] for key in ("first_search_equal", "final_search_equal", "delivery_report_equal")}
