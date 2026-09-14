@@ -81,6 +81,19 @@ def observe_recipes(original, observations):
             stats["candidate_checks"] += 1 + after["candidate_check_count"] - before["candidate_check_count"]
             stats["complete_evaluations"] += after["complete_candidate_evaluation_count"] - before["complete_candidate_evaluation_count"]
             stats["accepted"] += after["accepted_move_count"] - before["accepted_move_count"]
+            if after["accepted_move_count"] != before["accepted_move_count"]:
+                old_virtual = {node.node_id: node for chain in chains for node in chain.nodes if node.virtual_lineage}
+                new_virtual = {node.node_id: node for chain in state.current_plan.chains for node in chain.nodes if node.virtual_lineage}
+                removed = [old_virtual[key] for key in old_virtual.keys() - new_virtual.keys()]
+                added = [new_virtual[key] for key in new_virtual.keys() - old_virtual.keys()]
+                if removed or added:
+                    observations.setdefault("virtual_changes", []).append(dict(
+                        accepted_sequence=state.accepted_move_count, action=action,
+                        removed=[dict(node_id=node.node_id, purpose=node.virtual_lineage.purpose, weight=node.weight)
+                                 for node in sorted(removed, key=lambda n: n.node_id)],
+                        added=[dict(node_id=node.node_id, sequence=node.virtual_lineage.accepted_sequence, weight=node.weight)
+                               for node in sorted(added, key=lambda n: n.node_id)],
+                        virtual_sequence=state.virtual_sequence))
     return observed
 
 
@@ -90,6 +103,7 @@ def observe_lane_batches(observations):
     streams = {}
     original_iterators = width_optimization._backlog_iterators
     original_batch = width_optimization._scan_width_batch
+    original_cleanup = width_optimization._bridge_reclamation_recipes
 
     def iterators(*args, **kwargs):
         result = original_iterators(*args, **kwargs)
@@ -98,6 +112,11 @@ def observe_lane_batches(observations):
             streams.clear()
         if lane is not None:
             streams.update((stream, "critical" if lane else "normal") for stream in result)
+        return result
+
+    def cleanup(*args, **kwargs):
+        result = original_cleanup(*args, **kwargs)
+        streams[result] = "cleanup"
         return result
 
     def batch(state, context, recipes, callback, allowance):
@@ -117,7 +136,8 @@ def observe_lane_batches(observations):
                 stats[key] = stats.get(key, 0) + value - before[key]
 
     with patch.object(width_optimization, "_backlog_iterators", iterators), \
-         patch.object(width_optimization, "_scan_width_batch", batch):
+         patch.object(width_optimization, "_scan_width_batch", batch), \
+         patch.object(width_optimization, "_bridge_reclamation_recipes", cleanup):
         yield
 
 

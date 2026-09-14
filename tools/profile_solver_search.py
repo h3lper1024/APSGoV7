@@ -92,6 +92,7 @@ def _snapshot(state, context):
     stop = context.factory.budget.stop_reason
     return _json_values({
         **_counters(state, context),
+        "virtual_sequence": state.virtual_sequence,
         "problem_fingerprint": cache.problem.input_fingerprint,
         "plan": state.current_plan,
         "plan_fingerprint": fingerprint(state.current_plan),
@@ -116,6 +117,11 @@ def measure(request, *, scope="first", profile=None, result_observer=None):
         raise ValueError("scope must be first or full")
     report, functions, observed = {}, [], []
     original_search = solver.run_local_search
+    original_refinement = solver.run_width_optimization
+
+    def refinement(state, context):
+        report["pre_refinement"] = _snapshot(state, context)
+        return original_refinement(state, context)
 
     def timed(name, original):
         def wrapped(state, context):
@@ -162,7 +168,8 @@ def measure(request, *, scope="first", profile=None, result_observer=None):
             raise FirstSearchComplete
 
     started, cpu_started = perf_counter(), process_time()
-    with patch.object(solver, "run_local_search", first_search):
+    with patch.object(solver, "run_local_search", first_search), \
+         patch.object(solver, "run_width_optimization", refinement):
         try:
             result = solve_request(request)
         except FirstSearchComplete:

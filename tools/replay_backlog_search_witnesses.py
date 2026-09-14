@@ -1,6 +1,7 @@
 """Reproduce two independent backlog moves through production acceptance and audit."""
 
 import argparse
+from dataclasses import replace
 from decimal import Decimal
 import json
 from pathlib import Path
@@ -18,7 +19,7 @@ from apsgo_scheduler.app.rule_set_loader import load_rule_set
 from apsgo_scheduler.core.budget import SolveRuntimeBudget
 from apsgo_scheduler.core.chain_order import delivery_node_positions
 from apsgo_scheduler.core.compatibility import RuleEdgeDecisionCache
-from apsgo_scheduler.core.contracts import ControlledSplitMode, CoreCandidateSnapshot, fingerprint
+from apsgo_scheduler.core.contracts import ControlledSplitMode, CoreCandidateSnapshot, fingerprint, require_int
 from apsgo_scheduler.core.evaluation import evaluate_plan
 from apsgo_scheduler.core.final_audit import audit_core_without_search_cache
 from apsgo_scheduler.core.model import (
@@ -64,7 +65,7 @@ def read_plan(raw):
     return SchedulePlan(tuple(chains))
 
 
-def load_case(run):
+def load_case(run, *, require_virtual_sequence=False):
     request = load_request(run / "prepared_request.json")
     measurement = read_json(run / "measurement.json")
     snapshot = measurement["final_search"]
@@ -79,12 +80,18 @@ def load_case(run):
     if fingerprint(plan) != snapshot["plan_fingerprint"] or fingerprint(evaluation) != snapshot["evaluation_fingerprint"]:
         raise ValueError("frozen plan or recomputed evaluation identity differs")
     counters = measurement["result"]["run_manifest"]["counters"]
-    sequence = max((n.virtual_lineage.accepted_sequence for c in plan.chains for n in c.nodes if n.virtual_lineage), default=0)
+    surviving = max((n.virtual_lineage.accepted_sequence for c in plan.chains for n in c.nodes if n.virtual_lineage), default=0)
+    if require_virtual_sequence and "virtual_sequence" not in snapshot:
+        raise ValueError("legacy snapshot has no accepted virtual sequence; generation cannot resume")
+    sequence = snapshot.get("virtual_sequence", surviving)
+    require_int(sequence, "snapshot virtual_sequence", minimum=surviving)
     state = SearchState(plan, evaluation, counters["accepted_move_count"], sequence,
                         counters["accepted_split_count"], counters["accepted_same_period_split_count"],
                         counters["accepted_future_borrow_return_count"])
     budget = SolveRuntimeBudget.from_policy(request.policy, monotonic())
-    context = SearchContext(VirtualFactory(RuleEdgeDecisionCache(problem, rules, rule_context), budget), request.policy)
+    # Legacy snapshots support read-only audit and no-new-bridge witnesses, not generation resume.
+    policy = request.policy if "virtual_sequence" in snapshot else replace(request.policy, maximum_virtual_bridge_nodes=0)
+    context = SearchContext(VirtualFactory(RuleEdgeDecisionCache(problem, rules, rule_context), budget), policy)
     return state, context
 
 

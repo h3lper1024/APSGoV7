@@ -10,6 +10,7 @@ from .chain_order import (
     chain_order_objective_index,
     has_production_order_rule,
     has_delivery_objective,
+    has_second_precision_delivery,
     delivery_chain_indices,
     stable_group_plan,
     refinement_admissible,
@@ -187,6 +188,14 @@ def _split_lineage(subject, decision, weights, partition_id):
     )
 
 
+def is_ordinary_bridge(node):
+    return (
+        node.material_role is MaterialRole.GENERATED_VIRTUAL
+        and node.virtual_lineage.purpose is VirtualPurpose.EDGE_BRIDGE
+        and node.virtual_lineage.related_partition_id is None
+    )
+
+
 def _split_donor_sides(donor, parent):
     """Remove only interface bridges made obsolete with the split parent."""
     position = next(
@@ -196,17 +205,10 @@ def _split_donor_sides(donor, parent):
     if position is None:
         return None
 
-    def is_edge_bridge(node):
-        return (
-            node.material_role is MaterialRole.GENERATED_VIRTUAL
-            and node.virtual_lineage.purpose is VirtualPurpose.EDGE_BRIDGE
-            and node.virtual_lineage.related_partition_id is None
-        )
-
     left, right = position, position + 1
-    while left and is_edge_bridge(donor.nodes[left - 1]):
+    while left and is_ordinary_bridge(donor.nodes[left - 1]):
         left -= 1
-    while right < len(donor.nodes) and is_edge_bridge(donor.nodes[right]):
+    while right < len(donor.nodes) and is_ordinary_bridge(donor.nodes[right]):
         right += 1
     prefix, suffix = donor.nodes[:left], donor.nodes[right:]
     if (
@@ -359,11 +361,11 @@ def _authorized_split_replacement(state, context, plan, affected, subject, decis
     return budget.allows_search()
 
 
-def _width_candidate_nodes_valid(plan, before, after, context):
+def _width_candidate_nodes_valid(plan, before, after, context, removed_bridge_ids=()):
     """Preserve old nodes and validate only newly proposed interface bridges."""
     budget, factory = context.factory.budget, context.factory
     for identity, node in before.items():
-        if not budget.allows_search() or after.get(identity) != node:
+        if not budget.allows_search() or (identity not in removed_bridge_ids and after.get(identity) != node):
             return False
     prototypes = {item.prototype_id: item for item in factory.cache.problem.virtual_prototypes}
     for chain in plan.chains:
@@ -424,6 +426,7 @@ def try_complete_candidate(
     split_decision: ControlledSplitDecision | None = None,
     chain_order_only: bool = False,
     width_optimization_only: bool = False,
+    removed_bridge_ids: tuple[str, ...] = (),
 ) -> bool:
     """Evaluate one structurally complete candidate; no business-wide hard filters."""
     _validate_search(state, context)
@@ -441,6 +444,9 @@ def try_complete_candidate(
         raise ValueError("split_subject and split_decision must be a typed pair or both absent")
     chains = freeze_tuple(chains, Chain, "chains")
     affected = _identities(affected_chain_ids, "affected_chain_ids")
+    removed = freeze_tuple(removed_bridge_ids, str, "removed_bridge_ids")
+    if removed:
+        removed = _identities(removed, "removed_bridge_ids")
     require_int(virtual_sequence, "virtual_sequence")
     require_text(action_name, "action_name")
     if virtual_sequence < state.virtual_sequence:
@@ -449,6 +455,9 @@ def try_complete_candidate(
     if not set(affected) <= current.keys():
         raise ValueError("affected chain identity is absent from the current plan")
     budget, cache = context.factory.budget, context.factory.cache
+    if removed and (not width_optimization_only or chain_order_only or split_subject is not None
+                    or not has_second_precision_delivery(cache.rule_set)):
+        return False
     order_index = (
         chain_order_objective_index(cache.rule_set)
         if chain_order_only or width_optimization_only
@@ -498,6 +507,11 @@ def try_complete_candidate(
         return False
     before = {node.node_id: node for chain in state.current_plan.chains for node in chain.nodes}
     after = {node.node_id: node for chain in plan.chains for node in chain.nodes}
+    if removed:
+        eligible = {node.node_id for chain in state.current_plan.chains if chain.chain_id in affected
+                    for node in chain.nodes if is_ordinary_bridge(node)}
+        if set(removed) != before.keys() - after.keys() or not set(removed) <= eligible:
+            return False
     if split_subject is None:
         if {
             key: node
@@ -535,7 +549,7 @@ def try_complete_candidate(
         for offset, sequence in enumerate(sorted(new_sequences), start=1)
     ):
         return False
-    if width_optimization_only and not _width_candidate_nodes_valid(plan, before, after, context):
+    if width_optimization_only and not _width_candidate_nodes_valid(plan, before, after, context, frozenset(removed)):
         return False
     # Split authorization consumes the local append order; group only after all locks pass.
     if has_production_order_rule(cache.rule_set):
@@ -610,6 +624,9 @@ def try_complete_candidate(
         quality_before=trace.quality_before,
         quality_after=trace.quality_after,
         candidate_check_count=trace.candidate_check_count,
+        **({"removed_bridge_ids": removed,
+            "removed_bridge_weight": sum_weights(before[key].weight for key in removed),
+            "virtual_sequence": state.virtual_sequence} if removed else {}),
     )
     return True
 

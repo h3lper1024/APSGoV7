@@ -47,9 +47,46 @@ def test_lane_observer_preserves_actual_search_and_accounts_all_checks():
     assert fingerprint(first) == fingerprint(second)
     assert first_context.factory.budget.candidate_check_count == second_context.factory.budget.candidate_check_count
     lanes = observations["lanes"]
-    assert set(lanes) == {"critical", "normal"}
+    assert set(lanes) == {"critical", "normal", "cleanup"}
+    assert lanes["cleanup"]["candidate_check_count"] == 0
     assert sum(row["candidate_check_count"] for row in lanes.values()) == second_context.factory.budget.candidate_check_count
     assert sum(row["accepted_move_count"] for row in lanes.values()) == second.accepted_move_count
+
+
+def test_snapshot_high_watermark_survives_reclamation_and_legacy_cannot_resume_generation(tmp_path):
+    from tools.replay_backlog_search_witnesses import load_case, read_json
+    from tools.profile_solver_search import _snapshot
+    from apsgo_scheduler.api.json_codec import dumps_exact_json
+    from tests.app.test_backlog_priority_preparation import save_run
+    from tests.core.test_backlog_priority_objective import tradeoff_case
+    from tests.core.search.test_bridge_reclamation import case, attempt
+    state, context, bridges = case()
+    assert attempt(state, context, bridges)
+    assert _snapshot(state, context)["virtual_sequence"] == 9
+    request, _, _ = tradeoff_case(second_precision=True)
+    run = tmp_path / "run"
+    save_run(run, request)
+    value = read_json(run / "measurement.json")
+    value["final_search"]["virtual_sequence"] = 99
+    (run / "measurement.json").write_text(dumps_exact_json(value))
+    assert load_case(run, require_virtual_sequence=True)[0].virtual_sequence == 99
+    for invalid in (-1, True):
+        value["final_search"]["virtual_sequence"] = invalid
+        (run / "measurement.json").write_text(dumps_exact_json(value))
+        with pytest.raises(ValueError):
+            load_case(run)
+    value["final_search"].pop("virtual_sequence")
+    (run / "measurement.json").write_text(dumps_exact_json(value))
+    with pytest.raises(ValueError, match="generation cannot resume"):
+        load_case(run, require_virtual_sequence=True)
+    assert load_case(run)[1].policy.maximum_virtual_bridge_nodes == 0
+
+
+def test_snapshot_compatibility_does_not_hide_present_sequence_mismatch():
+    from tools.compare_backlog_search_runs import snapshots_equal
+    assert snapshots_equal({"plan": 1}, {"plan": 1, "virtual_sequence": 9})
+    assert not snapshots_equal({"plan": 1}, {"plan": 2, "virtual_sequence": 9})
+    assert not snapshots_equal({"plan": 1, "virtual_sequence": 8}, {"plan": 1, "virtual_sequence": 9})
 
 
 def test_tail_includes_ties_without_mutating_input():
@@ -60,7 +97,7 @@ def test_tail_includes_ties_without_mutating_input():
 
 @pytest.mark.parametrize("accepted,raises", [(False, False), (True, False), (False, True)])
 def test_probe_forwards_once_preserves_results_and_accounts_scanner_and_bridge_checks(accepted, raises):
-    node = SimpleNamespace(source_order_id="old", node_id="piece")
+    node = SimpleNamespace(source_order_id="old", node_id="piece", virtual_lineage=None)
     chains = [SimpleNamespace(chain_id="source", nodes=(node,)), SimpleNamespace(chain_id="target", nodes=())]
     state = SimpleNamespace(current_plan=SimpleNamespace(chains=chains), accepted_move_count=0)
     budget = SimpleNamespace(candidate_check_count=1)

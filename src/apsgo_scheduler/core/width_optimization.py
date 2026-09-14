@@ -3,7 +3,7 @@
 from dataclasses import replace
 from collections import deque
 from decimal import Decimal
-from itertools import pairwise, permutations, zip_longest
+from itertools import chain as iter_chain, pairwise, permutations, zip_longest
 
 from .chain_order import chain_order_objective_index, stable_group_plan, has_delivery_objective, delivery_chain_indices, delivery_node_positions, refinement_admissible, has_second_precision_delivery, critical_delivery_positions
 from .contracts import SearchStopReason, fingerprint, sum_weights
@@ -14,6 +14,7 @@ from .neighborhoods import (
     _normalize_chain,
     _relocate_chain,
     _validate_search,
+    is_ordinary_bridge,
     try_complete_candidate,
 )
 from .rules.base import ChainRuleSubject, PlanRuleSubject, RuleDisposition
@@ -115,21 +116,39 @@ def _try_intra_move(state, context, recipe):
     if not _has_real(moved):
         return False
     pieces = (old.nodes[:position], moved, old.nodes[position:start], old.nodes[start + 1:])
-    nodes, sequence = (), state.virtual_sequence
-    for piece in pieces:
-        joined = _boundary_join(nodes, piece, context, sequence)
-        if joined is None:
-            return False
-        nodes, sequence = joined
-    changed = replace(old, nodes=nodes)
-    if _weight_rejects(changed, context):
-        return False
-    candidate = list(state.current_plan.chains)
-    candidate[i] = changed
-    return try_complete_candidate(
-        state, context, tuple(candidate), affected_chain_ids=(old.chain_id,),
-        virtual_sequence=sequence, action_name=action, width_optimization_only=True,
-    )
+    for parts, removed in _edit_variants((pieces,), context):
+        if _try_repaired_parts(state, context, (i,), parts, action, removed):
+            return True
+    return False
+
+
+def _edit_variants(parts, context):
+    """One cleaned repair then the unchanged repair, not every seam subset."""
+    budget = context.factory.budget
+    if has_second_precision_delivery(context.factory.cache.rule_set):
+        cleaned, removed = [], []
+        for pieces in parts:
+            trimmed = []
+            for index, piece in enumerate(pieces):
+                left, right = 0, len(piece)
+                while index and left < right and is_ordinary_bridge(piece[left]):
+                    if not budget.allows_search():
+                        return
+                    left += 1
+                while index < len(pieces) - 1 and right > left and is_ordinary_bridge(piece[right - 1]):
+                    if not budget.allows_search():
+                        return
+                    right -= 1
+                removed.extend(node.node_id for node in piece[:left] + piece[right:])
+                trimmed.append(piece[left:right])
+            cleaned.append(tuple(trimmed))
+        if removed:
+            yield tuple(cleaned), tuple(removed)
+            # The scanner pays for the first version; this distinct fallback pays again.
+            if not budget.consume_candidate_check():
+                return
+    if budget.allows_search():
+        yield parts, ()
 
 
 def _has_real(nodes):
@@ -535,23 +554,33 @@ def _try_segment_edit(state, context, recipe):
         (donor.nodes[:start], exchanged, donor.nodes[stop:]),
         (target.nodes[:other_start], moved, target.nodes[other_stop:]),
     )
+    for variant, removed in _edit_variants(parts, context):
+        if _try_repaired_parts(state, context, (i, j), variant, action, removed):
+            return True
+    return False
+
+
+def _try_repaired_parts(state, context, indices, parts, action, removed):
+    """Both versions share the existing complete repair and acceptance boundary."""
+    budget, chains = context.factory.budget, state.current_plan.chains
     raw_nodes = tuple(tuple(node for part in pieces for node in part) for pieces in parts)
     if not all(_has_real(nodes) for nodes in raw_nodes):
         return False
     changed = tuple(
         _normalize_chain(replace(old, nodes=nodes), context)
-        for old, nodes in zip((donor, target), raw_nodes)
+        for old, nodes in zip((chains[index] for index in indices), raw_nodes)
     )
     candidate = list(chains)
-    candidate[i], candidate[j] = changed
+    for index, chain in zip(indices, changed):
+        candidate[index] = chain
     # Normalize before screening: an interior move can move a whole chain to a
     # later period and change external boundaries without changing its endpoints.
-    if not _width_improves(tuple(candidate), state, context):
+    if len(indices) > 1 and not _width_improves(tuple(candidate), state, context):
         return False
-    if any(_weight_rejects(chain, context, before_bridge=True) for chain in changed):
+    if len(indices) > 1 and any(_weight_rejects(chain, context, before_bridge=True) for chain in changed):
         return False
     sequence = state.virtual_sequence
-    for index, raw, pieces in zip((i, j), changed, parts):
+    for index, raw, pieces in zip(indices, changed, parts):
         nodes = ()
         for piece in pieces:
             joined = _boundary_join(nodes, piece, context, sequence)
@@ -566,10 +595,11 @@ def _try_segment_edit(state, context, recipe):
         state,
         context,
         tuple(candidate),
-        affected_chain_ids=(donor.chain_id, target.chain_id),
+        affected_chain_ids=tuple(chains[index].chain_id for index in indices),
         virtual_sequence=sequence,
         action_name=action,
         width_optimization_only=True,
+        removed_bridge_ids=removed,
     )
 
 
@@ -610,10 +640,64 @@ def _try_chain_order(state, context, recipe):
     )
 
 
+def _bridge_reclamation_recipes(state, context, progress, affected=()):
+    """Visit each current ordinary segment once, with stable hints and full wraparound."""
+    chains, budget = state.current_plan.chains, context.factory.budget
+    previous = next((i for i, chain in enumerate(chains) if chain.chain_id == progress["after_chain"]), -1)
+    order = (*range(previous + 1, len(chains)), *range(previous + 1))
+    order = (*[i for i in order if chains[i].chain_id in affected],
+             *[i for i in order if chains[i].chain_id not in affected])
+    for i in order:
+        chain, segments, position = chains[i], [], 0
+        while position < len(chain.nodes):
+            if not budget.allows_search():
+                return
+            if not is_ordinary_bridge(chain.nodes[position]):
+                position += 1
+                continue
+            start = position
+            while position < len(chain.nodes) and is_ordinary_bridge(chain.nodes[position]):
+                if not budget.allows_search():
+                    return
+                position += 1
+            segments.append((start, position))
+        if chain.chain_id == progress["after_chain"] and chain.chain_id not in affected:
+            previous_segment = next((j for j, (start, stop) in enumerate(segments)
+                                     if any(n.node_id == progress["after_node"] for n in chain.nodes[start:stop])), -1)
+            segments = segments[previous_segment + 1:] + segments[:previous_segment + 1]
+        for start, stop in segments:
+            proposals = iter_chain(((start, stop),),
+                                   ((j, j + 1) for j in range(start, stop) if stop - start > 1))
+            for left, right in proposals:
+                if not budget.allows_search():
+                    return
+                progress.update(after_chain=chain.chain_id, after_node=chain.nodes[right - 1].node_id)
+                yield ("width_bridge_reclamation", i, left, right)
+
+
+def _try_bridge_reclamation(state, context, recipe):
+    _, i, start, stop = recipe
+    chain, budget = state.current_plan.chains[i], context.factory.budget
+    if not budget.allows_search() or not 0 <= start < stop <= len(chain.nodes):
+        return False
+    removed = chain.nodes[start:stop]
+    if not all(is_ordinary_bridge(node) for node in removed):
+        return False
+    if start and stop < len(chain.nodes) and not context.factory.cache.allows(chain.nodes[start - 1], chain.nodes[stop]):
+        return False
+    candidate = list(state.current_plan.chains)
+    candidate[i] = replace(chain, nodes=chain.nodes[:start] + chain.nodes[stop:])
+    return try_complete_candidate(state, context, tuple(candidate), affected_chain_ids=(chain.chain_id,),
+        virtual_sequence=state.virtual_sequence, action_name=recipe[0], width_optimization_only=True,
+        removed_bridge_ids=tuple(node.node_id for node in removed))
+
+
 def _try_width_recipe(state, context, recipe):
     action = recipe[0]
     if action == "delivery_intra_move":
         return _try_intra_move(state, context, recipe)
+    if action == "width_bridge_reclamation":
+        return _try_bridge_reclamation(state, context, recipe)
     if action in (
         "width_node_move",
         "width_node_exchange",
@@ -718,6 +802,8 @@ def _scan_critical_families(state, context, try_recipe):
     progress = [[dict(after_order=None, targets={}) for _ in range(5)] for _ in range(2)]
     next_family, next_lane = [0, 0], 0
     previous_critical, affected = set(), set()
+    cleanup_progress = dict(after_chain=None, after_node=None)
+    first_cleanup, changed = True, set()
     while budget.allows_search():
         before = state.current_plan
         positions, critical = critical_delivery_positions(before, context.factory.cache.context)
@@ -729,11 +815,16 @@ def _scan_critical_families(state, context, try_recipe):
         streams = [_backlog_iterators(state, context, progress=progress[lane], positions=positions,
                                      critical_ids=critical_ids, critical_lane=lane == 0,
                                      revisit=revisit if lane == 0 else ()) for lane in range(2)]
-        sizes = (3, 5)
+        cleanup = _bridge_reclamation_recipes(state, context, cleanup_progress, changed)
+        streams[1].append(cleanup)
+        sizes = (3, 6)
         pending = [deque((next_family[lane] + offset) % size for offset in range(size))
                    for lane, size in enumerate(sizes)]
         accepted = False
-        while any(pending) and budget.allows_search():
+        if first_cleanup:
+            first_cleanup = False
+            accepted, _ = _scan_width_batch(state, context, cleanup, try_recipe, 64)
+        while not accepted and any(pending) and budget.allows_search():
             lane = next_lane if pending[next_lane] else 1 - next_lane
             family = pending[lane].popleft()
             accepted, exhausted = _scan_width_batch(state, context, streams[lane][family], try_recipe, 64)

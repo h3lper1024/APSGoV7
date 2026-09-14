@@ -1,0 +1,68 @@
+{
+  "run": "diagnostics/critical_delivery_search_and_bridge_reclamation/stage3_witnesses_01",
+  "production_source_sha256": "1c33e3047ffa324a4270401ec07b2155da13916e88d63eeb00389dedb7e00494",
+  "source": "diagnostics/backlog_priority_search/stage5_2_second_precision_1000000_01",
+  "hashes": {
+    "delivery_report.json": "f710b6e6909ca6e066e4f5d01dc5191cb6df4cf2be80b16fbedbdba536d69845",
+    "measurement.json": "2347046de89d0d667531f272a9b4311638ec245da4e7565266c53617c55a64db",
+    "prepared_request.json": "7737d235bb5d8c4b0758f696d65a772f397c4200c4c1c125263dfc72bf7db444"
+  },
+  "scope": "independent_witnesses_core_audit_only_not_full_solve_or_application_release",
+  "ordinary_bridge_count": 45,
+  "accepted_deletions": [
+    "virtual-000059",
+    "virtual-000060",
+    "virtual-000044",
+    "virtual-000003",
+    "virtual-000058",
+    "virtual-000049",
+    "virtual-000053",
+    "virtual-000002",
+    "virtual-000050",
+    "virtual-000036",
+    "virtual-000038",
+    "virtual-000032",
+    "virtual-000045",
+    "virtual-000035"
+  ],
+  "protected_counterexample": {
+    "accepted": false,
+    "candidate_checks": 1,
+    "chain_id": "width-cut-b5e47101ba84453637f1032e6b4a4190947a1ae7597d18ae9019c8c3f29a3c1c",
+    "complete_evaluations": 0,
+    "core_audit_passed": false,
+    "improves": true,
+    "node_id": "virtual-000025",
+    "ordinary": false,
+    "purpose": "split_separator",
+    "quality": [
+      0,
+      "0.0",
+      0,
+      "0.0",
+      "279.6152777777777777777777778",
+      "559301.5406555555555555555556",
+      "14406.0",
+      "1200.0",
+      26
+    ],
+    "weight": "20.0"
+  },
+  "enumeration": {
+    "checked": 400000,
+    "counts": {
+      "delivery_intra_move": 7753,
+      "width_block_exchange": 122428,
+      "width_block_move": 41348,
+      "width_bridge_reclamation": 51,
+      "width_chain_cut": 64250,
+      "width_chain_order_relocation": 394,
+      "width_node_exchange": 63002,
+      "width_node_move": 100774
+    },
+    "found": {
+      "at_candidate_check": 30396
+    },
+    "stop_reason": "candidate_limit_reached"
+  }
+}

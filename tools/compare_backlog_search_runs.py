@@ -160,6 +160,14 @@ def verify_comparison_requests(old, new, *, backlog_priority=False, second_preci
         raise ValueError("comparison requires the exact approved backlog-priority extension")
 
 
+def snapshots_equal(old, new):
+    if "virtual_sequence" in old and "virtual_sequence" in new:
+        return old == new
+    # Old diagnostic metadata is absent, not evidence that the old high watermark was zero.
+    return {k: v for k, v in old.items() if k != "virtual_sequence"} == {
+        k: v for k, v in new.items() if k != "virtual_sequence"}
+
+
 def compare(old_path, new_path, *, backlog_priority=False, allow_diagnostic=False, second_precision=False):
     old_request, old, old_report, old_summary = read_run(old_path, allow_diagnostic=allow_diagnostic)
     new_request, new, new_report, new_summary = read_run(new_path, allow_diagnostic=allow_diagnostic)
@@ -179,8 +187,10 @@ def compare(old_path, new_path, *, backlog_priority=False, allow_diagnostic=Fals
             break
         common += 1
     summary = dict(scope="same_request_search_only_comparison_not_new_scoring_or_performance_acceptance",
-        identical_request=old_request == new_request, first_search_equal=old["first_search"] == new["first_search"],
-        final_search_equal=old["final_search"] == new["final_search"],
+        identical_request=old_request == new_request,
+        first_search_equal=all(snapshots_equal(old["first_search"][part], new["first_search"][part]) for part in ("initial", "final")),
+        final_search_equal=snapshots_equal(old["final_search"], new["final_search"]),
+        virtual_sequence_metadata_compared=all("virtual_sequence" in run["final_search"] for run in (old, new)),
         delivery_report_equal=old_report == new_report,
         common_accepted_prefix=common,
         first_different_acceptance={key: trace[common] if common < len(trace) else None
