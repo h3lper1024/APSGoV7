@@ -227,3 +227,89 @@ def test_backlog_families_retain_complete_shapes_and_unique_exchange_ownership(m
         actual = [canonical(recipe) for recipe in after]
         assert set(actual) == expected
         assert len(actual) == len(set(actual))
+
+
+def test_backlog_fixed_family_quota_resumes_rejections_and_counts_bridge_work(monkeypatch):
+    from apsgo_scheduler.core import width_optimization as width
+    state, context = scan_case(401)
+    monkeypatch.setattr(width, "_backlog_iterators", lambda *a, **kw: [iter([(i, j) for j in range(200)]) for i in range(5)])
+    visits = []
+
+    def reject(current, bound, recipe):
+        visits.append(recipe)
+        if len(visits) == 1:
+            assert bound.factory.budget.consume_candidate_check()  # Existing bridge debit.
+        return False
+
+    width._scan_backlog_families(state, context, reject)
+    assert visits[:320] == [(i, j) for i in range(5) for j in range(64)]
+    assert visits[320:384] == [(0, j) for j in range(64, 128)]
+    assert visits[384:] == [(1, j) for j in range(64, 80)]
+    assert context.factory.budget.candidate_check_count == 401
+    assert context.factory.budget.stop_reason is SearchStopReason.CANDIDATE_LIMIT_REACHED
+
+
+def test_backlog_acceptance_rebuilds_all_streams_and_visits_next_family(monkeypatch):
+    from apsgo_scheduler.core import width_optimization as width
+    state, context = scan_case(30)
+    visits, plans = [], []
+
+    def streams(current, bound, **kwargs):
+        plans.append(fingerprint(current.current_plan))
+        accepted = current.accepted_move_count
+        return [iter([(i, accepted, j) for j in range(2)]) for i in range(5)]
+
+    def apply(current, bound, recipe):
+        visits.append(recipe)
+        if recipe != (0, 0, 0):
+            return False
+        a, b = current.current_plan.chains
+        return try_complete_candidate(current, bound,
+            (replace(a, nodes=a.nodes[:-1]), replace(b, nodes=(*b.nodes, a.nodes[-1]))),
+            affected_chain_ids=("A", "B"), virtual_sequence=current.virtual_sequence,
+            action_name="backlog_scan_guard_test_move", width_optimization_only=True)
+
+    monkeypatch.setattr(width, "_backlog_iterators", streams)
+    width._scan_backlog_families(state, context, apply)
+    assert visits == [(0, 0, 0)] + [(i, 1, j) for i in (1, 2, 3, 4, 0) for j in range(2)]
+    assert len(plans) == 2 and plans[0] != plans[1]
+    assert state.accepted_move_count == 1
+    assert context.factory.budget.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE
+
+
+def test_visit_hints_survive_reindexing_but_never_omit_new_plan_candidates(monkeypatch):
+    from apsgo_scheduler.core import width_optimization as width
+    from apsgo_scheduler.core.model import SchedulePlan
+    state, context = scan_case(100000)
+
+    def positions(plan, *_args, **_kwargs):
+        return tuple((i, j) for i, chain in enumerate(plan.chains) for j in range(len(chain.nodes)))
+
+    monkeypatch.setattr(width, "delivery_node_positions", positions)
+    progress = [dict(after_order=None, targets={}) for _ in range(5)]
+    for stream in width._backlog_iterators(state, context, progress=progress):
+        next(stream, None)
+    a, b = state.current_plan.chains
+    # A disappears and all old offsets change; stable identity hints are only preferences.
+    state.current_plan = SchedulePlan((replace(b, nodes=(*reversed(a.nodes), *b.nodes)),))
+    fresh = width._backlog_iterators(state, context)
+    resumed = width._backlog_iterators(state, context, progress=progress)
+    assert [set(stream) for stream in resumed] == [set(stream) for stream in fresh]
+
+
+def test_round_robin_polls_cancellation_even_when_all_streams_are_empty():
+    from apsgo_scheduler.core.width_optimization import _round_robin
+    _, context = scan_case()
+
+    class Token:
+        calls = 0
+
+        def is_cancelled(self):
+            self.calls += 1
+            return self.calls >= 7
+
+    token = Token()
+    context.factory.budget.cancellation = token
+    assert list(_round_robin((iter(()) for _ in range(10000)), context.factory.budget)) == []
+    assert token.calls < 20
+    assert context.factory.budget.stop_reason is SearchStopReason.USER_CANCELLED

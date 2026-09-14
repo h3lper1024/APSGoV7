@@ -27,7 +27,9 @@ from apsgo_scheduler.core.model import (
 from apsgo_scheduler.core.neighborhoods import SearchContext
 from apsgo_scheduler.core.rules.base import RuleEvaluationContext
 from apsgo_scheduler.core.virtual_material import VirtualFactory
-from apsgo_scheduler.core.width_optimization import _delivery_node_recipes, _try_segment_edit
+from apsgo_scheduler.core.width_optimization import (
+    _backlog_iterators, _delivery_node_recipes, _scan_backlog_families, _try_segment_edit,
+)
 from apsgo_v7_service.diagnostics import _json_values
 from tools.profile_solver_search import load_request
 from tools.verify_solver_diagnostics import _code_identity, _sha256, _write_json
@@ -103,10 +105,56 @@ def report_with_positions(plan, timing):
     return report
 
 
+def probe_opportunities(run):
+    """Observe generic enumeration; target identities never influence its order."""
+    state, context = load_case(run)
+    targets = {}
+    for key, slot in (("0002002009-000020", 38), ("0030117283-000020", 23)):
+        source, node = next((i, j) for i, c in enumerate(state.current_plan.chains)
+                            for j, n in enumerate(c.nodes) if n.source_order_id == key)
+        destination = next(i for i, c in enumerate(state.current_plan.chains) if c.chain_id == "initial-000003")
+        targets[("width_node_move", source, destination, node, node + 1, slot, slot)] = key
+    ranks = delivery_node_positions(state.current_plan, context.factory.cache.context.delivery_timing, backlog_first=True)
+    node_ordinals = {}
+    for ordinal, recipe in enumerate(_backlog_iterators(state, context)[1], 1):
+        if recipe in targets:
+            node_ordinals[targets[recipe]] = ordinal
+        if len(node_ordinals) == len(targets):
+            break
+    state, context = load_case(run)
+    family_counts, found = {}, {}
+
+    def observe(current, bound, recipe):
+        family_counts[recipe[0]] = family_counts.get(recipe[0], 0) + 1
+        if recipe in targets:
+            found[targets[recipe]] = bound.factory.budget.candidate_check_count
+        return False
+
+    _scan_backlog_families(state, context, observe)
+    direct_slots = {}
+    for recipe, key in targets.items():
+        _, i, j, start, _, witness_slot, _ = recipe
+        node, target = state.current_plan.chains[i].nodes[start], state.current_plan.chains[j]
+        cache = context.factory.cache
+        eligible = [slot for slot in range(len(target.nodes) + 1)
+                    if (slot == 0 or cache.allows(target.nodes[slot - 1], node))
+                    and (slot == len(target.nodes) or cache.allows(node, target.nodes[slot]))]
+        direct_slots[key] = dict(total_slots=len(target.nodes) + 1, direct_slots=eligible,
+                                 witness_rank_among_direct_slots=eligible.index(witness_slot) + 1)
+    return dict(scope="enumeration_only_no_candidate_construction_no_quality_comparison",
+                code=_code_identity(ROOT), node_family_ordinals=node_ordinals,
+                source_ranks={key: ranks.index((recipe[1], recipe[3])) + 1 for recipe, key in targets.items()},
+                all_family_found_at_check=found, proposals_by_action=family_counts,
+                read_only_direct_connection_diagnosis=direct_slots,
+                checked=context.factory.budget.candidate_check_count, stop_reason=context.factory.budget.stop_reason.value,
+                plan_unchanged=fingerprint(state.current_plan) == read_json(run / "measurement.json")["final_search"]["plan_fingerprint"])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline-manifest", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--opportunities", action="store_true", help="Observe new enumeration only, never apply the witness moves")
     args = parser.parse_args()
     started, cpu = perf_counter(), process_time()
     baseline = read_json(args.baseline_manifest)
@@ -119,6 +167,12 @@ def main():
         if _sha256(ROOT / name) != expected:
             raise ValueError(f"protected input differs: {name}")
     args.output_dir.mkdir(parents=True, exist_ok=False)
+    if args.opportunities:
+        report = probe_opportunities(run)
+        report.update(wall_seconds=Decimal(str(perf_counter() - started)), cpu_seconds=Decimal(str(process_time() - cpu)))
+        _write_json(args.output_dir / "opportunities.json", report)
+        print(json.dumps({key: value for key, value in report.items() if key != "code"}, ensure_ascii=False, default=str))
+        return
     state, context = load_case(run)
     old_report = report_with_positions(state.current_plan, context.factory.cache.context.delivery_timing)
     _write_json(args.output_dir / "baseline_orders.json", old_report)

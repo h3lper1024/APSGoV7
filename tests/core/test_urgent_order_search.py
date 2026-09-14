@@ -229,3 +229,34 @@ def test_intra_failed_seam_and_cancellation_leave_state_untouched(monkeypatch):
     run_width_optimization(state, context)
     assert context.factory.budget.stop_reason is SearchStopReason.USER_CANCELLED
     assert state.current_plan is before
+
+
+def test_actual_backlog_scan_preserves_sources_underweight_guards_and_audit():
+    request, state, context = audited_case()
+    request = replace(request, delivery_timing=replace(request.delivery_timing,
+        orders=tuple(replace(order, due_date="2026-05-31") for order in request.delivery_timing.orders)))
+    problem = normalize_input(request)
+    rules = context.factory.cache.rule_set
+    rule_context = replace(context.factory.cache.context, delivery_timing=problem.delivery_timing)
+    context = SearchContext(VirtualFactory(RuleEdgeDecisionCache(problem, rules, rule_context),
+                            budget(candidate_check_limit=400)), request.policy)
+    state.current_evaluation = evaluate_plan(state.current_plan, rules, rule_context)
+    before = state.current_evaluation.quality_key
+    run_width_optimization(state, context)
+    assert state.current_evaluation.quality_key <= before
+    assert all(t.quality_after[2] <= t.quality_before[2] and t.quality_after[3] <= t.quality_before[3]
+               for t in context.accepted_move_traces)
+    assert audit_core_without_search_cache(CoreCandidateSnapshot(state.current_plan, state.current_evaluation),
+                                          problem, rules, budget()).report.passed
+    assert context.factory.budget.candidate_check_count <= 400
+
+
+def test_no_backlog_never_uses_the_new_family_scanner(monkeypatch):
+    from apsgo_scheduler.core import width_optimization as width
+    _, state, context = search_case()
+
+    def forbidden(*args):
+        raise AssertionError("no-backlog path changed")
+
+    monkeypatch.setattr(width, "_scan_backlog_families", forbidden)
+    run_width_optimization(state, context)
