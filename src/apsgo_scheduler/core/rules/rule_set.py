@@ -81,10 +81,12 @@ class ProcessRuleSet:
                 "old_backlog_last_completion_hours" if backlog_priority else "newly_late_original_weight",
                 "delivery_wait_tardiness_tonne_hours",
             )
+            second_precision = any(isinstance(rule, DeliveryDuePerformanceRule) and rule.second_precision
+                                   for rule in enabled)
             prefix = (
                 *PROHIBITED_METRIC_KEYS, *delivery_metrics,
                 "underweight_chain_count", "underweight_total_gap",
-            ) if backlog_priority else (
+            ) if backlog_priority and not second_precision else (
                 *PROHIBITED_METRIC_KEYS, "underweight_chain_count", "underweight_total_gap",
                 *delivery_metrics,
             )

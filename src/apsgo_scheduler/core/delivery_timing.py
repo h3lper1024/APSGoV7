@@ -16,6 +16,24 @@ def _context():
     return Context(prec=28, rounding=ROUND_HALF_EVEN)
 
 
+def score_time_seconds(hours):
+    """Round a completed duration, never a node's contribution to the running clock."""
+    require_decimal(hours, "score_hours", nonnegative=True)
+    exact = Context(prec=max(28, len(hours.as_tuple().digits) + 4), rounding=ROUND_HALF_EVEN)
+    return exact.multiply(hours, Decimal(3600)).to_integral_value(rounding=ROUND_HALF_EVEN)
+
+
+def weighted_wait_seconds(weight, hours):
+    seconds = score_time_seconds(hours)
+    require_decimal(weight, "original_weight", positive=True)
+    exact = Context(prec=len(weight.as_tuple().digits) + len(seconds.as_tuple().digits) + 1)
+    return exact.multiply(weight, seconds)
+
+
+def score_seconds_to_hours(seconds):
+    return _context().divide(seconds, Decimal(3600))
+
+
 def production_hours(weight, width, thickness, speed):
     """Tonnes, millimetres and metres/minute to hours, without display rounding."""
     for name, value in zip(("weight", "width", "thickness", "speed"),
@@ -144,10 +162,12 @@ class DeliveryPerformance:
     old_backlog_last_completion_hours: Decimal
 
 
-def evaluate_delivery(plan, timing, *, details=False):
+def evaluate_delivery(plan, timing, *, details=False, second_precision=False):
     """One ordered scan; split orders complete only at their last real fragment."""
     if not isinstance(timing, DeliveryTiming):
         raise ValueError("delivery evaluation requires validated task timing")
+    if type(second_precision) is not bool:
+        raise ValueError("second_precision must be boolean")
     completion, weights, rows, seen = {}, {}, [], set()
     with localcontext(_context()):
         clock = Decimal(0)
@@ -177,11 +197,19 @@ def evaluate_delivery(plan, timing, *, details=False):
         ):
             raise ValueError("delivery evaluation requires conserved original order weights")
         newly_late, burden, clearance = Decimal(0), Decimal(0), Decimal(0)
+        seconds_burdens = []
         for key, order in timing.orders.items():
             finish = completion[key]
             if order.due_hours <= 0:
                 clearance = max(clearance, finish)
             if order.due_hours > 0 and finish > order.due_hours:
                 newly_late += order.weight
-            burden += order.weight * max(Decimal(0), finish - max(Decimal(0), order.due_hours))
+            wait = max(Decimal(0), finish - max(Decimal(0), order.due_hours))
+            if second_precision:
+                seconds_burdens.append(weighted_wait_seconds(order.weight, wait))
+            else:
+                burden += order.weight * wait
+        if second_precision:
+            burden = score_seconds_to_hours(sum_weights(seconds_burdens))
+            clearance = score_seconds_to_hours(score_time_seconds(clearance))
     return DeliveryPerformance(newly_late, burden, MappingProxyType(completion), tuple(rows), clearance)

@@ -23,6 +23,11 @@ def has_backlog_priority(rule_set) -> bool:
                for rule in rule_set.rules)
 
 
+def has_second_precision_delivery(rule_set) -> bool:
+    return any(isinstance(rule, DeliveryDuePerformanceRule) and rule.second_precision
+               for rule in rule_set.rules)
+
+
 def has_production_order_rule(rule_set) -> bool:
     return has_inter_chain_width_rule(rule_set) or has_delivery_objective(rule_set)
 

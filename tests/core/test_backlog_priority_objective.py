@@ -78,13 +78,13 @@ def test_rule_keeps_unscored_tonnage_and_disabled_semantics():
     assert len(replace(rule, parameters={}).metric_keys()) == 2
 
 
-def tradeoff_case(*, backlog_priority=True, backlog=True, minimum="800"):
+def tradeoff_case(*, backlog_priority=True, backlog=True, minimum="800", second_precision=False):
     base, _, _ = search_case(delivery=False, allow_underweight=True)
     weight, width = base.rule_set_spec.rules
     spec = make_spec(rules=(replace(weight, parameters={**weight.parameters, "min_weight": D(minimum)}), width),
                      quality_spec=base.rule_set_spec.quality_spec,
                      allowed_final_deviation_codes=base.rule_set_spec.allowed_final_deviation_codes)
-    spec = with_delivery_objective(spec, include_backlog_clearance=backlog_priority)
+    spec = with_delivery_objective(spec, include_backlog_clearance=backlog_priority, second_precision=second_precision)
     orders = tuple(make_order(i, weight=D(w), width=D(1000), source_period="P0")
                    for i, w in enumerate(("700", "100", "700", "100")))
     raw = DeliveryTimingInput("2026-06-01T23:00:00+08:00", tuple(

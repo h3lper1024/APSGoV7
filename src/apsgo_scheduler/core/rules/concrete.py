@@ -39,14 +39,23 @@ class DeliveryDuePerformanceRule(Rule):
     def __post_init__(self):
         Rule.__post_init__(self)
         if self.enabled and (
-            set(self.parameters) - {"include_backlog_clearance"}
+            set(self.parameters) - {"include_backlog_clearance", "score_time_unit"}
             or type(self.parameters.get("include_backlog_clearance", False)) is not bool
         ):
             raise ValueError("delivery performance only accepts boolean include_backlog_clearance")
+        if self.enabled and ("score_time_unit" in self.parameters or self.version == "3") and (
+            self.parameters.get("score_time_unit") != "second"
+            or not self.include_backlog_clearance or self.version != "3"
+        ):
+            raise ValueError("second precision requires rule version 3, backlog clearance and score_time_unit=second")
 
     @property
     def include_backlog_clearance(self):
         return self.enabled and self.parameters.get("include_backlog_clearance", False)
+
+    @property
+    def second_precision(self):
+        return self.enabled and self.parameters.get("score_time_unit") == "second"
 
     def required_fields(self):
         return ()
@@ -63,7 +72,7 @@ class DeliveryDuePerformanceRule(Rule):
             raise UnsupportedRuleSubjectError(type(subject))
         if not self.enabled:
             return RuleContribution((), ())
-        result = evaluate_delivery(subject.plan, context.delivery_timing)
+        result = evaluate_delivery(subject.plan, context.delivery_timing, second_precision=self.second_precision)
         return RuleContribution((), tuple(
             MetricContribution(key, getattr(result, key)) for key in self.metric_keys()
         ))

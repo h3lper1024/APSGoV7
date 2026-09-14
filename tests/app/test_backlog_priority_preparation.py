@@ -144,7 +144,7 @@ def test_new_nine_readback_and_named_underweight_gate(tmp_path, monkeypatch):
     assert data["summaries"][0]["named_quality"]["underweight_chain_count"] == 0
 
 
-@pytest.mark.parametrize("variant", ["delivery", "delivery-backlog-priority"])
+@pytest.mark.parametrize("variant", ["delivery", "delivery-backlog-priority", "delivery-backlog-seconds"])
 def test_runner_variant_uses_real_preparation_and_bound_report(tmp_path, monkeypatch, variant):
     from tools.run_delivery_comparison import main
     old, rows = preparation()
@@ -163,5 +163,6 @@ def test_runner_variant_uses_real_preparation_and_bound_report(tmp_path, monkeyp
     request = load_request(output / "prepared_request.json")
     report = json.loads((output / "delivery_report.json").read_text(encoding="utf-8"))
     assert report["kind"] == "audited_release"
-    assert (CLEARANCE in report["delivery_summary"]) is (variant == "delivery-backlog-priority")
+    assert (CLEARANCE in report["delivery_summary"]) is (variant in ("delivery-backlog-priority", "delivery-backlog-seconds"))
     assert (tuple(c.metric_key for c in request.rule_set_spec.quality_spec) == NEW_KEYS) is (variant == "delivery-backlog-priority")
+    assert (report["delivery_summary"].get("delivery_score_time_unit") == "second") is (variant == "delivery-backlog-seconds")

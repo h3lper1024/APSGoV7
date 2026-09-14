@@ -15,7 +15,8 @@ for directory in (ROOT, ROOT / "src"):
         sys.path.insert(0, str(directory))
 
 from apsgo_scheduler.core.contracts import sum_weights
-from apsgo_scheduler.core.chain_order import has_backlog_priority
+from apsgo_scheduler.core.chain_order import has_backlog_priority, has_second_precision_delivery
+from apsgo_scheduler.core.evaluation import evaluate_plan
 from apsgo_scheduler.app.delivery_request import with_delivery_objective
 from apsgo_scheduler.app.rule_set_loader import fingerprint_rule_set_spec
 from tools.profile_solver_search import load_request
@@ -27,7 +28,8 @@ def backlog_summary(orders):
     backlog = sorted((row for row in orders if row["was_backlog_at_start"]),
                      key=lambda row: row["completion_hours"])
     weight = sum_weights(row["original_weight"] for row in backlog)
-    burden = sum_weights(row["delivery_wait_tardiness_tonne_hours"] for row in backlog)
+    burden = sum_weights(row.get("raw_delivery_wait_tardiness_tonne_hours", row["delivery_wait_tardiness_tonne_hours"])
+                         for row in backlog)
     milestones, daily = {}, defaultdict(list)
     completed = Decimal(0)
     for hours, group in groupby(backlog, key=lambda row: row["completion_hours"]):
@@ -67,7 +69,8 @@ def read_run(path, *, allow_diagnostic=False):
     if candidate["plan"] != final["plan"] or candidate["evaluation" if published else "search_evaluation"] != final["evaluation"]:
         raise ValueError(f"returned candidate and final search differ: {path}")
     report = report_with_positions(state.current_plan, context.factory.cache.context.delivery_timing,
-                                   include_backlog_clearance=has_backlog_priority(context.factory.cache.rule_set))
+                                   include_backlog_clearance=has_backlog_priority(context.factory.cache.rule_set),
+                                   second_precision=has_second_precision_delivery(context.factory.cache.rule_set))
     stored = read_json(path / "delivery_report.json")
     expected_kind = "audited_release" if published else "diagnostic_candidate_not_publishable"
     if stored.get("kind") != expected_kind:
@@ -108,7 +111,7 @@ def read_run(path, *, allow_diagnostic=False):
         backlog=backlog_summary(report["delivery_orders"]), delivery=report["delivery_summary"],
         due_groups={day: dict(order_count=len(rows), newly_late_count=sum(row["newly_late"] for row in rows),
                     newly_late_weight=sum_weights(row["original_weight"] for row in rows if row["newly_late"]),
-                    tardiness_tonne_hours=sum_weights(row["delivery_wait_tardiness_tonne_hours"] for row in rows))
+                    tardiness_tonne_hours=sum_weights(row.get("raw_delivery_wait_tardiness_tonne_hours", row["delivery_wait_tardiness_tonne_hours"]) for row in rows))
                     for day, rows in sorted(due_groups.items())},
     )
     if not published:
@@ -128,7 +131,18 @@ def read_run(path, *, allow_diagnostic=False):
     return request, measurement, report, summary
 
 
-def verify_comparison_requests(old, new, *, backlog_priority=False):
+def verify_comparison_requests(old, new, *, backlog_priority=False, second_precision=False):
+    if second_precision:
+        if backlog_priority or replace(new, rule_set_spec=old.rule_set_spec) != old:
+            raise ValueError("second-precision comparison may change only its approved rule extension")
+        spec = old.rule_set_spec
+        seven = replace(spec, version=spec.version.removesuffix("+delivery-backlog-priority-v1"),
+                        rules=spec.rules[:-1], quality_spec=(*spec.quality_spec[:2], *spec.quality_spec[4:]))
+        seven = replace(seven, fingerprint=fingerprint_rule_set_spec(seven))
+        if (with_delivery_objective(seven, include_backlog_clearance=True) != spec
+                or with_delivery_objective(seven, include_backlog_clearance=True, second_precision=True) != new.rule_set_spec):
+            raise ValueError("comparison requires the exact approved second-precision extension")
+        return
     if not backlog_priority:
         if old == new:
             return
@@ -144,10 +158,10 @@ def verify_comparison_requests(old, new, *, backlog_priority=False):
         raise ValueError("comparison requires the exact approved backlog-priority extension")
 
 
-def compare(old_path, new_path, *, backlog_priority=False, allow_diagnostic=False):
+def compare(old_path, new_path, *, backlog_priority=False, allow_diagnostic=False, second_precision=False):
     old_request, old, old_report, old_summary = read_run(old_path, allow_diagnostic=allow_diagnostic)
     new_request, new, new_report, new_summary = read_run(new_path, allow_diagnostic=allow_diagnostic)
-    verify_comparison_requests(old_request, new_request, backlog_priority=backlog_priority)
+    verify_comparison_requests(old_request, new_request, backlog_priority=backlog_priority, second_precision=second_precision)
     before = {row["source_order_id"]: row for row in old_report["delivery_orders"]}
     changes = []
     for row in new_report["delivery_orders"]:
@@ -184,6 +198,17 @@ def compare(old_path, new_path, *, backlog_priority=False, allow_diagnostic=Fals
                      item["backlog"]["clearance"].get("100", {}).get("completion_hours", Decimal(0))}
             item["backlog_priority_projection_not_original_score"] = {
                 criterion.metric_key: named[criterion.metric_key] for criterion in new_request.rule_set_spec.quality_spec}
+    if second_precision:
+        summary["scope"] = "same_input_approved_second_precision_and_underweight_priority_not_performance_acceptance"
+        summary["initial_plan_equal"] = old["first_search"]["initial"]["plan"] == new["first_search"]["initial"]["plan"]
+        _, new_context = load_case(new_path)
+        for item in summary["runs"]:
+            state, _ = load_case(Path(item["path"]))
+            evaluation = evaluate_plan(state.current_plan, new_context.factory.cache.rule_set,
+                                       new_context.factory.cache.context)
+            item["second_precision_projection_not_original_score"] = {
+                criterion.metric_key: value for criterion, value in zip(new_request.rule_set_spec.quality_spec, evaluation.quality_key)}
+    if backlog_priority or second_precision:
         without_scores = [[{k: v for k, v in row.items() if k not in ("quality_before", "quality_after")}
                            for row in trace] for trace in traces]
         count = 0
@@ -206,9 +231,11 @@ def main():
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--observed-repeat", type=Path)
     parser.add_argument("--backlog-priority", action="store_true", help="Permit only the approved scoring extension")
+    parser.add_argument("--second-precision", action="store_true", help="Compare historical backlog priority with the approved second-precision order")
     parser.add_argument("--allow-diagnostic", action="store_true", help="Label non-publishable candidates; never mark their audits passed")
     args = parser.parse_args()
-    summary, changes = compare(args.old, args.new, backlog_priority=args.backlog_priority, allow_diagnostic=args.allow_diagnostic)
+    summary, changes = compare(args.old, args.new, backlog_priority=args.backlog_priority,
+                               allow_diagnostic=args.allow_diagnostic, second_precision=args.second_precision)
     if args.observed_repeat is not None:
         repeated, _ = compare(args.new, args.observed_repeat)
         checks = {key: repeated[key] for key in ("first_search_equal", "final_search_equal", "delivery_report_equal")}

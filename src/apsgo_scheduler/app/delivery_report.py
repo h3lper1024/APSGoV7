@@ -4,16 +4,18 @@ from datetime import datetime, timedelta
 from decimal import Context, Decimal, ROUND_HALF_EVEN, localcontext
 
 from ..api.request import fingerprint_public_request
-from ..core.chain_order import has_backlog_priority, has_delivery_objective
+from ..core.chain_order import has_backlog_priority, has_delivery_objective, has_second_precision_delivery
 from ..core.contracts import fingerprint, sum_weights
-from ..core.delivery_timing import evaluate_delivery
+from ..core.delivery_timing import evaluate_delivery, score_time_seconds, weighted_wait_seconds, score_seconds_to_hours
 from .input_normalizer import normalize_input
 from .rule_set_loader import load_rule_set
 
 
-def delivery_plan_report(plan, timing, *, include_backlog_clearance=False):
+def delivery_plan_report(plan, timing, *, include_backlog_clearance=False, second_precision=False):
     """Also usable for a clearly labelled historical-plan comparison, not publication."""
-    performance = evaluate_delivery(plan, timing, details=True)
+    if second_precision and not include_backlog_clearance:
+        raise ValueError("second precision report requires backlog clearance")
+    performance = evaluate_delivery(plan, timing, details=True, second_precision=second_precision)
     start = datetime.fromisoformat(timing.schedule_start_at)
     with localcontext(Context(prec=28, rounding=ROUND_HALF_EVEN)):
         def at(hours):
@@ -37,6 +39,14 @@ def delivery_plan_report(plan, timing, *, include_backlog_clearance=False):
                 newly_late_original_weight=order.weight if late and not backlog else Decimal(0),
                 delivery_wait_tardiness_tonne_hours=order.weight * wait,
             ))
+            if second_precision:
+                tonne_seconds = weighted_wait_seconds(order.weight, wait)
+                orders[-1].update(
+                    raw_delivery_wait_tardiness_tonne_hours=order.weight * wait,
+                    score_wait_tardiness_seconds=score_time_seconds(wait),
+                    score_wait_tardiness_tonne_seconds=tonne_seconds,
+                    delivery_wait_tardiness_tonne_hours=score_seconds_to_hours(tonne_seconds),
+                )
         nodes = [dict(node_id=key, start_hours=before, completion_hours=after,
                       start_at=at(before), completion_at=at(after))
                  for key, before, after in performance.node_times]
@@ -52,6 +62,13 @@ def delivery_plan_report(plan, timing, *, include_backlog_clearance=False):
         )
         if include_backlog_clearance:
             summary["old_backlog_last_completion_hours"] = performance.old_backlog_last_completion_hours
+        if second_precision:
+            summary.update(
+                delivery_score_time_unit="second", delivery_score_rounding="half_even",
+                raw_old_backlog_last_completion_hours=max(
+                    (row["completion_hours"] for row in orders if row["was_backlog_at_start"]), default=Decimal(0)),
+                score_wait_tardiness_tonne_seconds=sum_weights(row["score_wait_tardiness_tonne_seconds"] for row in orders),
+            )
         for name, field in (("old_backlog", "was_backlog_at_start"), ("newly_late", "newly_late"), ("total_late", "is_late")):
             group = [row for row in orders if row[field]]
             summary[name + "_order_count"] = len(group)
@@ -81,7 +98,8 @@ def build_delivery_report(request, result):
         return None
     backlog_priority = has_backlog_priority(rules)
     report = delivery_plan_report(plan, problem.delivery_timing,
-                                  include_backlog_clearance=backlog_priority)
+                                  include_backlog_clearance=backlog_priority,
+                                  second_precision=has_second_precision_delivery(rules))
     delivery_metrics = ("newly_late_original_weight", "delivery_wait_tardiness_tonne_hours") + (
         ("old_backlog_last_completion_hours",) if backlog_priority else ()
     )
