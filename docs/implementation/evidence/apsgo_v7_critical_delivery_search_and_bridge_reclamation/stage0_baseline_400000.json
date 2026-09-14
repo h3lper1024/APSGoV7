@@ -1,0 +1,181 @@
+{
+  "path": "diagnostics/critical_delivery_search_and_bridge_reclamation/baseline_400000_01",
+  "hashes": {
+    "input_binding.json": "4253aba63cf4e11e2c2adc1adabf7f5cbe9127765c13052ba0a2702ad1c53125",
+    "prepared_request.json": "b94d979b3d5d6545a0b7bac9a01b49b89f4feda0582914a4ff07d4d35088ae6b",
+    "execution.log": "f660e3cf64afea383052e18350796c8e866416e659ce5e37a6b7175744dd64c5",
+    "measurement.json": "edf29ca0e849db8ea2ba5c8e40c80f6df31f34f4d76093c01a151820afede526",
+    "delivery_report.json": "2d5105789ad15afb368d4fe2e0afa8c5e0c478429d720a691a3e566e0d7591e6"
+  },
+  "code": {
+    "git_available": true,
+    "git_commit": "5b0c66244345bb48ccd1715576e09c8e42bf94ce",
+    "git_status": "",
+    "production_source_sha256": "5d078e03baf3b961843e948c8d6556dae762efd84e97686f77ed6b1ddd78b382"
+  },
+  "status": "success",
+  "quality": {
+    "prohibited_violation_count": 0,
+    "prohibited_violation_severity": "0.0",
+    "underweight_chain_count": 0,
+    "underweight_total_gap": "0.0",
+    "old_backlog_last_completion_hours": "505.1958333333333333333333333",
+    "delivery_wait_tardiness_tonne_hours": "754357.112475",
+    "inter_chain_width_gap": "15210.0",
+    "generated_virtual_weight": "580.0",
+    "chain_count": 25
+  },
+  "both_audits_passed": true,
+  "source_conservation_passed": true,
+  "quality_gate": "PASS",
+  "wall_seconds": "1181.7608834589992",
+  "cpu_seconds": "1177.1980959999999",
+  "stage_seconds": {
+    "construction_graph": "2.1481009170020116",
+    "controlled_split_and_replay": "248.01943379199656",
+    "core_audit": "0.08111312499386258",
+    "core_solve": "1180.4923939590008",
+    "initial_solution": "0.22299308299989207",
+    "input_normalization": "0.047922749996359926",
+    "input_validation": "0.023505249999288935",
+    "local_search": "156.0749095420033",
+    "minimum_path_cover": "0.39058983299764805",
+    "request_preparation": "0.00026987500314135104",
+    "result_assembly": "0.185387792000256",
+    "result_contract_audit": "0.4610219170062919",
+    "result_sealing": "0.26624258299852954",
+    "rule_loading": "0.0008867079959600233",
+    "service_to_result_audit_seconds": "1181.2075836250006",
+    "width_optimization": "773.2119447500008"
+  },
+  "counters": {
+    "accepted_future_borrow_return_count": 1,
+    "accepted_move_count": 880,
+    "accepted_same_period_split_count": 1,
+    "accepted_split_count": 2,
+    "candidate_check_count": 400000,
+    "complete_candidate_evaluation_count": 178216,
+    "final_chain_count": 25,
+    "graph_allowed_edge_count": 32536,
+    "graph_edge_check_count": 140715,
+    "initial_chain_count": 31,
+    "matching_edge_count": 514,
+    "path_count": 17
+  },
+  "stop_reason": "candidate_limit_reached",
+  "accepted_actions": {
+    "whole_chain_prepend": 3,
+    "whole_chain_insertion": 2,
+    "whole_chain_append": 5,
+    "real_node_relocation": 22,
+    "virtual_weight_fill": 14,
+    "chain_order_relocation": 366,
+    "controlled_order_split": 2,
+    "width_node_move": 213,
+    "width_block_move": 19,
+    "width_node_exchange": 24,
+    "width_block_exchange": 9,
+    "delivery_intra_move": 61,
+    "width_chain_order_relocation": 138,
+    "width_chain_cut": 2
+  },
+  "virtual_count": 29,
+  "virtual_weight": "580.0",
+  "virtual_ratio": "0.01938897322349368571343565585",
+  "violations": [],
+  "backlog": {
+    "order_count": 96,
+    "original_weight": "5386.03",
+    "burden_tonne_hours": "585042.00178281014441197649978308",
+    "weighted_mean_wait_hours": "108.6221208910477929777547655",
+    "clearance": {
+      "50": {
+        "completion_hours": "74.48321859521614876873004038",
+        "completion_at": "2026-06-04T02:28:59.586943+08:00",
+        "completed_original_weight": "2718.36"
+      },
+      "90": {
+        "completion_hours": "240.7394845289589879390354437",
+        "completion_at": "2026-06-11T00:44:22.144304+08:00",
+        "completed_original_weight": "4862.45"
+      },
+      "100": {
+        "completion_hours": "505.1958959552454752831519665",
+        "completion_at": "2026-06-22T01:11:45.225439+08:00",
+        "completed_original_weight": "5386.03"
+      }
+    },
+    "completed_original_weight_by_date": {
+      "2026-06-01": "710.04",
+      "2026-06-02": "1102.66",
+      "2026-06-03": "612.27",
+      "2026-06-04": "690.69",
+      "2026-06-05": "336.73",
+      "2026-06-06": "455.09",
+      "2026-06-07": "223.67",
+      "2026-06-08": "380.91",
+      "2026-06-09": "221.91",
+      "2026-06-10": "103.88",
+      "2026-06-11": "56.18",
+      "2026-06-12": "176.36",
+      "2026-06-13": "72.89",
+      "2026-06-14": "55.08",
+      "2026-06-15": "18.71",
+      "2026-06-16": "39.62",
+      "2026-06-17": "42.48",
+      "2026-06-18": "13.01",
+      "2026-06-19": "13.15",
+      "2026-06-21": "8.14",
+      "2026-06-22": "52.56"
+    }
+  },
+  "delivery": {
+    "schedule_start_at": "2026-06-01T00:00:00+08:00",
+    "timezone": "Asia/Shanghai",
+    "timing_semantics": "delivery_completion_hours_v1",
+    "timing_input_complete": true,
+    "newly_late_original_weight": "653.90",
+    "delivery_wait_tardiness_tonne_hours": "754357.112475",
+    "maximum_actual_tardiness_hours": "505.1958959552454752831519665",
+    "old_backlog_last_completion_at": "2026-06-22T01:11:45.225439+08:00",
+    "production_end_at": "2026-06-27T19:02:44.061496+08:00",
+    "production_end_hours": "643.0455726376568216796695317",
+    "old_backlog_last_completion_hours": "505.1958333333333333333333333",
+    "delivery_score_time_unit": "second",
+    "delivery_score_rounding": "half_even",
+    "raw_old_backlog_last_completion_hours": "505.1958959552454752831519665",
+    "score_wait_tardiness_tonne_seconds": "2715685604.91",
+    "old_backlog_order_count": 96,
+    "old_backlog_weight": "5386.03",
+    "newly_late_order_count": 12,
+    "newly_late_weight": "653.90",
+    "total_late_order_count": 108,
+    "total_late_weight": "6039.93"
+  },
+  "due_groups": {
+    "2026-06-05": {
+      "order_count": 6,
+      "newly_late_count": 3,
+      "newly_late_weight": "348.0",
+      "tardiness_tonne_hours": "137411.4860490372331201022124424"
+    },
+    "2026-06-10": {
+      "order_count": 20,
+      "newly_late_count": 8,
+      "newly_late_weight": "257.90",
+      "tardiness_tonne_hours": "30617.74025377828912677816762650"
+    },
+    "2026-06-15": {
+      "order_count": 5,
+      "newly_late_count": 1,
+      "newly_late_weight": "48.0",
+      "tardiness_tonne_hours": "1286.024209440398848654536322"
+    },
+    "2026-06-30": {
+      "order_count": 404,
+      "newly_late_count": 0,
+      "newly_late_weight": "0",
+      "tardiness_tonne_hours": "0.00"
+    }
+  }
+}

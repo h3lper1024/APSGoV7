@@ -4,11 +4,11 @@
 
 | 项目 | 内容 |
 |---|---|
-| 版本 / 日期 | v0.1 / 2026-09-14 |
+| 版本 / 日期 | v0.2 / 2026-09-14 |
 | 设计依据 | [关键交期候选调度与连接虚拟材回收专项设计](../design/apsgo_v7_critical_delivery_search_and_bridge_reclamation_design.md)；下文“设计第几节”均指该文件 |
 | 实施基线 | `codex/delivery-objective-optimization@896dba5`，编写前工作区干净；不创建或切换分支 |
-| 当前授权 | 先创建两份文档并同步 `AGENTS.md`；本轮不改代码/测试/配置/数据库，不执行完整求解 |
-| 实施状态 | 文档准备完成后等待代码实施指令；阶段 0～5 全部未执行 |
+| 当前授权 | 用户确认候选上限 400000，按本计划持续实施；每阶段提交，需要业务决策时暂停 |
+| 实施状态 | 文档准备已提交 `5b0c662`；阶段 0 已完成，提交身份以 Git 历史为准；阶段 1～5 未开始 |
 | 后续方式 | 获得持续实施授权后按依赖推进；每个阶段独立中文 `#feat` / `#fix` 提交，只在新决策或真实阻塞时暂停 |
 | 验证方式 | 不每个编辑小步重复测试；按阶段 1、3 的功能边界集中验证，阶段 2、4 完整对照，阶段 5 最终累计回归 |
 
@@ -39,7 +39,9 @@
 | 原七级实验输入 | `diagnostics/backlog_priority_search/input_budget1000000_search9999.json` |
 | 工时输入 | `diagnostics/delivery_objective/timing_source.json` |
 | 派生方式 | 复用 `tools/run_delivery_comparison.py --variant delivery-backlog-seconds`，不得从当前 SQLite 重新装配规则 |
-| 条件 | 531 单原顺序；种子 590531；起排 `2026-06-01T00:00:00+08:00`；虚拟速度 100 米/分钟；1000000 次检查、搜索 9999 秒、收尾 10 秒 |
+| 本轮条件 | 531 单原顺序；种子 590531；起排 `2026-06-01T00:00:00+08:00`；虚拟速度 100 米/分钟；400000 次检查、搜索 9999 秒、收尾 10 秒 |
+| 本轮同预算输入 | `diagnostics/urgent_order_search/input_budget400000_search9999.json`；SHA-256 `b569544c0497f7b7e554b53a27201bc65a02406730d0d8e65f8355cd8e8e0f55`；已逐值确认相对百万次输入只改候选上限 |
+| 本轮原代码基线 | `diagnostics/critical_delivery_search_and_bridge_reclamation/baseline_400000_01/`；原代码实际 400000 次、1181.760883 秒，零禁止/零欠重与双审计通过，旧欠 6 月 22 日 01:11:45 清空，本月 12 单/653.90 吨晚交；下面两项基线结果及执行为历史百万次 |
 | 规则指纹 | `e809e2eafbcd426527fe8f55d7971579ec8290b0b848cb8d1d6cae0f9f8a40dd`；这是试验请求，不代表正式库已启用 |
 | 基线结果 | 零禁止/零欠重；旧欠 6 月 12 日 16:10:53 清空；本月 15 单/677.06 吨晚交；虚拟 1220 吨、26 链、宽差 14406 |
 | 基线执行 | 1000000 次检查、433302 次完整评价、1408 接受；主运行 2829.531622 秒，重复 2787.722412 秒；均额度停止 |
@@ -63,7 +65,7 @@
 
 ## 3. 修改清单
 
-以下是后续计划范围，不是本轮已改文件。若需超出清单，先说明原因和边界。
+以下是计划范围，实际改动与验证以第 9 节为准。若需超出清单，先说明原因和边界。
 
 | 文件 / 模块 | 计划改动 | 对应阶段 |
 |---|---|---|
@@ -85,8 +87,8 @@
 
 | 阶段 | 完整名称 | 主要设计依据 | 依赖 | 计划提交信息 | 当前状态 |
 |---|---|---|---|---|---|
-| 文档准备 | 建立本专项设计与实施计划 | 用户本轮要求；设计第 1～8 节 | 核验当前分支及保护材料 | `#feat 编写关键交期搜索与连接虚拟材回收方案` | 仅文档交付；校验和提交见第 9/10 节 |
-| 0 | 冻结对照并固化有效移动与安全回收见证 | 第 2、3、7 节 | 获得代码实施指令 | `#feat 冻结关键交期与连接材回收诊断见证` | 未开始 |
+| 文档准备 | 建立本专项设计与实施计划 | 用户本轮要求；设计第 1～8 节 | 核验当前分支及保护材料 | `#feat 编写关键交期搜索与连接虚拟材回收方案` | 已完成：`5b0c662` |
+| 0 | 冻结对照并固化有效移动与安全回收见证 | 第 2、3、7 节 | 已获得持续实施指令 | `#feat 冻结关键交期与连接材回收诊断见证` | 已完成：见证、40 万次基线及工具检查通过 |
 | 1 | 实现关键候选调度与接受后续访 | 第 4、6、7 节 | 阶段 0 | `#feat 优先调度关键交期候选并保持常规搜索覆盖` | 未开始 |
 | 2 | 完成仅调度改进的完整对照 | 第 7 节 | 阶段 1 集中检查通过 | `#feat 记录关键交期候选调度完整对照` | 未开始 |
 | 3 | 实现普通连接虚拟材回收及结构动作接线 | 第 5、6、7 节 | 阶段 2 结果已独立保留 | `#feat 回收失效连接虚拟材并保留完整候选校验` | 未开始 |
@@ -97,7 +99,7 @@
 
 ### 阶段 0：冻结对照并固化见证
 
-**做什么**：核验第 2 节输入与源码，复用两份旧完整结果，保存完整原单位置和分组统计。建立一份小型见证，不运行新的完整排程。
+**做什么**：核验第 2 节输入与源码。按本轮新的 40 万次授权，先在原代码运行同预算完整基线；百万次历史结果保留供固定见证复现，不混作同预算结果。建立小型见证，保存完整原单位置和分组统计。
 
 必须固化的三个案例：
 
@@ -165,7 +167,7 @@
 | 检查点 | 必须覆盖的内容 | 验证安排 |
 |---|---|---|
 | 文档准备 | 文件归属、UTF-8 无 BOM、相对链接、设计/计划一致、三文件白名单、保护哈希、精确导出 | 仅静态检查；不跑业务测试/构建/完整求解 |
-| 阶段 0 | 原请求/产物身份；8.14 吨移动、普通桥接删除、分隔材反例；不写回旧方案 | 小型见证与薄工具检查，不跑全量排程 |
+| 阶段 0 | 原请求/产物身份；8.14 吨移动、普通桥接删除、分隔材反例；不写回旧方案 | 小型见证与薄工具检查；按新增授权补跑原代码 40 万次完整基线 |
 | 阶段 1 排序 | 无/有旧欠；本月已晚交和余量；多拆片原单；后移期序/剩余真实节点/期锁；稳定同分 | 复用 `tests/core/test_urgent_order_search.py` 等，小例集中运行 |
 | 阶段 1 调度 | 两队列并集、交换去重、长片段和整链保留、4/64 轮转、接受切换、空队列、回绕、取消/额度/自然停止 | 原扫描测试与新的必要案例；有效见证出现位置对照 |
 | 阶段 3 资格 | 普通桥接可删；真实材、分隔材、填充材、关联分区、未受影响链、冒用身份/用途不可删 | 原完整候选保护测试和正负见证 |
@@ -193,18 +195,18 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m 
   tests/architecture tests/api tests/app tests/core tests/service
 ```
 
-本轮没有执行这些业务测试；历史的 4023 项通过不能写成本专项已通过。
+实际测试结果逐阶段记入第 9 节；历史的 4023 项通过不能写成本专项已通过。
 
 ## 7. 完整运行与证据保存
 
-后续目录预定为 `diagnostics/critical_delivery_search_and_bridge_reclamation/`；阶段 0 获准实施时才创建，不建立空证据占位。小型可提交证据放在 `docs/implementation/evidence/apsgo_v7_critical_delivery_search_and_bridge_reclamation/`。旧样例订单号只允许用于见证，不进入生产排序。
+独立运行目录为 `diagnostics/critical_delivery_search_and_bridge_reclamation/`，小型可提交证据放在 `docs/implementation/evidence/apsgo_v7_critical_delivery_search_and_bridge_reclamation/`。旧样例订单号只允许用于见证，不进入生产排序。
 
-阶段 2 命令示例，**当前仅计划，不执行**：
+阶段 2 命令（阶段 0 基线沿用同参数，输出目录为 `baseline_400000_01`）：
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i \
   /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/run_delivery_comparison.py \
-  --prepared-request diagnostics/backlog_priority_search/input_budget1000000_search9999.json \
+  --prepared-request diagnostics/urgent_order_search/input_budget400000_search9999.json \
   --timing-source diagnostics/delivery_objective/timing_source.json \
   --start 2026-06-01T00:00:00+08:00 --virtual-speed 100 \
   --variant delivery-backlog-seconds \
@@ -218,7 +220,7 @@ PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i \
 ```sh
 PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
   tools/compare_backlog_search_runs.py \
-  --old diagnostics/backlog_priority_search/stage5_2_second_precision_1000000_01 \
+  --old diagnostics/critical_delivery_search_and_bridge_reclamation/baseline_400000_01 \
   --new diagnostics/critical_delivery_search_and_bridge_reclamation/search_only_01 \
   --output-dir diagnostics/critical_delivery_search_and_bridge_reclamation/compare_search_only_01
 ```
@@ -245,14 +247,15 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
 | 日期 / 阶段 | 实际动作 | 验证与结果 | 偏差 / 下一步 |
 |---|---|---|---|
 | 2026-09-14 文档准备 | 现场核验 `896dba5`、macOS、Conda 3.10.18；阅读现有调度、桥接回收先例、接受及审计边界；核对第 2 节九个保护哈希；仅创建两份专项文档并更新 `AGENTS.md` | 共享文档静态检查退出 0：3 文件 UTF-8 无 BOM、8 处新增/专项本地链接、9 个保护哈希、三文件白名单、6 阶段说明及跟踪表通过；`git diff --check` 通过。残留检查退出 1，仍仅历史八条缺失及汇总。最终精确暂存树导出同范围检查结果随本次提交正文保存 | 不改代码/测试/配置/数据库，不跑业务测试或完整求解；下一步等待阶段 0 实施指令 |
-| 阶段 0～5 | 未执行 | 无本专项代码测试、完整运行或采用结论 | 按第 4 节依赖推进，执行后逐阶段追加真实记录 |
+| 2026-09-14 授权与阶段 0 | 候选上限改为 400000，复用独立输入并证明仅上限差异；完成原代码完整基线；固化有效移动及安全回收正反例 | 两次有效见证运行均退出 0，45 个普通连接材中 14 个独立改善且核心审计通过；有效移动原提案位置 110116；3 项工具测试通过；9 项保护哈希不变。基线 400000 次/178216 次完整评价/880 次接受，1181.760883 秒，零禁止/零欠重与双审计通过 | 首次写出失败已修正，失败目录保留；旧欠 6 月 22 日清空，本月 12 单/653.90 吨晚交；见[阶段 0](evidence/apsgo_v7_critical_delivery_search_and_bridge_reclamation/stage0.md)，下一项阶段 1 |
+| 阶段 1～5 | 未执行 | 无新算法完整运行或采用结论 | 按第 4 节依赖推进，执行后逐阶段追加真实记录 |
 
 ## 10. 提交情况
 
 | 阶段 | 计划提交信息 | 实际提交 | 验证状态 / 证据 |
 |---|---|---|---|
-| 文档准备 | `#feat 编写关键交期搜索与连接虚拟材回收方案` | 本文档独立提交，身份以 Git 历史为准 | 共享文档静态检查通过；最终导出结果见提交正文；不代表代码实施 |
-| 0 | `#feat 冻结关键交期与连接材回收诊断见证` | 未提交 | 未执行 |
+| 文档准备 | `#feat 编写关键交期搜索与连接虚拟材回收方案` | `5b0c662` | 共享文档静态检查通过；最终导出结果见提交正文；不代表代码实施 |
+| 0 | `#feat 冻结关键交期与连接材回收诊断见证` | 本阶段独立提交，身份以 Git 历史为准 | 3 项工具检查及真实基线/见证通过，最终导出见提交正文 |
 | 1 | `#feat 优先调度关键交期候选并保持常规搜索覆盖` | 未提交 | 未执行 |
 | 2 | `#feat 记录关键交期候选调度完整对照` | 未提交 | 未执行 |
 | 3 | `#feat 回收失效连接虚拟材并保留完整候选校验` | 未提交 | 未执行 |
