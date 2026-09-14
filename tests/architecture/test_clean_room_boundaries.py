@@ -53,6 +53,20 @@ def check_source(source, path, package):
     assert not LINE_NAMES.search(source), f"Production line name: {path}"
     tree = ast.parse(source, filename=str(path))
     module = module_name(path, package)
+    approved_shape_numbers = set()
+    if module == "apsgo_scheduler.core.width_optimization":
+        # The approved three-node neighborhood and three critical families are
+        # algorithm shapes, not the historical three-violation benchmark result.
+        shapes = {
+            "_critical_recipe": ast.parse("stop - start > 3 or other_stop - other_start > 3", mode="eval").body,
+            "_scan_critical_families": ast.parse("sizes = (3, 6)").body[0],
+        }
+        for function in tree.body:
+            if isinstance(function, ast.FunctionDef) and function.name in shapes:
+                for expression in ast.walk(function):
+                    if ast.dump(expression) == ast.dump(shapes[function.name]):
+                        approved_shape_numbers.update(item for item in ast.walk(expression)
+                                                      if isinstance(item, ast.Constant))
     sys_aliases = {"sys"}
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -87,7 +101,7 @@ def check_source(source, path, package):
                 assert all(alias.name != "path" for alias in node.names), "No sys.path import"
         elif isinstance(node, ast.Constant):
             if type(node.value) in (int, float):
-                assert node.value not in BENCHMARK_NUMBERS, (
+                assert node.value not in BENCHMARK_NUMBERS or node in approved_shape_numbers, (
                     f"Benchmark numeric literal {node.value} in {path}:{node.lineno}"
                 )
             elif isinstance(node.value, str):
@@ -223,6 +237,24 @@ def test_source_guard_accepts_standard_library():
         PACKAGE / "core" / "example.py",
         PACKAGE,
     )
+
+
+@pytest.mark.parametrize("function,statement", [
+    ("_critical_recipe", "return stop - start > 3 or other_stop - other_start > 3"),
+    ("_scan_critical_families", "sizes = (3, 6)"),
+])
+def test_approved_search_shapes_do_not_allow_unrelated_benchmark_literals(function, statement):
+    path = PACKAGE / "core" / "width_optimization.py"
+    source = f"def {function}():\n    {statement}\n"
+    check_source(source, path, PACKAGE)
+    for changed, target in (
+        (source, PACKAGE / "core" / "example.py"),
+        (source.replace(function, "unrelated"), path),
+        (source + "    benchmark = 3\n", path),
+        (source.replace("3", "37"), path),
+    ):
+        with pytest.raises(AssertionError, match="Benchmark numeric literal"):
+            check_source(changed, target, PACKAGE)
 
 
 @pytest.mark.parametrize("source", ("import numpy as np", "from numba import njit"))
