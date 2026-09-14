@@ -1,0 +1,678 @@
+{
+  "candidate_limits": [
+    400000,
+    1000000
+  ],
+  "common_accepted_prefix": 804,
+  "completion_changes": {
+    "backlog": {
+      "earlier": 50,
+      "later": 46
+    },
+    "not_backlog": {
+      "earlier": 297,
+      "later": 138
+    }
+  },
+  "delivery_report_equal": false,
+  "final_search_equal": false,
+  "first_different_acceptance": {
+    "new": {
+      "action_name": "width_node_move",
+      "affected_chain_ids": [
+        "initial-000003",
+        "initial-000011"
+      ],
+      "affected_source_order_ids": [
+        "0002002177-000020",
+        "0002002180-000140",
+        "0030121196-000030",
+        "0030125168-000070",
+        "0030125168-000010",
+        "0010019718-000010",
+        "0030123654-000020",
+        "0030125168-000030",
+        "0030125168-000020",
+        "0030122897-000010",
+        "0030120727-000030",
+        "0030125168-000040",
+        "0030125168-000060",
+        "0030124800-000070",
+        "0002002176-000170",
+        "0002002202-000060",
+        "0002002170-000370",
+        "0002002202-000140",
+        "0030125207-000040",
+        "0002002185-000110",
+        "0002002202-000170",
+        "0002002202-000050",
+        "0002002195-000040",
+        "0030125207-000020",
+        "0002002195-000020",
+        "0002002170-000280",
+        "0002002176-000090",
+        "0002002170-000380",
+        "0002002195-000010",
+        "0002002180-000050",
+        "0002002195-000210",
+        "0030124871-000080",
+        "0002002170-000020",
+        "0002002170-000320",
+        "0030123255-000020",
+        "0030123256-000040",
+        "0030124871-000120",
+        "0030125150-000030",
+        "0030124683-000040",
+        "0030124735-000060",
+        "0030124567-000010",
+        "0030124731-000010",
+        "0030124871-000060",
+        "0030120939-000100",
+        "0030124824-000050",
+        "0030125207-000030",
+        "0002002176-000210",
+        "0002002195-000220",
+        "0002002184-000210",
+        "0002002180-000030",
+        "0002002170-000130"
+      ],
+      "candidate_check_count": 400303,
+      "quality_after": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "339.5922222222222222222222222",
+        "636763.3103138888888888888889",
+        "14874.0",
+        "820.0",
+        26
+      ],
+      "quality_before": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "339.5922222222222222222222222",
+        "636816.4265416666666666666667",
+        "14954.0",
+        "820.0",
+        26
+      ],
+      "sequence": 805
+    },
+    "old": null
+  },
+  "first_search_equal": true,
+  "identical_request": false,
+  "independent_core_reaudit_passed": [
+    true,
+    true
+  ],
+  "new_late_orders": [
+    {
+      "source_order_id": "0030120727-000030",
+      "due_date": "2026-06-05",
+      "original_weight": "300.0",
+      "completion_at": "2026-06-12T21:41:37.270600+08:00",
+      "actual_tardiness_hours": "165.6936862778950208365024841"
+    },
+    {
+      "source_order_id": "0030121690-000040",
+      "due_date": "2026-06-10",
+      "original_weight": "11.87",
+      "completion_at": "2026-06-11T15:14:06.282706+08:00",
+      "actual_tardiness_hours": "15.2350785295385484010083127"
+    },
+    {
+      "source_order_id": "0030121690-000010",
+      "due_date": "2026-06-10",
+      "original_weight": "23.0",
+      "completion_at": "2026-06-14T17:31:36.685742+08:00",
+      "actual_tardiness_hours": "89.5268571506435199586614118"
+    },
+    {
+      "source_order_id": "0030121346-000020",
+      "due_date": "2026-06-10",
+      "original_weight": "48.0",
+      "completion_at": "2026-06-12T05:19:14.649342+08:00",
+      "actual_tardiness_hours": "29.3207359283555689906768469"
+    },
+    {
+      "source_order_id": "0030121327-000010",
+      "due_date": "2026-06-10",
+      "original_weight": "24.0",
+      "completion_at": "2026-06-14T09:20:56.547857+08:00",
+      "actual_tardiness_hours": "81.3490410712590725930905858"
+    },
+    {
+      "source_order_id": "0030121196-000030",
+      "due_date": "2026-06-10",
+      "original_weight": "46.91",
+      "completion_at": "2026-06-11T20:48:33.458515+08:00",
+      "actual_tardiness_hours": "20.8092940318661067779994833"
+    },
+    {
+      "source_order_id": "0030121196-000020",
+      "due_date": "2026-06-10",
+      "original_weight": "24.0",
+      "completion_at": "2026-06-14T18:01:06.524832+08:00",
+      "actual_tardiness_hours": "90.0184791199471950289763723"
+    },
+    {
+      "source_order_id": "0030120940-000110",
+      "due_date": "2026-06-10",
+      "original_weight": "8.66",
+      "completion_at": "2026-06-14T11:23:07.080837+08:00",
+      "actual_tardiness_hours": "83.385300232587238690344135"
+    },
+    {
+      "source_order_id": "0030120939-000100",
+      "due_date": "2026-06-10",
+      "original_weight": "48.0",
+      "completion_at": "2026-06-15T01:49:12.187835+08:00",
+      "actual_tardiness_hours": "97.8200521764607299589164609"
+    },
+    {
+      "source_order_id": "0030120939-000090",
+      "due_date": "2026-06-10",
+      "original_weight": "24.0",
+      "completion_at": "2026-06-14T08:45:52.918840+08:00",
+      "actual_tardiness_hours": "80.7646996776790722661922118"
+    },
+    {
+      "source_order_id": "0030120940-000030",
+      "due_date": "2026-06-10",
+      "original_weight": "18.0",
+      "completion_at": "2026-06-11T18:26:09.349904+08:00",
+      "actual_tardiness_hours": "18.4359305287536858592937243"
+    },
+    {
+      "source_order_id": "0030120951-000010",
+      "due_date": "2026-06-10",
+      "original_weight": "32.24",
+      "completion_at": "2026-06-11T14:55:45.818575+08:00",
+      "actual_tardiness_hours": "14.9293940484842454586483922"
+    },
+    {
+      "source_order_id": "0030120865-000010",
+      "due_date": "2026-06-10",
+      "original_weight": "50.0",
+      "completion_at": "2026-06-14T08:19:23.109922+08:00",
+      "actual_tardiness_hours": "80.323086089568668869164611"
+    },
+    {
+      "source_order_id": "0030120757-000040",
+      "due_date": "2026-06-05",
+      "original_weight": "25.98",
+      "completion_at": "2026-06-14T07:30:00.631567+08:00",
+      "actual_tardiness_hours": "199.5001754351656335905347182"
+    },
+    {
+      "source_order_id": "0030120757-000020",
+      "due_date": "2026-06-05",
+      "original_weight": "17.37",
+      "completion_at": "2026-06-11T15:41:37.826857+08:00",
+      "actual_tardiness_hours": "135.6938407937038435348955836"
+    },
+    {
+      "source_order_id": "0030120757-000050",
+      "due_date": "2026-06-05",
+      "original_weight": "24.0",
+      "completion_at": "2026-06-09T03:10:24.341183+08:00",
+      "actual_tardiness_hours": "75.1734281063147085148263868"
+    },
+    {
+      "source_order_id": "0030120745-000010",
+      "due_date": "2026-06-05",
+      "original_weight": "12.99",
+      "completion_at": "2026-06-11T18:47:53.693364+08:00",
+      "actual_tardiness_hours": "138.7982481566359100376778379"
+    },
+    {
+      "source_order_id": "0030120974-000030",
+      "due_date": "2026-06-10",
+      "original_weight": "23.0",
+      "completion_at": "2026-06-13T02:09:52.851004+08:00",
+      "actual_tardiness_hours": "50.1646808344297449631288472"
+    }
+  ],
+  "order_changes_sha256": "e66d3d6aaf76947e0a7f43b8220d696b437653c56f5059d755cb4790a176ccb0",
+  "pre_refinement_equal": true,
+  "production_source_equal": true,
+  "regressed_order_ids": [
+    "0030121690-000040",
+    "0030121690-000010",
+    "0030121346-000020",
+    "0030121196-000020",
+    "0030120757-000040",
+    "0030120745-000010",
+    "0030120974-000030"
+  ],
+  "request_equal_except_candidate_limit": true,
+  "rescued_order_ids": [
+    "0030122066-000020",
+    "0030121432-000010",
+    "0030120940-000120"
+  ],
+  "runs": [
+    {
+      "accepted_actions": {
+        "chain_order_relocation": 366,
+        "controlled_order_split": 2,
+        "delivery_intra_move": 75,
+        "real_node_relocation": 22,
+        "virtual_weight_fill": 14,
+        "whole_chain_append": 5,
+        "whole_chain_insertion": 2,
+        "whole_chain_prepend": 3,
+        "width_block_exchange": 14,
+        "width_block_move": 21,
+        "width_bridge_reclamation": 1,
+        "width_chain_cut": 3,
+        "width_chain_order_relocation": 83,
+        "width_node_exchange": 11,
+        "width_node_move": 182
+      },
+      "backlog": {
+        "burden_tonne_hours": "500498.739215453467210694868694486",
+        "clearance": {
+          "100": {
+            "completed_original_weight": "5386.03",
+            "completion_at": "2026-06-15T03:35:31.512811+08:00",
+            "completion_hours": "339.5920868920247986374081281"
+          },
+          "50": {
+            "completed_original_weight": "2925.77",
+            "completion_at": "2026-06-04T04:22:06.180637+08:00",
+            "completion_hours": "76.36838351023825681021577358"
+          },
+          "90": {
+            "completed_original_weight": "4857.34",
+            "completion_at": "2026-06-08T18:21:23.290654+08:00",
+            "completion_hours": "186.3564696260955907979468786"
+          }
+        },
+        "completed_original_weight_by_date": {
+          "2026-06-01": "584.87",
+          "2026-06-02": "1204.96",
+          "2026-06-03": "896.98",
+          "2026-06-04": "276.03",
+          "2026-06-05": "814.75",
+          "2026-06-06": "363.28",
+          "2026-06-07": "353.73",
+          "2026-06-08": "387.98",
+          "2026-06-09": "255.7",
+          "2026-06-10": "96.88",
+          "2026-06-11": "81.59",
+          "2026-06-12": "21.34",
+          "2026-06-13": "10.52",
+          "2026-06-14": "8.14",
+          "2026-06-15": "29.28"
+        },
+        "order_count": 96,
+        "original_weight": "5386.03",
+        "weighted_mean_wait_hours": "92.92535303655075579057206675"
+      },
+      "both_audits_passed": true,
+      "bridge_reclamation": {
+        "added_count": 68,
+        "added_weight": "1360.0",
+        "final_virtual_sequence": 95,
+        "initial_virtual_sequence": 27,
+        "inventory_and_sequence_reconciled": true,
+        "removed_count": 50,
+        "removed_weight": "1000.0"
+      },
+      "code": {
+        "git_available": true,
+        "git_commit": "66cf04e49533eafbcedfcb71c8616e5ac3bc5629",
+        "git_status": "",
+        "production_source_sha256": "1c33e3047ffa324a4270401ec07b2155da13916e88d63eeb00389dedb7e00494"
+      },
+      "counters": {
+        "accepted_future_borrow_return_count": 1,
+        "accepted_move_count": 804,
+        "accepted_same_period_split_count": 1,
+        "accepted_split_count": 2,
+        "candidate_check_count": 400000,
+        "complete_candidate_evaluation_count": 172312,
+        "final_chain_count": 26,
+        "graph_allowed_edge_count": 32536,
+        "graph_edge_check_count": 140715,
+        "initial_chain_count": 31,
+        "matching_edge_count": 514,
+        "path_count": 17
+      },
+      "cpu_seconds": "1210.5574940000001",
+      "delivery": {
+        "delivery_score_rounding": "half_even",
+        "delivery_score_time_unit": "second",
+        "delivery_wait_tardiness_tonne_hours": "636816.4265416666666666666667",
+        "maximum_actual_tardiness_hours": "339.5920868920247986374081281",
+        "newly_late_order_count": 14,
+        "newly_late_original_weight": "685.33",
+        "newly_late_weight": "685.33",
+        "old_backlog_last_completion_at": "2026-06-15T03:35:31.512811+08:00",
+        "old_backlog_last_completion_hours": "339.5922222222222222222222222",
+        "old_backlog_order_count": 96,
+        "old_backlog_weight": "5386.03",
+        "production_end_at": "2026-06-27T21:54:28.944723+08:00",
+        "production_end_hours": "645.9080402007613274593345466",
+        "raw_old_backlog_last_completion_hours": "339.5920868920247986374081281",
+        "schedule_start_at": "2026-06-01T00:00:00+08:00",
+        "score_wait_tardiness_tonne_seconds": "2292539135.55",
+        "timezone": "Asia/Shanghai",
+        "timing_input_complete": true,
+        "timing_semantics": "delivery_completion_hours_v1",
+        "total_late_order_count": 110,
+        "total_late_weight": "6071.36"
+      },
+      "due_groups": {
+        "2026-06-05": {
+          "newly_late_count": 3,
+          "newly_late_weight": "341.37",
+          "order_count": 6,
+          "tardiness_tonne_hours": "88651.910244487743556126374477"
+        },
+        "2026-06-10": {
+          "newly_late_count": 10,
+          "newly_late_weight": "319.96",
+          "order_count": 20,
+          "tardiness_tonne_hours": "44213.534754308201234666527982805"
+        },
+        "2026-06-15": {
+          "newly_late_count": 1,
+          "newly_late_weight": "24.0",
+          "order_count": 5,
+          "tardiness_tonne_hours": "3452.368075990304444943342434"
+        },
+        "2026-06-30": {
+          "newly_late_count": 0,
+          "newly_late_weight": "0.0",
+          "order_count": 404,
+          "tardiness_tonne_hours": "0.0"
+        }
+      },
+      "hashes": {
+        "delivery_report.json": "6b64061d6d94a1f06abcc20a35859729dae3a7d2f4f834ffce545354243b193e",
+        "execution.log": "8c2ea369ee3eae52d377276e10c9e79dd4d06c525358adcd15b824643552b394",
+        "input_binding.json": "463a0c32843fefe170df2b1f8909031739ec3aef79b877ad25fc72721862be88",
+        "measurement.json": "812db75f90ffa2ef0d449a5dcc2234ce1b832ecdc3666c6ac227b41d0120afbb",
+        "prepared_request.json": "b94d979b3d5d6545a0b7bac9a01b49b89f4feda0582914a4ff07d4d35088ae6b",
+        "search_opportunities.json": "f70f656d123c06b8e8fcbf1d00d3c7f5e9b2c92b273c2fe2afa2e8d8f9b6ddf1"
+      },
+      "path": "diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01",
+      "quality": {
+        "chain_count": 26,
+        "delivery_wait_tardiness_tonne_hours": "636816.4265416666666666666667",
+        "generated_virtual_weight": "820.0",
+        "inter_chain_width_gap": "14954.0",
+        "old_backlog_last_completion_hours": "339.5922222222222222222222222",
+        "prohibited_violation_count": 0,
+        "prohibited_violation_severity": "0.0",
+        "underweight_chain_count": 0,
+        "underweight_total_gap": "0.0"
+      },
+      "quality_gate": "PASS",
+      "search_opportunities": {
+        "lanes": {
+          "cleanup": {
+            "accepted_move_count": 1,
+            "attempted_proposals": 2122,
+            "candidate_check_count": 2122,
+            "complete_candidate_evaluation_count": 1
+          },
+          "critical": {
+            "accepted_move_count": 194,
+            "attempted_proposals": 102779,
+            "candidate_check_count": 108764,
+            "complete_candidate_evaluation_count": 51470
+          },
+          "normal": {
+            "accepted_move_count": 195,
+            "attempted_proposals": 91202,
+            "candidate_check_count": 95574,
+            "complete_candidate_evaluation_count": 48544
+          }
+        },
+        "scope": "attempted_post_refinement_recipes_including_bridge_checks_not_prescan_queries"
+      },
+      "source_conservation_passed": true,
+      "stage_seconds": {
+        "construction_graph": "2.196292500004347",
+        "controlled_split_and_replay": "251.83075937499962",
+        "core_audit": "0.07745687499846099",
+        "core_solve": "1213.3143205000015",
+        "initial_solution": "0.22305400000186637",
+        "input_normalization": "0.04700812500232132",
+        "input_validation": "0.02353745800064644",
+        "local_search": "155.9684377500016",
+        "minimum_path_cover": "0.39480750000075204",
+        "request_preparation": "0.00025720799749251455",
+        "result_assembly": "0.17027291699923808",
+        "result_contract_audit": "0.4572147080034483",
+        "result_sealing": "0.2831147079996299",
+        "rule_loading": "0.0008275000000139698",
+        "service_to_result_audit_seconds": "1214.0090683330054",
+        "width_optimization": "802.2891544159938"
+      },
+      "status": "success",
+      "stop_reason": "candidate_limit_reached",
+      "violations": [],
+      "virtual_count": 41,
+      "virtual_ratio": "0.02719381997226893626730331158",
+      "virtual_weight": "820.0",
+      "wall_seconds": "1214.5666013329974"
+    },
+    {
+      "accepted_actions": {
+        "chain_order_relocation": 366,
+        "controlled_order_split": 2,
+        "delivery_intra_move": 109,
+        "real_node_relocation": 22,
+        "virtual_weight_fill": 14,
+        "whole_chain_append": 5,
+        "whole_chain_insertion": 2,
+        "whole_chain_prepend": 3,
+        "width_block_exchange": 22,
+        "width_block_move": 31,
+        "width_bridge_reclamation": 1,
+        "width_chain_cut": 4,
+        "width_chain_order_relocation": 103,
+        "width_node_exchange": 19,
+        "width_node_move": 387
+      },
+      "backlog": {
+        "burden_tonne_hours": "436461.75030163813397937044539108",
+        "clearance": {
+          "100": {
+            "completed_original_weight": "5386.03",
+            "completion_at": "2026-06-11T03:35:40.485612+08:00",
+            "completion_hours": "243.5945793365688426680832061"
+          },
+          "50": {
+            "completed_original_weight": "2925.76",
+            "completion_at": "2026-06-04T03:02:55.549389+08:00",
+            "completion_hours": "75.04876371914054941118324563"
+          },
+          "90": {
+            "completed_original_weight": "4981.96",
+            "completion_at": "2026-06-08T00:59:22.676268+08:00",
+            "completion_hours": "168.9896322967135927543728098"
+          }
+        },
+        "completed_original_weight_by_date": {
+          "2026-06-01": "1041.84",
+          "2026-06-02": "876.97",
+          "2026-06-03": "436.65",
+          "2026-06-04": "1309.94",
+          "2026-06-05": "436.4",
+          "2026-06-06": "248.42",
+          "2026-06-07": "496.2",
+          "2026-06-08": "301.12",
+          "2026-06-09": "164.59",
+          "2026-06-10": "62.32",
+          "2026-06-11": "11.58"
+        },
+        "order_count": 96,
+        "original_weight": "5386.03",
+        "weighted_mean_wait_hours": "81.03589291215201808741697417"
+      },
+      "both_audits_passed": true,
+      "bridge_reclamation": {
+        "added_count": 140,
+        "added_weight": "2800.0",
+        "final_virtual_sequence": 167,
+        "initial_virtual_sequence": 27,
+        "inventory_and_sequence_reconciled": true,
+        "removed_count": 119,
+        "removed_weight": "2380.0"
+      },
+      "code": {
+        "git_available": true,
+        "git_commit": "6554106a48c338bf28d5e075112d2c78d904e99f",
+        "git_status": "",
+        "production_source_sha256": "1c33e3047ffa324a4270401ec07b2155da13916e88d63eeb00389dedb7e00494"
+      },
+      "counters": {
+        "accepted_future_borrow_return_count": 1,
+        "accepted_move_count": 1090,
+        "accepted_same_period_split_count": 1,
+        "accepted_split_count": 2,
+        "candidate_check_count": 1000000,
+        "complete_candidate_evaluation_count": 433269,
+        "final_chain_count": 27,
+        "graph_allowed_edge_count": 32536,
+        "graph_edge_check_count": 140715,
+        "initial_chain_count": 31,
+        "matching_edge_count": 514,
+        "path_count": 17
+      },
+      "cpu_seconds": "3285.3061500000003",
+      "delivery": {
+        "delivery_score_rounding": "half_even",
+        "delivery_score_time_unit": "second",
+        "delivery_wait_tardiness_tonne_hours": "519392.3247694444444444444444",
+        "maximum_actual_tardiness_hours": "243.5945793365688426680832061",
+        "newly_late_order_count": 18,
+        "newly_late_original_weight": "762.02",
+        "newly_late_weight": "762.02",
+        "old_backlog_last_completion_at": "2026-06-11T03:35:40.485612+08:00",
+        "old_backlog_last_completion_hours": "243.5944444444444444444444444",
+        "old_backlog_order_count": 96,
+        "old_backlog_weight": "5386.03",
+        "production_end_at": "2026-06-27T21:53:46.481878+08:00",
+        "production_end_hours": "645.8962449660361564284310319",
+        "raw_old_backlog_last_completion_hours": "243.5945793365688426680832061",
+        "schedule_start_at": "2026-06-01T00:00:00+08:00",
+        "score_wait_tardiness_tonne_seconds": "1869812369.17",
+        "timezone": "Asia/Shanghai",
+        "timing_input_complete": true,
+        "timing_semantics": "delivery_completion_hours_v1",
+        "total_late_order_count": 114,
+        "total_late_weight": "6148.05"
+      },
+      "due_groups": {
+        "2026-06-05": {
+          "newly_late_count": 5,
+          "newly_late_weight": "380.34",
+          "order_count": 6,
+          "tardiness_tonne_hours": "60855.273973866998649579241893"
+        },
+        "2026-06-10": {
+          "newly_late_count": 13,
+          "newly_late_weight": "381.68",
+          "order_count": 20,
+          "tardiness_tonne_hours": "22075.2822628549145881465212023"
+        },
+        "2026-06-15": {
+          "newly_late_count": 0,
+          "newly_late_weight": "0.0",
+          "order_count": 5,
+          "tardiness_tonne_hours": "0.0"
+        },
+        "2026-06-30": {
+          "newly_late_count": 0,
+          "newly_late_weight": "0.0",
+          "order_count": 404,
+          "tardiness_tonne_hours": "0.0"
+        }
+      },
+      "hashes": {
+        "delivery_report.json": "85a5179ff14b47e9856b9aefd8174b381f9292f0520fe89f5551174366b568e4",
+        "execution.log": "724a28b374496457b7fa3af9f39969ae2b3ba81b4eca42162f7a8ba068fb0d09",
+        "input_binding.json": "05d92d150160dd17425a4d1a2732c2c417b3e2442183de7ff81b3f4912451b6b",
+        "measurement.json": "6cf261db802fdb3ec14e0fb9bd2c9613b7d0558695c20e162035c888aad371f1",
+        "prepared_request.json": "7737d235bb5d8c4b0758f696d65a772f397c4200c4c1c125263dfc72bf7db444",
+        "search_opportunities.json": "27ec7bd53ab700dacdc3b9fda8f2169bd480d73fe8d5014440111f95b0ef8e36"
+      },
+      "path": "diagnostics/critical_delivery_search_and_bridge_reclamation/combined_1000000_01",
+      "quality": {
+        "chain_count": 27,
+        "delivery_wait_tardiness_tonne_hours": "519392.3247694444444444444444",
+        "generated_virtual_weight": "880.0",
+        "inter_chain_width_gap": "14919.0",
+        "old_backlog_last_completion_hours": "243.5944444444444444444444444",
+        "prohibited_violation_count": 0,
+        "prohibited_violation_severity": "0.0",
+        "underweight_chain_count": 0,
+        "underweight_total_gap": "0.0"
+      },
+      "quality_gate": "PASS",
+      "search_opportunities": {
+        "lanes": {
+          "cleanup": {
+            "accepted_move_count": 1,
+            "attempted_proposals": 8238,
+            "candidate_check_count": 8238,
+            "complete_candidate_evaluation_count": 1
+          },
+          "critical": {
+            "accepted_move_count": 280,
+            "attempted_proposals": 384136,
+            "candidate_check_count": 416642,
+            "complete_candidate_evaluation_count": 182842
+          },
+          "normal": {
+            "accepted_move_count": 395,
+            "attempted_proposals": 352026,
+            "candidate_check_count": 381580,
+            "complete_candidate_evaluation_count": 178129
+          }
+        },
+        "scope": "attempted_post_refinement_recipes_including_bridge_checks_not_prescan_queries"
+      },
+      "source_conservation_passed": true,
+      "stage_seconds": {
+        "construction_graph": "2.199768792001123",
+        "controlled_split_and_replay": "248.38426241600246",
+        "core_audit": "0.10987749999912921",
+        "core_solve": "3295.8480902079973",
+        "initial_solution": "0.2211405830021249",
+        "input_normalization": "0.04847954199794913",
+        "input_validation": "0.024609084000985604",
+        "local_search": "154.67952345799858",
+        "minimum_path_cover": "0.39670783399924403",
+        "request_preparation": "0.0002377499986323528",
+        "result_assembly": "0.2111616670008516",
+        "result_contract_audit": "0.5709887499979232",
+        "result_sealing": "0.3546782089979388",
+        "rule_loading": "0.0007870830013416708",
+        "service_to_result_audit_seconds": "3296.6995271250053",
+        "width_optimization": "2889.604638083001"
+      },
+      "status": "success",
+      "stop_reason": "candidate_limit_reached",
+      "violations": [],
+      "virtual_count": 44,
+      "virtual_ratio": "0.02912565768548327574948095099",
+      "virtual_weight": "880.0",
+      "wall_seconds": "3297.3825091670005"
+    }
+  ],
+  "scope": "same_production_candidate_limit_only_400000_vs_1000000_not_performance_acceptance",
+  "virtual_sequence_metadata_compared": true,
+  "raw_summary_sha256": "9e452d90d1ec61bcd79e941a0758f0372d727a636060145a0b378f59432b9f36",
+  "raw_order_changes_path": "diagnostics/critical_delivery_search_and_bridge_reclamation/compare_combined_1000000_01/order_changes.json"
+}
