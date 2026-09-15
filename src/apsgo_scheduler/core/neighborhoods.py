@@ -50,6 +50,14 @@ from .virtual_material import VirtualFactory
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True, slots=True)
+class _ShadowEvaluation:
+    plan: object
+    rule_set: object
+    context: object
+    entries: object
+
+
 def _identities(values, name):
     values = freeze_tuple(values, str, name)
     for value in values:
@@ -108,6 +116,7 @@ class SearchContext:
     complete_entry_plan_build_count: int = field(default=0, init=False)
     _screen_enabled: bool = field(default=True, init=False, repr=False)
     _screen_shadow: bool = field(default=False, init=False, repr=False)
+    _shadow_reuse: object = field(default=None, init=False, repr=False)
     candidate_screen_counts: dict = field(default_factory=dict, init=False)
 
     def __post_init__(self):
@@ -604,6 +613,16 @@ def try_complete_candidate(
         state, cache.rule_set, cache.context
     ):
         context._evaluation_reuse = None
+    shadow_evaluation, shadow_entries = None, None
+    if context._screen_shadow:
+        from .evaluation import _evaluate_plan
+        shadow = context._shadow_reuse
+        previous_entries = (shadow.entries if shadow is not None and shadow.plan is state.current_plan
+                            and shadow.rule_set is cache.rule_set and shadow.context is cache.context else {})
+        context.complete_candidate_evaluation_count += 1
+        # Independent reference entries: never seed this with the new incremental cache.
+        shadow_evaluation, shadow_entries = _evaluate_plan(plan, cache.rule_set, cache.context, previous_entries)
+        context.candidate_screen_counts["shadow_evaluations"] = context.candidate_screen_counts.get("shadow_evaluations", 0) + 1
     screen = (_screen_candidate_plan(plan, state, cache.rule_set, cache.context, context._evaluation_reuse)
               if context._screen_enabled else None)
     if screen is not None:
@@ -614,11 +633,8 @@ def try_complete_candidate(
     if not budget.allows_search():
         return False
     if screen is not None and screen.outcome == "reject":
-        if context._screen_shadow:
-            from .evaluation import evaluate_plan
-            context.complete_candidate_evaluation_count += 1
-            exact = evaluate_plan(plan, cache.rule_set, cache.context)
-            context.candidate_screen_counts["shadow_evaluations"] = context.candidate_screen_counts.get("shadow_evaluations", 0) + 1
+        if shadow_evaluation is not None:
+            exact = shadow_evaluation
             if exact.quality_key < state.current_evaluation.quality_key or exact.quality_key[:len(screen.quality)] != screen.quality:
                 raise RuntimeError(f"candidate screen mismatch at {budget.candidate_check_count}: {action_name}; "
                                    f"screen={screen.quality!r}, exact={exact.quality_key!r}")
@@ -627,6 +643,8 @@ def try_complete_candidate(
     evaluation, candidate_reuse = _evaluate_candidate_plan(
         plan, state, cache.rule_set, cache.context, context._evaluation_reuse
     )
+    if shadow_evaluation is not None and evaluation != shadow_evaluation:
+        raise RuntimeError(f"candidate incremental evaluation mismatch at {budget.candidate_check_count}: {action_name}")
     if (
         not budget.allows_search()
         or not evaluation.quality_key < state.current_evaluation.quality_key
@@ -676,6 +694,8 @@ def try_complete_candidate(
         split_mode=None if split_decision is None else split_decision.mode,
     )
     context._evaluation_reuse = candidate_reuse
+    if shadow_evaluation is not None:
+        context._shadow_reuse = _ShadowEvaluation(plan, cache.rule_set, cache.context, shadow_entries)
     context._numeric_view = candidate_view
     context.accepted_move_traces = traces
     emit(

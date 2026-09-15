@@ -1,0 +1,367 @@
+{
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "python": "3.10.18",
+  "tested_source_tree": "834189d12e81dd2d5891e69ee31e2e21c0d71233",
+  "production_source_sha256": "36431d57d872364aaaab5037efe17e7bf0fbf122b8bfeded2f264226d9fd9edb",
+  "request_fingerprint": "1e89085f7bbb964273b3a0c6b81dfcde6661cf0dcd655f4cb4b126645a388d79",
+  "numeric_encoding": "Decimal values are exact strings; durations are seconds.",
+  "runs": {
+    "stage0_control_full_01": {
+      "measurement_sha256": "8370aa2369e0da41315e1e0abf2e617ea45c60027db1d83264b2e97011052d05",
+      "wall_seconds": "1126.1436918340041",
+      "cpu_seconds": "1122.865433",
+      "performance_sample": true,
+      "counters": {
+        "accepted_future_borrow_return_count": 1,
+        "accepted_move_count": 804,
+        "accepted_same_period_split_count": 1,
+        "accepted_split_count": 2,
+        "candidate_check_count": 400000,
+        "complete_candidate_evaluation_count": 172312,
+        "final_chain_count": 26,
+        "graph_allowed_edge_count": 32536,
+        "graph_edge_check_count": 140715,
+        "initial_chain_count": 31,
+        "matching_edge_count": 514,
+        "path_count": 17
+      },
+      "stages": {
+        "local_search": "146.00533174999873",
+        "controlled_split_and_replay": "237.8987140829995",
+        "width_optimization": "738.0319785409956"
+      },
+      "quality": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "339.5922222222222222222222222",
+        "636816.4265416666666666666667",
+        "14954.0",
+        "820.0",
+        26
+      ],
+      "plan_fingerprint": "c7a12ee989d00c6c869a28981ddfabd12a74712aca19ddcbe921650ce0f3f749",
+      "evaluation_fingerprint": "552840fcfb7897cc5ffb29b4e7ac4577d8d14d5c83e75ed6de80568623d8885b",
+      "trace_fingerprint": "1bde4377c555fc5c08b68585382a733b9c993a6a6bb42a9500a16a524624fbf1",
+      "stop_reason": "candidate_limit_reached",
+      "core_audit": true,
+      "application_audit": true
+    },
+    "stage1_full_01": {
+      "measurement_sha256": "41d8046133f4df085e18dedefdb9fa2f11fb9961fac1af66ff4487d2384cefaa",
+      "wall_seconds": "1123.2206587499968",
+      "cpu_seconds": "1120.566784",
+      "performance_sample": true,
+      "counters": {
+        "accepted_future_borrow_return_count": 1,
+        "accepted_move_count": 804,
+        "accepted_same_period_split_count": 1,
+        "accepted_split_count": 2,
+        "candidate_check_count": 400000,
+        "complete_candidate_evaluation_count": 172312,
+        "final_chain_count": 26,
+        "graph_allowed_edge_count": 32536,
+        "graph_edge_check_count": 140715,
+        "initial_chain_count": 31,
+        "matching_edge_count": 514,
+        "path_count": 17
+      },
+      "stages": {
+        "local_search": "147.93108774999564",
+        "controlled_split_and_replay": "227.30845875000523",
+        "width_optimization": "743.6779741670034"
+      },
+      "quality": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "339.5922222222222222222222222",
+        "636816.4265416666666666666667",
+        "14954.0",
+        "820.0",
+        26
+      ],
+      "plan_fingerprint": "c7a12ee989d00c6c869a28981ddfabd12a74712aca19ddcbe921650ce0f3f749",
+      "evaluation_fingerprint": "552840fcfb7897cc5ffb29b4e7ac4577d8d14d5c83e75ed6de80568623d8885b",
+      "trace_fingerprint": "1bde4377c555fc5c08b68585382a733b9c993a6a6bb42a9500a16a524624fbf1",
+      "stop_reason": "candidate_limit_reached",
+      "core_audit": true,
+      "application_audit": true
+    },
+    "stage1_repeat_01": {
+      "measurement_sha256": "0f3e0046cfca3c7e084aad18a8dee5c6d4c3fbe0f532a73c82ba03855dcb3420",
+      "wall_seconds": "1152.1196448339906",
+      "cpu_seconds": "1148.513229",
+      "performance_sample": true,
+      "counters": {
+        "accepted_future_borrow_return_count": 1,
+        "accepted_move_count": 804,
+        "accepted_same_period_split_count": 1,
+        "accepted_split_count": 2,
+        "candidate_check_count": 400000,
+        "complete_candidate_evaluation_count": 172312,
+        "final_chain_count": 26,
+        "graph_allowed_edge_count": 32536,
+        "graph_edge_check_count": 140715,
+        "initial_chain_count": 31,
+        "matching_edge_count": 514,
+        "path_count": 17
+      },
+      "stages": {
+        "local_search": "155.82034741599637",
+        "controlled_split_and_replay": "237.9431046249956",
+        "width_optimization": "753.8911329580005"
+      },
+      "quality": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "339.5922222222222222222222222",
+        "636816.4265416666666666666667",
+        "14954.0",
+        "820.0",
+        26
+      ],
+      "plan_fingerprint": "c7a12ee989d00c6c869a28981ddfabd12a74712aca19ddcbe921650ce0f3f749",
+      "evaluation_fingerprint": "552840fcfb7897cc5ffb29b4e7ac4577d8d14d5c83e75ed6de80568623d8885b",
+      "trace_fingerprint": "1bde4377c555fc5c08b68585382a733b9c993a6a6bb42a9500a16a524624fbf1",
+      "stop_reason": "candidate_limit_reached",
+      "core_audit": true,
+      "application_audit": true
+    },
+    "stage2_shadow_02": {
+      "measurement_sha256": "7121858756b25ef0b4709ad6bc0de5e106252fb5721374d59c40bb3c09838698",
+      "wall_seconds": "1705.5202290419984",
+      "cpu_seconds": "1700.415949",
+      "performance_sample": false,
+      "counters": {
+        "accepted_future_borrow_return_count": 1,
+        "accepted_move_count": 804,
+        "accepted_same_period_split_count": 1,
+        "accepted_split_count": 2,
+        "candidate_check_count": 400000,
+        "complete_candidate_evaluation_count": 173193,
+        "final_chain_count": 26,
+        "graph_allowed_edge_count": 32536,
+        "graph_edge_check_count": 140715,
+        "initial_chain_count": 31,
+        "matching_edge_count": 514,
+        "path_count": 17
+      },
+      "stages": {
+        "local_search": "255.0681393329869",
+        "controlled_split_and_replay": "406.40450749998854",
+        "width_optimization": "1039.5676972090005"
+      },
+      "quality": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "339.5922222222222222222222222",
+        "636816.4265416666666666666667",
+        "14954.0",
+        "820.0",
+        26
+      ],
+      "plan_fingerprint": "c7a12ee989d00c6c869a28981ddfabd12a74712aca19ddcbe921650ce0f3f749",
+      "evaluation_fingerprint": "552840fcfb7897cc5ffb29b4e7ac4577d8d14d5c83e75ed6de80568623d8885b",
+      "trace_fingerprint": "1bde4377c555fc5c08b68585382a733b9c993a6a6bb42a9500a16a524624fbf1",
+      "stop_reason": "candidate_limit_reached",
+      "core_audit": true,
+      "application_audit": true,
+      "screen": {
+        "confirm:better_prefix": 45,
+        "confirm:possibly_better": 756,
+        "reject:not_better": 91859,
+        "reject:worse_prefix": 79572,
+        "resource_chain_hits": 4099980,
+        "reused_durations": 51592243,
+        "reused_orders": 22071458,
+        "reused_prefix": 8319846,
+        "reused_suffix": 11840544,
+        "run_key_hits": 1532356,
+        "run_weight_hits": 385649,
+        "shadow_evaluations": 172312,
+        "unsupported:new_real_or_split": 2,
+        "unsupported:unverified_context_or_rules": 78
+      },
+      "numeric_layout": {
+        "batch_known_positions": 784918,
+        "batch_position_lookups": 869438,
+        "complete_entry_plan_build_count": 180032,
+        "peak_row_count": 576,
+        "prepare_seconds": "0.5415151289344067",
+        "recipe_restore_count": 244283,
+        "semantic_row_count": 812,
+        "view_build_count": 805
+      }
+    },
+    "stage2_full_01": {
+      "measurement_sha256": "2bf44eefd1b6d53bcb35e6ada2562297741f20239f41b7a3a7a096c860b4063e",
+      "wall_seconds": "720.471531749994",
+      "cpu_seconds": "717.405582",
+      "performance_sample": true,
+      "counters": {
+        "accepted_future_borrow_return_count": 1,
+        "accepted_move_count": 804,
+        "accepted_same_period_split_count": 1,
+        "accepted_split_count": 2,
+        "candidate_check_count": 400000,
+        "complete_candidate_evaluation_count": 881,
+        "final_chain_count": 26,
+        "graph_allowed_edge_count": 32536,
+        "graph_edge_check_count": 140715,
+        "initial_chain_count": 31,
+        "matching_edge_count": 514,
+        "path_count": 17
+      },
+      "stages": {
+        "local_search": "107.41382945800433",
+        "controlled_split_and_replay": "172.00854224999784",
+        "width_optimization": "436.63014020898845"
+      },
+      "quality": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "339.5922222222222222222222222",
+        "636816.4265416666666666666667",
+        "14954.0",
+        "820.0",
+        26
+      ],
+      "plan_fingerprint": "c7a12ee989d00c6c869a28981ddfabd12a74712aca19ddcbe921650ce0f3f749",
+      "evaluation_fingerprint": "552840fcfb7897cc5ffb29b4e7ac4577d8d14d5c83e75ed6de80568623d8885b",
+      "trace_fingerprint": "1bde4377c555fc5c08b68585382a733b9c993a6a6bb42a9500a16a524624fbf1",
+      "stop_reason": "candidate_limit_reached",
+      "core_audit": true,
+      "application_audit": true,
+      "screen": {
+        "confirm:better_prefix": 45,
+        "confirm:possibly_better": 756,
+        "reject:not_better": 91859,
+        "reject:worse_prefix": 79572,
+        "resource_chain_hits": 4099980,
+        "reused_durations": 51592243,
+        "reused_orders": 22071458,
+        "reused_prefix": 8319846,
+        "reused_suffix": 11840544,
+        "run_key_hits": 1532356,
+        "run_weight_hits": 385649,
+        "unsupported:new_real_or_split": 2,
+        "unsupported:unverified_context_or_rules": 78
+      },
+      "numeric_layout": {
+        "batch_known_positions": 784918,
+        "batch_position_lookups": 869438,
+        "complete_entry_plan_build_count": 180032,
+        "peak_row_count": 576,
+        "prepare_seconds": "0.6259950491221389",
+        "recipe_restore_count": 244283,
+        "semantic_row_count": 812,
+        "view_build_count": 805
+      }
+    },
+    "stage2_repeat_01": {
+      "measurement_sha256": "297cf9ffb2c81faf3613fd8dfb1ee6a28e787d48acbe8f0fe28a49db520d0933",
+      "wall_seconds": "739.9763178330031",
+      "cpu_seconds": "737.543862",
+      "performance_sample": true,
+      "counters": {
+        "accepted_future_borrow_return_count": 1,
+        "accepted_move_count": 804,
+        "accepted_same_period_split_count": 1,
+        "accepted_split_count": 2,
+        "candidate_check_count": 400000,
+        "complete_candidate_evaluation_count": 881,
+        "final_chain_count": 26,
+        "graph_allowed_edge_count": 32536,
+        "graph_edge_check_count": 140715,
+        "initial_chain_count": 31,
+        "matching_edge_count": 514,
+        "path_count": 17
+      },
+      "stages": {
+        "local_search": "109.2817208750057",
+        "controlled_split_and_replay": "176.33406049999758",
+        "width_optimization": "449.8733214579988"
+      },
+      "quality": [
+        0,
+        "0.0",
+        0,
+        "0.0",
+        "339.5922222222222222222222222",
+        "636816.4265416666666666666667",
+        "14954.0",
+        "820.0",
+        26
+      ],
+      "plan_fingerprint": "c7a12ee989d00c6c869a28981ddfabd12a74712aca19ddcbe921650ce0f3f749",
+      "evaluation_fingerprint": "552840fcfb7897cc5ffb29b4e7ac4577d8d14d5c83e75ed6de80568623d8885b",
+      "trace_fingerprint": "1bde4377c555fc5c08b68585382a733b9c993a6a6bb42a9500a16a524624fbf1",
+      "stop_reason": "candidate_limit_reached",
+      "core_audit": true,
+      "application_audit": true,
+      "screen": {
+        "confirm:better_prefix": 45,
+        "confirm:possibly_better": 756,
+        "reject:not_better": 91859,
+        "reject:worse_prefix": 79572,
+        "resource_chain_hits": 4099980,
+        "reused_durations": 51592243,
+        "reused_orders": 22071458,
+        "reused_prefix": 8319846,
+        "reused_suffix": 11840544,
+        "run_key_hits": 1532356,
+        "run_weight_hits": 385649,
+        "unsupported:new_real_or_split": 2,
+        "unsupported:unverified_context_or_rules": 78
+      },
+      "numeric_layout": {
+        "batch_known_positions": 784918,
+        "batch_position_lookups": 869438,
+        "complete_entry_plan_build_count": 180032,
+        "peak_row_count": 576,
+        "prepare_seconds": "0.6543261438055197",
+        "recipe_restore_count": 244283,
+        "semantic_row_count": 812,
+        "view_build_count": 805
+      }
+    }
+  },
+  "comparisons": {
+    "stage2_shadow_02/comparison.json": {
+      "sha256": "34cdad9444b3939d71909b712a93a5bb7aec0a4ac95ae2b9a42a7e2a638be883",
+      "first_difference": null
+    },
+    "stage2_full_01/comparison.json": {
+      "sha256": "40a5e7c9b6944c1f66c9976a46680bbfa09fae1166fa40c343606c6b30173a68",
+      "first_difference": null
+    },
+    "stage2_full_01/original_comparison.json": {
+      "sha256": "f230d91a3660b685822f9fba063c35dd0c3f67fa4a56dd68b102f8059a8efefb",
+      "first_difference": null
+    },
+    "stage2_repeat_01/comparison.json": {
+      "sha256": "0ba05ec3fb01523a9360a60f2823c286c0ab5ec25f131f9af56e627ee316b016",
+      "first_difference": null
+    },
+    "stage2_repeat_01/repeat_comparison.json": {
+      "sha256": "ac179b782f9c6e569a1046f343cff557ba240fb41a0f1f8b956ea44346ebdec6",
+      "first_difference": null
+    }
+  },
+  "stage1_mean_seconds": "1137.6701517919937",
+  "stage2_mean_seconds": "730.22392479149855",
+  "wall_reduction_percent": "35.81409131273321093671777907",
+  "normal_repeat_counters_equal": true,
+  "one_minute_target_passed": false,
+  "windows_verified": false,
+  "stage3_started": false
+}
