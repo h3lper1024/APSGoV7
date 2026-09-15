@@ -113,6 +113,7 @@ def _snapshot(state, context):
             "complete_entry_plan_build_count": context.complete_entry_plan_build_count,
             "semantic_row_count": len(cache._semantic_rows),
             "batch_position_lookups": cache._batch_lookup_count,
+            "batch_known_positions": cache._batch_known_position_count,
         },
     })
 

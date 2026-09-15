@@ -107,6 +107,7 @@ class RuleEdgeDecisionCache:
     )
     _semantic_rows: dict[str, int] = field(default_factory=dict, init=False, repr=False)
     _batch_lookup_count: int = field(default=0, init=False, repr=False)
+    _batch_known_position_count: int = field(default=0, init=False, repr=False)
     _hit_count: int = field(default=0, init=False, repr=False)
     _miss_count: int = field(default=0, init=False, repr=False)
 

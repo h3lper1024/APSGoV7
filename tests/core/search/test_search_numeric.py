@@ -191,3 +191,51 @@ def test_invalid_recipe_ranges_are_not_trusted(recipe):
     state, context = width_case()
     with pytest.raises(ValueError):
         CandidateEdit.bind(context.computation_view(state), recipe, 1, "width_optimization")
+
+
+def test_dynamic_virtual_rows_do_not_extend_the_current_catalog():
+    from tests.core.search.test_width_optimization_guard import guard_case, bridge
+
+    state, context = guard_case()
+    view = context.computation_view(state)
+    extra = bridge(state, context)
+    old = state.current_plan.chains[0]
+    plan = SchedulePlan((replace(old, nodes=old.nodes + (extra,)), *state.current_plan.chains[1:]))
+    candidate = PlanNumericView.build(view.catalog, plan, 1)
+    assert candidate.dynamic.nodes == (extra,)
+    assert candidate.dynamic.prototypes.tolist() == [0]
+    assert candidate.dynamic.sources.tolist() == [-1]
+    assert candidate.dynamic.weights == (extra.weight,)
+    assert view.dynamic.nodes == () and extra.node_id not in view.node_positions
+    assert state.virtual_sequence == 0 and context._numeric_view is view
+
+
+def test_duplicate_identity_is_rejected_before_index_overwrite():
+    from types import SimpleNamespace
+
+    state, context = setup()
+    view = context.computation_view(state)
+    chain = state.current_plan.chains[0]
+    for chains in ((chain, chain), (chain, replace(chain, chain_id="duplicate-node"))):
+        with pytest.raises(ValueError, match="duplicate"):
+            PlanNumericView.build(view.catalog, SimpleNamespace(chains=chains), 1)
+
+
+def test_batch_custom_cache_falls_back_and_direction_is_not_a_construction_filter():
+    from apsgo_scheduler.core._search_numeric import direct_insertion_flags
+    from apsgo_scheduler.core.compatibility import RuleEdgeDecisionCache
+
+    state, context = width_case()
+    cache = context.factory.cache
+    high, middle, low = state.current_plan.chains[0].nodes
+    # This is the complete search cache, not the width-sorted construction DAG.
+    for left, right in ((high, low), (low, high), (middle, high), (high, middle)):
+        cache.allows(left, right)
+    flags = direct_insertion_flags(cache, middle, (high, low))
+    assert tuple(width_optimization._direct_insertion_slots(middle, (high, low), (1, 0, 2), context)) == tuple(
+        original_slots(middle, (high, low), (1, 0, 2), context))
+    assert flags.dtype == np.int8 and not flags.flags.writeable
+    class SpecializedCache(RuleEdgeDecisionCache):
+        pass
+    custom = SpecializedCache(cache.problem, cache.rule_set, cache.context)
+    assert direct_insertion_flags(custom, middle, (high, low)) is None

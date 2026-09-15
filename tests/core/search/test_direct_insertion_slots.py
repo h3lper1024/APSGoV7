@@ -66,9 +66,10 @@ def test_repeat_queries_reuse_existing_semantic_cache_without_spending_candidate
     donor, target = state.current_plan.chains
     cache = context.factory.cache
     first = list(_direct_insertion_slots(donor.nodes[1], target.nodes, range(3), context))
-    hits, misses = cache.hit_count, cache.miss_count
+    hits, misses, batch_hits = cache.hit_count, cache.miss_count, cache._batch_known_position_count
     assert list(_direct_insertion_slots(donor.nodes[1], target.nodes, range(3), context)) == first
-    assert cache.hit_count > hits and cache.miss_count == misses
+    assert cache.hit_count == hits and cache.miss_count == misses
+    assert cache._batch_known_position_count - batch_hits == len(target.nodes) + 1
     assert context.factory.budget.candidate_check_count == 0
 
 

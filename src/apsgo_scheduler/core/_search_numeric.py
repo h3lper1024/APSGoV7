@@ -154,4 +154,6 @@ def direct_insertion_flags(cache, node, target_nodes):
     flags = np.where(left == 0, 0, np.where(left == 1, right, -1)).astype(np.int8)
     flags.setflags(write=False)
     object.__setattr__(cache, "_batch_lookup_count", cache._batch_lookup_count + len(flags))
+    object.__setattr__(cache, "_batch_known_position_count",
+                       cache._batch_known_position_count + int(np.count_nonzero(flags >= 0)))
     return flags
