@@ -1,5 +1,7 @@
 # APSGo V7 求解数据结构、缓存复用与有序并行优化实施计划
 
+> **已过时（2026-09-15）**：本计划由[新版实施计划](apsgo_v7_numeric_search_incremental_parallel_implementation_plan.md)取代，配套依据为[新版设计](../design/apsgo_v7_numeric_search_incremental_parallel_design.md)。下文阶段表、授权描述和执行记录均为原 v0.1 历史信息；原阶段 0～3 未实施，不再从本文件启动步骤，不将文档准备算作新版代码进度。
+
 ## 1. 当前状态与执行边界
 
 | 项目 | 内容 |
@@ -8,7 +10,7 @@
 | 设计依据 | [本专项设计](../design/apsgo_v7_solver_data_cache_parallel_optimization_design.md)；下文“设计第几节”均指该文件 |
 | 编写基线 | `codex/delivery-objective-optimization@0f8b4a0c3f87a3c2736865a89709f9e347ca7c13`；开始前 Git 工作区干净 |
 | 当前授权 | 创建一份设计及一份实施计划，按数据结构、缓存、并行顺序规划；本轮不改算法代码 |
-| 当前状态 | 文档准备；阶段 0～3 均未实施，后续须有代码实施指令 |
+| 当前状态 | 已过时；原阶段 0～3 均未实施，不再作为执行入口 |
 | 环境 | `/Users/miles/dev/dev-py/APSGOV7`；macOS / Darwin、arm64、zsh；Conda `aps_3.10.18` / Python 3.10.18 |
 | 顺序 | 阶段 0 基线核对 → 阶段 1 数据结构与查询 → 阶段 2 缓存与增量评价 → 阶段 3 有序并行试验 |
 | 工作方式 | 每个提交单元独立中文 `#feat` / `#fix` 提交；在功能检查点集中测试，不每个小编辑重复全量；未验证中间提交不得部署 |

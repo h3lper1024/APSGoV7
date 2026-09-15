@@ -1,11 +1,13 @@
 # APSGo V7 求解数据结构、缓存复用与有序并行优化设计
 
+> **已过时（2026-09-15）**：用户确认采用更深入的数值化搜索、增量按需评价与候选数值并行路线。本文件由[新版设计](apsgo_v7_numeric_search_incremental_parallel_design.md)及[新版实施计划](../implementation/apsgo_v7_numeric_search_incremental_parallel_implementation_plan.md)取代，不再作为代码实施依据。下文保留原 v0.1 历史正文；原代码阶段均未开始，不转记为新版已完成。
+
 ## 1. 文档状态与组织方式
 
 | 项目 | 内容 |
 |---|---|
 | 版本 / 日期 | v0.1 / 2026-09-15 |
-| 状态 | 设计提案；本轮只编写文档，代码阶段均未开始 |
+| 状态 | 已过时，仅供历史追溯；原代码阶段均未开始，执行以顶部新版链接为准 |
 | 当前基线 | `codex/delivery-objective-optimization@0f8b4a0c3f87a3c2736865a89709f9e347ca7c13`；编写前工作区干净 |
 | 项目 / 环境 | `/Users/miles/dev/dev-py/APSGOV7`；macOS / Darwin、arm64、zsh；Conda `aps_3.10.18`，Python 3.10.18 |
 | 读者 | 后端算法开发、测试及排产业务审核人员 |
