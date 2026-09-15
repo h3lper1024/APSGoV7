@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import IntEnum
 from operator import index as integer_index
 
-from ._numeric_state import NumericPlan, NumericTask
+from ._numeric_state import NumericPlan, NumericPlanOverlay, NumericTask
 from ._numeric_units import (
     SEVERITY_SCALE,
     NumericValueError,
@@ -735,20 +735,26 @@ def evaluate_numeric_rows(task, program, rows, *, chain_index=0):
     return _evaluate_numeric_rows(task, program, values, chain_index)
 
 
+def _numeric_chain_rows(plan, chain_index):
+    if isinstance(plan, NumericPlanOverlay):
+        return plan.chains[chain_index]
+    start, stop = int(plan.chain_offsets[chain_index]), int(plan.chain_offsets[chain_index + 1])
+    return plan.node_rows[start:stop]
+
+
 def evaluate_numeric_chain(task, program, plan, chain_index):
-    if (not isinstance(plan, NumericPlan) or program.task_fingerprint != task.fingerprint
+    if (not isinstance(plan, (NumericPlan, NumericPlanOverlay)) or program.task_fingerprint != task.fingerprint
             or plan.task_fingerprint != task.fingerprint):
         raise NumericValueError('chain', 'matching numeric task, program and plan required')
     if type(chain_index) is not int or not 0 <= chain_index < plan.chain_ids.size:
         raise NumericValueError('chain_index', 'chain is outside numeric plan')
-    start, stop = int(plan.chain_offsets[chain_index]), int(plan.chain_offsets[chain_index+1])
-    return _evaluate_numeric_rows(task, program, plan.node_rows[start:stop], chain_index)
+    return _evaluate_numeric_rows(task, program, _numeric_chain_rows(plan, chain_index), chain_index)
 
 
 def evaluate_numeric_static_plan_rules(
         task, program, plan, *, chain_total_weights=None,
         real_weight=None, virtual_weight=None):
-    if (not isinstance(plan, NumericPlan) or program.task_fingerprint != task.fingerprint
+    if (not isinstance(plan, (NumericPlan, NumericPlanOverlay)) or program.task_fingerprint != task.fingerprint
             or plan.task_fingerprint != task.fingerprint):
         raise NumericValueError('plan', 'matching numeric task, program and plan required')
     violations, metrics = [], []
@@ -774,26 +780,40 @@ def evaluate_numeric_static_plan_rules(
                 != checked_sum((real_weight, virtual_weight), 'scheduled_total_weight')):
             raise NumericValueError('plan_facts', 'chain and resource facts do not match')
     else:
-        real_weight = checked_sum((int(nodes.weight[int(row)]) for row in plan.node_rows
-                                   if int(nodes.role[int(row)]) != _GENERATED_VIRTUAL), 'scheduled_real_weight')
-        virtual_weight = checked_sum((int(nodes.weight[int(row)]) for row in plan.node_rows
-                                      if int(nodes.role[int(row)]) == _GENERATED_VIRTUAL), 'generated_virtual_weight')
+        real_weight = checked_sum(
+            (
+                int(nodes.weight[int(row)])
+                for chain in range(plan.chain_ids.size)
+                for row in _numeric_chain_rows(plan, chain)
+                if int(nodes.role[int(row)]) != _GENERATED_VIRTUAL
+            ),
+            'scheduled_real_weight',
+        )
+        virtual_weight = checked_sum(
+            (
+                int(nodes.weight[int(row)])
+                for chain in range(plan.chain_ids.size)
+                for row in _numeric_chain_rows(plan, chain)
+                if int(nodes.role[int(row)]) == _GENERATED_VIRTUAL
+            ),
+            'generated_virtual_weight',
+        )
         chain_weights = tuple(
             checked_sum((int(nodes.weight[int(row)])
-                         for row in plan.node_rows[int(plan.chain_offsets[chain]):
-                                                   int(plan.chain_offsets[chain+1])]),
+                         for row in _numeric_chain_rows(plan, chain)),
                         'chain_total_weight')
             for chain in range(plan.chain_ids.size))
     total_weight = checked_sum((real_weight, virtual_weight), 'scheduled_total_weight')
     for rule in program.rules:
         if rule.kind is NumericRuleKind.LATE_PERIOD:
             count = 0
-            for position, row in enumerate(plan.node_rows):
-                row, chain = int(row), int(plan.row_to_chain[int(row)])
-                if int(nodes.role[row]) != _GENERATED_VIRTUAL and int(plan.chain_periods[chain]) > int(nodes.source_period[row]):
-                    count += 1
-                    violations.append(_violation(rule, NumericReason.LATE_PERIOD, chain,
-                                                 int(plan.row_to_position[row]), int(plan.row_to_position[row]), SEVERITY_SCALE))
+            for chain in range(plan.chain_ids.size):
+                for position, row in enumerate(_numeric_chain_rows(plan, chain)):
+                    row = int(row)
+                    if int(nodes.role[row]) != _GENERATED_VIRTUAL and int(plan.chain_periods[chain]) > int(nodes.source_period[row]):
+                        count += 1
+                        violations.append(_violation(rule, NumericReason.LATE_PERIOD, chain,
+                                                     position, position, SEVERITY_SCALE))
             metrics.append(NumericMetric(rule.index, NumericMetricKind.LATE_PERIOD_COUNT, count))
         elif rule.kind is NumericRuleKind.VIRTUAL_RATIO:
             numerator, denominator = rule.values
@@ -812,8 +832,8 @@ def evaluate_numeric_static_plan_rules(
         elif rule.kind is NumericRuleKind.INTER_CHAIN_WIDTH:
             gap = 0
             for left_chain in range(plan.chain_ids.size-1):
-                left_row = int(plan.node_rows[int(plan.chain_offsets[left_chain+1])-1])
-                right_row = int(plan.node_rows[int(plan.chain_offsets[left_chain+1])])
+                left_row = int(_numeric_chain_rows(plan, left_chain)[-1])
+                right_row = int(_numeric_chain_rows(plan, left_chain + 1)[0])
                 if not nodes.present[left_row, 0] or not nodes.present[right_row, 0]:
                     raise NumericValueError(rule.rule_id, 'inter-chain boundary width is missing')
                 gap = int64(gap + abs(int(nodes.width[left_row])-int(nodes.width[right_row])), rule.rule_id)

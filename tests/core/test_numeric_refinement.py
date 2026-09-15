@@ -124,7 +124,7 @@ def test_refinement_index_replaces_layout_in_generation_and_lane_filter(monkeypa
     critical = frozenset(_critical_sources(state, base))
     index = base.with_critical_sources(state, critical)
     expected = tuple(_source_recipe_stream(state, 0, "node", index=index))
-    monkeypatch.setattr(refinement, "_layout", lambda *_: (_ for _ in ()).throw(AssertionError()))
+    assert not hasattr(refinement, "_layout")
 
     actual = tuple(
         _family_stream(
@@ -225,13 +225,53 @@ def test_refinement_reclaims_only_ordinary_bridge_and_keeps_split_separator():
         virtual_sequence=2,
     )
     runtime = budget(candidate_limit=1)
+    diagnostics = NumericRefinementDiagnostics()
 
-    improve_numeric_refinement(state, runtime)
+    improve_numeric_refinement(state, runtime, diagnostics=diagnostics)
 
     assert ordinary_row not in state.plan.node_rows
     assert separator_row in state.plan.node_rows
     assert state.accepted_moves[0].action is NumericSearchAction.BRIDGE_RECLAMATION
     assert state.virtual_sequence == 2
+    assert sum(diagnostics.plan_materializations.values()) == 1
+    assert sum(diagnostics.accepted.values()) == 1
+    assert diagnostics.layout_call_count == 0
+
+
+def test_rejected_refinement_overlay_does_not_materialize_formal_plan(monkeypatch):
+    task, program, quality = construction_case(
+        weights=("100", "100"),
+        widths=("1000", "900"),
+    )
+    state = _state(task, program, quality, (0, 1), (0, 1, 2), (10, 20), (0, 0))
+    runtime = budget(candidate_limit=1)
+    assert runtime.consume_candidate_check()
+    diagnostics = NumericRefinementDiagnostics()
+    recipe = (
+        NumericSearchAction.CHAIN_ORDER_RELOCATION,
+        10,
+        20,
+        -1,
+        -1,
+        1,
+        -1,
+    )
+    monkeypatch.setattr(
+        refinement,
+        "_build_plan",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError()),
+    )
+
+    assert not refinement._try_order(
+        state,
+        runtime,
+        recipe,
+        diagnostics,
+        "regular:order",
+        NumericRefinementIndex.build(state),
+    )
+    assert state.complete_candidate_evaluation_count == 1
+    assert diagnostics.plan_materializations == {}
 
 
 def test_critical_source_order_and_complete_serial_runner_share_numeric_state():

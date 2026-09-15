@@ -9,6 +9,10 @@ from types import MappingProxyType
 
 import numpy as np
 
+from ._numeric_evaluation import (
+    evaluate_numeric_candidate,
+    evaluate_numeric_overlay_candidate,
+)
 from ._numeric_resources import NumericResourceExtension
 from ._numeric_rules import NumericRuleKind
 from ._numeric_search import (
@@ -22,14 +26,12 @@ from ._numeric_search import (
     _chain_weight,
     _edge_allowed,
     _join_with_bridge,
-    _layout,
     _ordinary_bridge,
     _run_numeric_local_search,
-    _try_prepared_candidate,
     _validate_search_inputs,
     improve_numeric_controlled_split,
 )
-from ._numeric_state import readonly
+from ._numeric_state import NumericPlanOverlay, readonly
 from ._numeric_units import NumericValueError, checked_product
 from .budget import SolveRuntimeBudget
 from .contracts import SearchStopReason
@@ -196,15 +198,6 @@ class NumericRefinementIndex:
             for owner in self.task.nodes.source[selection]
             if int(owner) >= 0
         }
-
-
-def _measured_layout(state, diagnostics):
-    started = perf_counter()
-    result = _layout(state.plan)
-    if diagnostics is not None:
-        diagnostics.layout_call_count += 1
-        diagnostics.layout_seconds += perf_counter() - started
-    return result
 
 
 def _has_real(task, rows):
@@ -708,6 +701,132 @@ def _edit_for(state, recipe, sequence):
     return NumericCandidateEdit(**values)
 
 
+def _candidate_overlay(task, current, chains, chain_ids, periods, *, group_periods=True):
+    if group_periods:
+        order = sorted(range(len(chains)), key=periods.__getitem__)
+        chains = [chains[index] for index in order]
+        chain_ids = [chain_ids[index] for index in order]
+        periods = [periods[index] for index in order]
+    return NumericPlanOverlay.build(task, current, chains, chain_ids, periods)
+
+
+def _same_candidate_evaluation(left, right):
+    if (
+        left.task_fingerprint != right.task_fingerprint
+        or left.rule_program_fingerprint != right.rule_program_fingerprint
+        or left.quality_program_fingerprint != right.quality_program_fingerprint
+        or left.plan_generation != right.plan_generation
+        or left.chain_results != right.chain_results
+        or left.plan_result != right.plan_result
+        or left.node_metrics != right.node_metrics
+        or left.violations != right.violations
+        or left.scheduled_real_weight != right.scheduled_real_weight
+        or left.generated_virtual_weight != right.generated_virtual_weight
+        or left.borrowed_future_weight != right.borrowed_future_weight
+        or not np.array_equal(left.quality_key, right.quality_key)
+    ):
+        return False
+    return all(
+        np.array_equal(getattr(left.delivery, name), getattr(right.delivery, name))
+        for name in ("node_end_ms", "original_completion_ms", "newly_late", "wait_seconds")
+    ) and all(
+        getattr(left.delivery, name) == getattr(right.delivery, name)
+        for name in (
+            "newly_late_weight",
+            "old_backlog_last_completion_seconds",
+            "wait_burden_weight_seconds",
+        )
+    ) and all(
+        np.array_equal(getattr(left.chain_facts, name), getattr(right.chain_facts, name))
+        for name in (
+            "total_weight",
+            "duration_ms",
+            "real_weight",
+            "virtual_weight",
+            "borrowed_weight",
+        )
+    )
+
+
+def _try_overlay_candidate(
+    state,
+    budget,
+    edit,
+    candidate_task,
+    candidate_program,
+    candidate_quality,
+    overlay,
+    affected_rows=(),
+    *,
+    virtual_sequence=None,
+    split_sequence=None,
+    reject_prohibited_kinds=(),
+    diagnostics=None,
+    diagnostic_key=None,
+):
+    if edit.sequence != budget.candidate_check_count:
+        raise NumericValueError("candidate", "candidate sequence does not match consumed budget")
+    preview = evaluate_numeric_overlay_candidate(
+        candidate_task,
+        candidate_program,
+        candidate_quality,
+        overlay,
+        state.task,
+        state.program,
+        state.quality,
+        state.plan,
+        state.evaluation,
+    )
+    state.complete_candidate_evaluation_count += 1
+    if any(
+        violation.prohibited
+        and candidate_program.rules[violation.rule_index].kind in reject_prohibited_kinds
+        for violation in preview.violations
+    ):
+        return False
+    if not budget.allows_search() or not tuple(preview.quality_key) < tuple(
+        state.evaluation.quality_key
+    ):
+        return False
+    candidate = _build_plan(
+        candidate_task,
+        state.plan,
+        overlay.chains,
+        overlay.chain_ids,
+        overlay.chain_periods,
+        group_periods=False,
+    )
+    evaluation = evaluate_numeric_candidate(
+        candidate_task,
+        candidate_program,
+        candidate_quality,
+        candidate,
+        state.task,
+        state.program,
+        state.quality,
+        state.plan,
+        state.evaluation,
+    )
+    if not _same_candidate_evaluation(preview, evaluation):
+        raise NumericValueError(
+            "candidate_overlay", "candidate overlay and formal evaluation differ"
+        )
+    if diagnostics is not None:
+        diagnostics.record("plan_materializations", diagnostic_key)
+    state.commit(
+        candidate_task,
+        candidate_program,
+        candidate_quality,
+        candidate,
+        evaluation,
+        edit,
+        affected_rows,
+        virtual_sequence=virtual_sequence,
+        split_sequence=split_sequence,
+    )
+    return True
+
+
 def _try_repaired_parts(
     state,
     budget,
@@ -718,8 +837,12 @@ def _try_repaired_parts(
     maximum_virtual_bridge_nodes,
     diagnostics=None,
     diagnostic_key=None,
+    index=None,
 ):
-    chains, chain_ids, periods = _measured_layout(state, diagnostics)
+    index = index or NumericRefinementIndex.build(state)
+    chains = list(index.chains)
+    chain_ids = [int(value) for value in state.plan.chain_ids]
+    periods = [int(value) for value in state.plan.chain_periods]
     workspace = NumericResourceExtension(state.task, state.program, state.quality, ())
     sequence = state.virtual_sequence
     changed = []
@@ -740,12 +863,10 @@ def _try_repaired_parts(
         _chain_weight(workspace.task, rows) > maximum for rows in changed
     ):
         return False
-    for index, rows in zip(indices, changed):
-        chains[index] = rows
-        periods[index] = _assigned_period(workspace.task, rows)
-    if diagnostics is not None:
-        diagnostics.record("plan_materializations", diagnostic_key)
-    candidate = _build_plan(workspace.task, state.plan, chains, chain_ids, periods)
+    for chain_index, rows in zip(indices, changed):
+        chains[chain_index] = rows
+        periods[chain_index] = _assigned_period(workspace.task, rows)
+    overlay = _candidate_overlay(workspace.task, state.plan, chains, chain_ids, periods)
     affected_rows = tuple(
         dict.fromkeys(row for pieces in parts for piece in pieces for row in piece)
     ) + tuple(
@@ -753,17 +874,19 @@ def _try_repaired_parts(
             (*removed_rows, *range(state.task.nodes.weight.size, workspace.task.nodes.weight.size))
         )
     )
-    return _try_prepared_candidate(
+    return _try_overlay_candidate(
         state,
         budget,
         edit,
         workspace.task,
         workspace.program,
         workspace.quality,
-        candidate,
+        overlay,
         affected_rows,
         virtual_sequence=sequence,
         reject_prohibited_kinds=tuple(NumericRuleKind),
+        diagnostics=diagnostics,
+        diagnostic_key=diagnostic_key,
     )
 
 
@@ -774,11 +897,13 @@ def _try_segment_recipe(
     maximum_virtual_bridge_nodes,
     diagnostics=None,
     diagnostic_key=None,
+    index=None,
 ):
     action, source_id, target_id, start, stop, other_start, other_stop = recipe
-    chains, chain_ids, _ = _measured_layout(state, diagnostics)
-    source_index, target_index = chain_ids.index(source_id), chain_ids.index(target_id)
-    source, target = chains[source_index], chains[target_index]
+    index = index or NumericRefinementIndex.build(state)
+    source_index, target_index = index.chain_index(source_id), index.chain_index(target_id)
+    source = tuple(int(value) for value in index.chains[source_index])
+    target = tuple(int(value) for value in index.chains[target_index])
     if action is NumericSearchAction.DELIVERY_INTRA_MOVE:
         moved = source[start:stop]
         parts = ((source[:other_start], moved, source[other_start:start], source[stop:]),)
@@ -819,16 +944,23 @@ def _try_segment_recipe(
             maximum_virtual_bridge_nodes,
             diagnostics,
             diagnostic_key,
+            index,
         ):
             return True
     return False
 
 
-def _try_chain_cut(state, budget, recipe, diagnostics=None, diagnostic_key=None):
+def _try_chain_cut(
+    state, budget, recipe, diagnostics=None, diagnostic_key=None, index=None
+):
     _, source_id, new_id, cut, _, prefix_position, suffix_position = recipe
-    chains, chain_ids, periods = _measured_layout(state, diagnostics)
-    source_index = chain_ids.index(source_id)
-    prefix, suffix = chains[source_index][:cut], chains[source_index][cut:]
+    index = index or NumericRefinementIndex.build(state)
+    chains = list(index.chains)
+    chain_ids = [int(value) for value in state.plan.chain_ids]
+    periods = [int(value) for value in state.plan.chain_periods]
+    source_index = index.chain_index(source_id)
+    prefix = tuple(int(value) for value in chains[source_index][:cut])
+    suffix = tuple(int(value) for value in chains[source_index][cut:])
     if not _has_real(state.task, prefix) or not _has_real(state.task, suffix):
         return False
     remaining = iter(
@@ -849,9 +981,7 @@ def _try_chain_cut(state, budget, recipe, diagnostics=None, diagnostic_key=None)
         candidate_periods.append(values[2])
     if any(left > right for left, right in zip(candidate_periods, candidate_periods[1:])):
         return False
-    if diagnostics is not None:
-        diagnostics.record("plan_materializations", diagnostic_key)
-    candidate = _build_plan(
+    overlay = _candidate_overlay(
         state.task,
         state.plan,
         candidate_chains,
@@ -860,23 +990,28 @@ def _try_chain_cut(state, budget, recipe, diagnostics=None, diagnostic_key=None)
         group_periods=False,
     )
     edit = _edit_for(state, recipe, budget.candidate_check_count)
-    return _try_prepared_candidate(
+    return _try_overlay_candidate(
         state,
         budget,
         edit,
         state.task,
         state.program,
         state.quality,
-        candidate,
+        overlay,
         (*prefix, *suffix),
         reject_prohibited_kinds=tuple(NumericRuleKind),
+        diagnostics=diagnostics,
+        diagnostic_key=diagnostic_key,
     )
 
 
-def _try_order(state, budget, recipe, diagnostics=None, diagnostic_key=None):
+def _try_order(state, budget, recipe, diagnostics=None, diagnostic_key=None, index=None):
     _, source_id, target_id, _, _, position, _ = recipe
-    chains, chain_ids, periods = _measured_layout(state, diagnostics)
-    source = chain_ids.index(source_id)
+    index = index or NumericRefinementIndex.build(state)
+    chains = list(index.chains)
+    chain_ids = [int(value) for value in state.plan.chain_ids]
+    periods = [int(value) for value in state.plan.chain_periods]
+    source = index.chain_index(source_id)
     if position >= len(chains) or chain_ids[position] != target_id:
         return False
     moved = chains.pop(source)
@@ -885,56 +1020,62 @@ def _try_order(state, budget, recipe, diagnostics=None, diagnostic_key=None):
     chains.insert(position, moved)
     chain_ids.insert(position, moved_id)
     periods.insert(position, moved_period)
-    if diagnostics is not None:
-        diagnostics.record("plan_materializations", diagnostic_key)
-    candidate = _build_plan(state.task, state.plan, chains, chain_ids, periods, group_periods=False)
+    overlay = _candidate_overlay(
+        state.task, state.plan, chains, chain_ids, periods, group_periods=False
+    )
     edit = _edit_for(state, recipe, budget.candidate_check_count)
-    return _try_prepared_candidate(
+    return _try_overlay_candidate(
         state,
         budget,
         edit,
         state.task,
         state.program,
         state.quality,
-        candidate,
+        overlay,
         moved,
         reject_prohibited_kinds=tuple(NumericRuleKind),
+        diagnostics=diagnostics,
+        diagnostic_key=diagnostic_key,
     )
 
 
-def _try_reclaim(state, budget, recipe, diagnostics=None, diagnostic_key=None):
+def _try_reclaim(state, budget, recipe, diagnostics=None, diagnostic_key=None, index=None):
     _, chain_id, _, start, stop, _, _ = recipe
-    chains, chain_ids, periods = _measured_layout(state, diagnostics)
-    index = chain_ids.index(chain_id)
-    removed = chains[index][start:stop]
+    numeric_index = index or NumericRefinementIndex.build(state)
+    chains = list(numeric_index.chains)
+    chain_ids = [int(value) for value in state.plan.chain_ids]
+    periods = [int(value) for value in state.plan.chain_periods]
+    chain_index = numeric_index.chain_index(chain_id)
+    original = chains[chain_index]
+    removed = tuple(int(value) for value in original[start:stop])
     if not removed or not all(_ordinary_bridge(state.task, row) for row in removed):
         return False
-    kept = chains[index][:start] + chains[index][stop:]
+    kept = tuple(int(value) for value in np.concatenate((original[:start], original[stop:])))
     if not _has_real(state.task, kept):
         return False
     if (
         start
-        and stop < len(chains[index])
+        and stop < len(original)
         and not _edge_allowed(
-            state.task, state.program, chains[index][start - 1], chains[index][stop]
+            state.task, state.program, int(original[start - 1]), int(original[stop])
         )
     ):
         return False
-    chains[index] = kept
-    if diagnostics is not None:
-        diagnostics.record("plan_materializations", diagnostic_key)
-    candidate = _build_plan(state.task, state.plan, chains, chain_ids, periods)
+    chains[chain_index] = kept
+    overlay = _candidate_overlay(state.task, state.plan, chains, chain_ids, periods)
     edit = _edit_for(state, recipe, budget.candidate_check_count)
-    return _try_prepared_candidate(
+    return _try_overlay_candidate(
         state,
         budget,
         edit,
         state.task,
         state.program,
         state.quality,
-        candidate,
+        overlay,
         removed,
         reject_prohibited_kinds=tuple(NumericRuleKind),
+        diagnostics=diagnostics,
+        diagnostic_key=diagnostic_key,
     )
 
 
@@ -945,6 +1086,7 @@ def _try_recipe(
     maximum_virtual_bridge_nodes,
     diagnostics=None,
     diagnostic_key=None,
+    index=None,
 ):
     action = recipe[0]
     if action in {
@@ -961,13 +1103,14 @@ def _try_recipe(
             maximum_virtual_bridge_nodes,
             diagnostics,
             diagnostic_key,
+            index,
         )
     if action is NumericSearchAction.CHAIN_CUT:
-        return _try_chain_cut(state, budget, recipe, diagnostics, diagnostic_key)
+        return _try_chain_cut(state, budget, recipe, diagnostics, diagnostic_key, index)
     if action is NumericSearchAction.CHAIN_ORDER_RELOCATION:
-        return _try_order(state, budget, recipe, diagnostics, diagnostic_key)
+        return _try_order(state, budget, recipe, diagnostics, diagnostic_key, index)
     if action is NumericSearchAction.BRIDGE_RECLAMATION:
-        return _try_reclaim(state, budget, recipe, diagnostics, diagnostic_key)
+        return _try_reclaim(state, budget, recipe, diagnostics, diagnostic_key, index)
     raise NumericValueError("refinement", "known numeric refinement action required")
 
 
@@ -979,6 +1122,7 @@ def _scan_family(
     *,
     diagnostics=None,
     diagnostic_key="regular:unknown",
+    index=None,
 ):
     for _ in range(_PROPOSALS_PER_FAMILY):
         if not budget.allows_search():
@@ -1005,6 +1149,7 @@ def _scan_family(
             maximum_virtual_bridge_nodes,
             diagnostics,
             diagnostic_key,
+            index,
         )
         if diagnostics is not None:
             for _ in range(state.complete_candidate_evaluation_count - evaluations):
@@ -1081,6 +1226,7 @@ def improve_numeric_refinement(
                 maximum_virtual_bridge_nodes,
                 diagnostics=diagnostics,
                 diagnostic_key="regular:reclaim",
+                index=index,
             )
         while not accepted and any(pending) and budget.allows_search():
             lane = next_lane if pending[next_lane] else 1 - next_lane
@@ -1092,6 +1238,7 @@ def improve_numeric_refinement(
                 maximum_virtual_bridge_nodes,
                 diagnostics=diagnostics,
                 diagnostic_key=f"{'critical' if lane == 0 else 'regular'}:{_FAMILIES[family]}",
+                index=index,
             )
             next_family[lane] = (family + 1) % sizes[lane]
             next_lane = 1 - lane

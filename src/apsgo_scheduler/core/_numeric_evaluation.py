@@ -15,7 +15,7 @@ from ._numeric_rules import (
     evaluate_numeric_chain,
     evaluate_numeric_static_plan_rules,
 )
-from ._numeric_state import NumericPlan, NumericTask, readonly
+from ._numeric_state import NumericPlan, NumericPlanOverlay, NumericTask, readonly
 from ._numeric_units import (
     NumericValueError,
     checked_product,
@@ -300,7 +300,11 @@ class NumericPlanEvaluation:
 def _delivery(task, plan, previous_plan=None, previous=None):
     if task.start_ms is None:
         raise NumericValueError("delivery", "task has no production start and duration input")
-    rows = plan.node_rows
+    rows = (
+        plan.node_rows
+        if isinstance(plan, NumericPlan)
+        else np.concatenate(plan.chains)
+    )
     ends = np.empty(rows.size, dtype=np.int64)
     prefix = suffix = 0
     if previous_plan is not None and previous is not None:
@@ -334,7 +338,14 @@ def _delivery(task, plan, previous_plan=None, previous=None):
                     "production_clock",
                 )
                 ends[position] = clock
-    completion = [int(ends[int(position)]) for position in plan.source_last_position]
+    if isinstance(plan, NumericPlan):
+        completion = [int(ends[int(position)]) for position in plan.source_last_position]
+    else:
+        completion_values = np.zeros(task.originals.weight.size, dtype=np.int64)
+        owners = task.nodes.source[rows]
+        real = owners >= 0
+        np.maximum.at(completion_values, owners[real], ends[real])
+        completion = [int(value) for value in completion_values]
     due = task.originals.due_ms
     late = [
         int(due[index]) > 0 and completion[index] > int(due[index])
@@ -372,6 +383,8 @@ def _delivery(task, plan, previous_plan=None, previous=None):
 
 
 def _chain_rows(plan, chain):
+    if isinstance(plan, NumericPlanOverlay):
+        return plan.chains[chain]
     start, stop = int(plan.chain_offsets[chain]), int(plan.chain_offsets[chain + 1])
     return plan.node_rows[start:stop]
 
@@ -454,7 +467,11 @@ def _node_metrics(task, program, plan):
                 rule.index,
                 kind,
                 checked_sum(
-                    (int(task.priority[rule.values[0], int(row)]) for row in plan.node_rows),
+                    (
+                        int(task.priority[rule.values[0], int(row)])
+                        for chain in range(plan.chain_ids.size)
+                        for row in _chain_rows(plan, chain)
+                    ),
                     rule.rule_id,
                 ),
             )
@@ -467,7 +484,7 @@ def _validate_evaluation_inputs(task, rule_program, quality_program, plan):
         not isinstance(task, NumericTask)
         or not isinstance(rule_program, NumericRuleProgram)
         or not isinstance(quality_program, NumericQualityProgram)
-        or not isinstance(plan, NumericPlan)
+        or not isinstance(plan, (NumericPlan, NumericPlanOverlay))
         or rule_program.task_fingerprint != task.fingerprint
         or quality_program.task_fingerprint != task.fingerprint
         or quality_program.rule_program_fingerprint != rule_program.fingerprint
@@ -597,7 +614,7 @@ def _assemble_evaluation(
         rule_program.fingerprint,
         quality_program.fingerprint,
         plan.generation,
-        plan.fingerprint,
+        plan.fingerprint if isinstance(plan, NumericPlan) else "candidate-overlay",
         chain_results,
         plan_result,
         _node_metrics(task, rule_program, plan) if node_metrics is None else node_metrics,
@@ -611,7 +628,7 @@ def _assemble_evaluation(
     )
 
 
-def evaluate_numeric_plan(task, rule_program, quality_program, plan):
+def _evaluate_numeric_plan(task, rule_program, quality_program, plan):
     _validate_evaluation_inputs(task, rule_program, quality_program, plan)
     chain_results = tuple(
         evaluate_numeric_chain(task, rule_program, plan, chain)
@@ -629,7 +646,13 @@ def evaluate_numeric_plan(task, rule_program, quality_program, plan):
     )
 
 
-def evaluate_numeric_candidate(
+def evaluate_numeric_plan(task, rule_program, quality_program, plan):
+    if not isinstance(plan, NumericPlan):
+        raise NumericValueError("evaluation", "formal numeric plan required")
+    return _evaluate_numeric_plan(task, rule_program, quality_program, plan)
+
+
+def _evaluate_numeric_candidate(
     task,
     rule_program,
     quality_program,
@@ -665,7 +688,7 @@ def evaluate_numeric_candidate(
         or rule_program.rules != previous_rule_program.rules
         or quality_program.objectives != previous_quality_program.objectives
     ):
-        return evaluate_numeric_plan(task, rule_program, quality_program, plan)
+        return _evaluate_numeric_plan(task, rule_program, quality_program, plan)
 
     old_by_id = {int(identity): index for index, identity in enumerate(previous_plan.chain_ids)}
     chain_results = []
@@ -695,6 +718,58 @@ def evaluate_numeric_candidate(
         chain_facts,
         _delivery(task, plan, previous_plan, previous_evaluation.delivery),
         previous_evaluation.node_metrics,
+    )
+
+
+def evaluate_numeric_candidate(
+    task,
+    rule_program,
+    quality_program,
+    plan,
+    previous_task,
+    previous_rule_program,
+    previous_quality_program,
+    previous_plan,
+    previous_evaluation,
+):
+    if not isinstance(plan, NumericPlan):
+        raise NumericValueError("evaluation", "formal numeric candidate required")
+    return _evaluate_numeric_candidate(
+        task,
+        rule_program,
+        quality_program,
+        plan,
+        previous_task,
+        previous_rule_program,
+        previous_quality_program,
+        previous_plan,
+        previous_evaluation,
+    )
+
+
+def evaluate_numeric_overlay_candidate(
+    task,
+    rule_program,
+    quality_program,
+    plan,
+    previous_task,
+    previous_rule_program,
+    previous_quality_program,
+    previous_plan,
+    previous_evaluation,
+):
+    if not isinstance(plan, NumericPlanOverlay):
+        raise NumericValueError("evaluation", "candidate chain overlay required")
+    return _evaluate_numeric_candidate(
+        task,
+        rule_program,
+        quality_program,
+        plan,
+        previous_task,
+        previous_rule_program,
+        previous_quality_program,
+        previous_plan,
+        previous_evaluation,
     )
 
 

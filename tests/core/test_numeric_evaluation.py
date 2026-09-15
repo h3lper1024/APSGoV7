@@ -19,11 +19,17 @@ from apsgo_scheduler.core._numeric_evaluation import (
     NumericPlanEvaluation,
     NumericQualityProgram,
     evaluate_numeric_candidate,
+    evaluate_numeric_overlay_candidate,
     evaluate_numeric_plan,
     preview_numeric_chain_order_quality,
 )
 from apsgo_scheduler.core._numeric_rules import NumericRuleProgram
-from apsgo_scheduler.core._numeric_state import NumericPlan, NumericTask, readonly
+from apsgo_scheduler.core._numeric_state import (
+    NumericPlan,
+    NumericPlanOverlay,
+    NumericTask,
+    readonly,
+)
 from apsgo_scheduler.core._numeric_units import NumericValueError
 from apsgo_scheduler.core.delivery_timing import DeliveryTimingInput, OrderTimingInput
 from tests.app.test_input_normalizer import make_order, make_request
@@ -166,6 +172,37 @@ def test_chain_order_preview_matches_complete_candidate_evaluation():
     assert preview_numeric_chain_order_quality(
         task, quality, plan, current, (1, 0)
     ) == tuple(int(value) for value in complete.quality_key)
+
+
+def test_candidate_overlay_matches_formal_candidate_evaluation():
+    _, task, program, quality, plan = evaluation_case()
+    current = evaluate_numeric_plan(task, program, quality, plan)
+    overlay = NumericPlanOverlay.build(
+        task,
+        plan,
+        (readonly((1,), np.int64), readonly((0,), np.int64)),
+        (20, 10),
+        (0, 0),
+    )
+    preview = evaluate_numeric_overlay_candidate(
+        task, program, quality, overlay, task, program, quality, plan, current
+    )
+    candidate = NumericPlan.build(
+        task, (1, 0), (0, 1, 2), (20, 10), (0, 0), generation=1
+    )
+    formal = evaluate_numeric_candidate(
+        task, program, quality, candidate, task, program, quality, plan, current
+    )
+
+    assert np.array_equal(preview.quality_key, formal.quality_key)
+    assert preview.violations == formal.violations
+    assert preview.chain_results == formal.chain_results
+    assert preview.plan_result == formal.plan_result
+    assert np.array_equal(
+        preview.delivery.original_completion_ms,
+        formal.delivery.original_completion_ms,
+    )
+    assert np.array_equal(preview.chain_facts.total_weight, formal.chain_facts.total_weight)
 
 
 def test_numeric_evaluation_rejects_cross_task_identity_and_malformed_arrays():

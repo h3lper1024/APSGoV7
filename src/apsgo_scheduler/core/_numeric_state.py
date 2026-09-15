@@ -774,3 +774,63 @@ class NumericPlan:
             generation,
             task.fingerprint,
         )
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class NumericPlanOverlay:
+    """Candidate-private chain views without formal plan indexes or fingerprint."""
+
+    chains: tuple
+    chain_ids: np.ndarray
+    chain_periods: np.ndarray
+    generation: int
+    task_fingerprint: str
+
+    def __post_init__(self):
+        if (
+            not isinstance(self.chains, tuple)
+            or not self.chains
+            or any(not isinstance(chain, np.ndarray) or chain.ndim != 1 for chain in self.chains)
+            or any(chain.dtype != np.int64 or chain.flags.writeable for chain in self.chains)
+            or not isinstance(self.chain_ids, np.ndarray)
+            or not isinstance(self.chain_periods, np.ndarray)
+            or self.chain_ids.dtype != np.int64
+            or self.chain_periods.dtype != np.int64
+            or self.chain_ids.flags.writeable
+            or self.chain_periods.flags.writeable
+            or self.chain_ids.shape != (len(self.chains),)
+            or self.chain_periods.shape != (len(self.chains),)
+            or not isinstance(self.task_fingerprint, str)
+            or not self.task_fingerprint
+        ):
+            raise NumericValueError("candidate_overlay", "read-only numeric chain overlay required")
+        if int64(self.generation, "generation") < 0:
+            raise NumericValueError("generation", "nonnegative generation required")
+
+    @classmethod
+    def build(cls, task, current, chains, chain_ids, chain_periods):
+        if not isinstance(task, NumericTask) or not isinstance(current, NumericPlan):
+            raise NumericValueError("candidate_overlay", "numeric task and current plan required")
+        values = []
+        for chain in chains:
+            rows = np.asarray(chain, dtype=np.int64)
+            if rows.ndim != 1 or not rows.size:
+                raise NumericValueError("candidate_overlay", "nonempty integer chains required")
+            if rows.flags.writeable or not rows.flags.c_contiguous:
+                rows = readonly(rows, np.int64)
+            values.append(rows)
+        ids = readonly(chain_ids, np.int64)
+        periods = readonly(chain_periods, np.int64)
+        if (
+            ids.size != len(values)
+            or periods.size != len(values)
+            or np.unique(ids).size != ids.size
+            or np.any(ids < 0)
+            or np.any(periods < 0)
+            or np.any(periods >= len(task.period_ids))
+            or any(np.any(chain < 0) or np.any(chain >= task.nodes.weight.size) for chain in values)
+        ):
+            raise NumericValueError(
+                "candidate_overlay", "candidate chain identity or row is invalid"
+            )
+        return cls(tuple(values), ids, periods, current.generation + 1, task.fingerprint)
