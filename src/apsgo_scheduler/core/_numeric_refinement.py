@@ -1,6 +1,8 @@
 """Deterministic post-search structural refinement on the numeric state."""
 
+import logging
 from collections import deque
+from dataclasses import dataclass, field
 from itertools import permutations, zip_longest
 from time import perf_counter
 
@@ -29,12 +31,66 @@ from .budget import SolveRuntimeBudget
 from .contracts import SearchStopReason
 from .model import MaterialRole
 
+logger = logging.getLogger(__name__)
+
 _GENERATED_VIRTUAL = tuple(MaterialRole).index(MaterialRole.GENERATED_VIRTUAL)
 _PROPOSALS_PER_SOURCE = 4
 _PROPOSALS_PER_FAMILY = 64
 _CRITICAL_FAMILY_COUNT = len(("intra", "node", "block"))
 _REGULAR_FAMILY_COUNT = 6
 _FAMILIES = ("intra", "node", "block", "cut", "order", "reclaim")
+
+
+@dataclass(slots=True)
+class NumericRefinementDiagnostics:
+    """Aggregated refinement work counters; never records individual candidates."""
+
+    raw_combinations: dict[str, int] = field(default_factory=dict)
+    unique_combinations: dict[str, int] = field(default_factory=dict)
+    lane_filtered: dict[str, int] = field(default_factory=dict)
+    routed_combinations: dict[str, int] = field(default_factory=dict)
+    candidate_checks: dict[str, int] = field(default_factory=dict)
+    complete_evaluations: dict[str, int] = field(default_factory=dict)
+    accepted: dict[str, int] = field(default_factory=dict)
+    plan_materializations: dict[str, int] = field(default_factory=dict)
+    layout_call_count: int = 0
+    layout_seconds: float = 0.0
+    maximum_generator_advance_seconds: float = 0.0
+
+    @staticmethod
+    def _increment(values, key):
+        values[key] = values.get(key, 0) + 1
+
+    def record(self, name, key):
+        self._increment(getattr(self, name), key)
+
+    def snapshot(self):
+        return {
+            name: dict(sorted(getattr(self, name).items()))
+            for name in (
+                "raw_combinations",
+                "unique_combinations",
+                "lane_filtered",
+                "routed_combinations",
+                "candidate_checks",
+                "complete_evaluations",
+                "accepted",
+                "plan_materializations",
+            )
+        } | {
+            "layout_call_count": self.layout_call_count,
+            "layout_seconds": self.layout_seconds,
+            "maximum_generator_advance_seconds": self.maximum_generator_advance_seconds,
+        }
+
+
+def _measured_layout(state, diagnostics):
+    started = perf_counter()
+    result = _layout(state.plan)
+    if diagnostics is not None:
+        diagnostics.layout_call_count += 1
+        diagnostics.layout_seconds += perf_counter() - started
+    return result
 
 
 def _has_real(task, rows):
@@ -202,9 +258,17 @@ def _alternate(first, second):
                 yield value
 
 
-def _source_recipe_stream(state, source, family, *, ordered_sources=None, critical_lane=False):
+def _source_recipe_stream(
+    state,
+    source,
+    family,
+    *,
+    ordered_sources=None,
+    critical_lane=False,
+    diagnostics=None,
+):
     plan = state.plan
-    chains, chain_ids, _ = _layout(plan)
+    chains, chain_ids, _ = _measured_layout(state, diagnostics)
     positions = tuple(reversed(_source_positions(state)[source]))
     ordered_sources = ordered_sources or _delivery_sources(state)
     ranked_chains = _chain_order(state)
@@ -377,8 +441,20 @@ def _source_recipe_stream(state, source, family, *, ordered_sources=None, critic
                     )
 
 
-def _family_stream(state, family, cursor, ordered_sources, critical, critical_lane, budget):
+def _family_stream(
+    state,
+    family,
+    cursor,
+    ordered_sources,
+    critical,
+    critical_lane,
+    budget,
+    diagnostics=None,
+    diagnostic_seen=None,
+):
     sources = _rotate_after(ordered_sources, cursor[family])
+    lane = "critical" if critical_lane else "regular"
+    key = f"{lane}:{family}"
 
     def source_stream(source):
         for recipe in _source_recipe_stream(
@@ -387,12 +463,24 @@ def _family_stream(state, family, cursor, ordered_sources, critical, critical_la
             family,
             ordered_sources=ordered_sources,
             critical_lane=critical_lane is True,
+            diagnostics=diagnostics,
         ):
-            rows = _recipe_real_sources(state, recipe)
+            if not budget.allows_search():
+                return
+            if diagnostics is not None:
+                diagnostics.record("raw_combinations", key)
+                if diagnostic_seen is not None and recipe not in diagnostic_seen:
+                    diagnostic_seen.add(recipe)
+                    diagnostics.record("unique_combinations", key)
+            rows = _recipe_real_sources(state, recipe, diagnostics)
             is_critical = bool(rows & critical)
             if critical_lane is not None and is_critical is not critical_lane:
+                if diagnostics is not None:
+                    diagnostics.record("lane_filtered", key)
                 continue
             cursor[family] = source
+            if diagnostics is not None:
+                diagnostics.record("routed_combinations", key)
             yield recipe
 
     return _round_robin(
@@ -400,8 +488,8 @@ def _family_stream(state, family, cursor, ordered_sources, critical, critical_la
     )
 
 
-def _reclamation_stream(state):
-    chains, chain_ids, _ = _layout(state.plan)
+def _reclamation_stream(state, diagnostics=None):
+    chains, chain_ids, _ = _measured_layout(state, diagnostics)
     for chain, rows in enumerate(chains):
         position = 0
         while position < len(rows):
@@ -434,9 +522,9 @@ def _reclamation_stream(state):
                     )
 
 
-def _recipe_real_sources(state, recipe):
+def _recipe_real_sources(state, recipe, diagnostics=None):
     action, source_id, target_id, start, stop, other_start, other_stop = recipe
-    chains, chain_ids, _ = _layout(state.plan)
+    chains, chain_ids, _ = _measured_layout(state, diagnostics)
     source = chains[chain_ids.index(source_id)]
     rows = source[start:stop] if start >= 0 and stop > start else source
     if action in {NumericSearchAction.NODE_EXCHANGE, NumericSearchAction.BLOCK_EXCHANGE}:
@@ -497,9 +585,17 @@ def _edit_for(state, recipe, sequence):
 
 
 def _try_repaired_parts(
-    state, budget, indices, parts, removed_rows, edit, maximum_virtual_bridge_nodes
+    state,
+    budget,
+    indices,
+    parts,
+    removed_rows,
+    edit,
+    maximum_virtual_bridge_nodes,
+    diagnostics=None,
+    diagnostic_key=None,
 ):
-    chains, chain_ids, periods = _layout(state.plan)
+    chains, chain_ids, periods = _measured_layout(state, diagnostics)
     workspace = NumericResourceExtension(state.task, state.program, state.quality, ())
     sequence = state.virtual_sequence
     changed = []
@@ -523,6 +619,8 @@ def _try_repaired_parts(
     for index, rows in zip(indices, changed):
         chains[index] = rows
         periods[index] = _assigned_period(workspace.task, rows)
+    if diagnostics is not None:
+        diagnostics.record("plan_materializations", diagnostic_key)
     candidate = _build_plan(workspace.task, state.plan, chains, chain_ids, periods)
     affected_rows = tuple(
         dict.fromkeys(row for pieces in parts for piece in pieces for row in piece)
@@ -545,9 +643,16 @@ def _try_repaired_parts(
     )
 
 
-def _try_segment_recipe(state, budget, recipe, maximum_virtual_bridge_nodes):
+def _try_segment_recipe(
+    state,
+    budget,
+    recipe,
+    maximum_virtual_bridge_nodes,
+    diagnostics=None,
+    diagnostic_key=None,
+):
     action, source_id, target_id, start, stop, other_start, other_stop = recipe
-    chains, chain_ids, _ = _layout(state.plan)
+    chains, chain_ids, _ = _measured_layout(state, diagnostics)
     source_index, target_index = chain_ids.index(source_id), chain_ids.index(target_id)
     source, target = chains[source_index], chains[target_index]
     if action is NumericSearchAction.DELIVERY_INTRA_MOVE:
@@ -588,14 +693,16 @@ def _try_segment_recipe(state, budget, recipe, maximum_virtual_bridge_nodes):
             removed_rows,
             edit,
             maximum_virtual_bridge_nodes,
+            diagnostics,
+            diagnostic_key,
         ):
             return True
     return False
 
 
-def _try_chain_cut(state, budget, recipe):
+def _try_chain_cut(state, budget, recipe, diagnostics=None, diagnostic_key=None):
     _, source_id, new_id, cut, _, prefix_position, suffix_position = recipe
-    chains, chain_ids, periods = _layout(state.plan)
+    chains, chain_ids, periods = _measured_layout(state, diagnostics)
     source_index = chain_ids.index(source_id)
     prefix, suffix = chains[source_index][:cut], chains[source_index][cut:]
     if not _has_real(state.task, prefix) or not _has_real(state.task, suffix):
@@ -618,6 +725,8 @@ def _try_chain_cut(state, budget, recipe):
         candidate_periods.append(values[2])
     if any(left > right for left, right in zip(candidate_periods, candidate_periods[1:])):
         return False
+    if diagnostics is not None:
+        diagnostics.record("plan_materializations", diagnostic_key)
     candidate = _build_plan(
         state.task,
         state.plan,
@@ -640,9 +749,9 @@ def _try_chain_cut(state, budget, recipe):
     )
 
 
-def _try_order(state, budget, recipe):
+def _try_order(state, budget, recipe, diagnostics=None, diagnostic_key=None):
     _, source_id, target_id, _, _, position, _ = recipe
-    chains, chain_ids, periods = _layout(state.plan)
+    chains, chain_ids, periods = _measured_layout(state, diagnostics)
     source = chain_ids.index(source_id)
     if position >= len(chains) or chain_ids[position] != target_id:
         return False
@@ -652,6 +761,8 @@ def _try_order(state, budget, recipe):
     chains.insert(position, moved)
     chain_ids.insert(position, moved_id)
     periods.insert(position, moved_period)
+    if diagnostics is not None:
+        diagnostics.record("plan_materializations", diagnostic_key)
     candidate = _build_plan(state.task, state.plan, chains, chain_ids, periods, group_periods=False)
     edit = _edit_for(state, recipe, budget.candidate_check_count)
     return _try_prepared_candidate(
@@ -667,9 +778,9 @@ def _try_order(state, budget, recipe):
     )
 
 
-def _try_reclaim(state, budget, recipe):
+def _try_reclaim(state, budget, recipe, diagnostics=None, diagnostic_key=None):
     _, chain_id, _, start, stop, _, _ = recipe
-    chains, chain_ids, periods = _layout(state.plan)
+    chains, chain_ids, periods = _measured_layout(state, diagnostics)
     index = chain_ids.index(chain_id)
     removed = chains[index][start:stop]
     if not removed or not all(_ordinary_bridge(state.task, row) for row in removed):
@@ -686,6 +797,8 @@ def _try_reclaim(state, budget, recipe):
     ):
         return False
     chains[index] = kept
+    if diagnostics is not None:
+        diagnostics.record("plan_materializations", diagnostic_key)
     candidate = _build_plan(state.task, state.plan, chains, chain_ids, periods)
     edit = _edit_for(state, recipe, budget.candidate_check_count)
     return _try_prepared_candidate(
@@ -701,7 +814,14 @@ def _try_reclaim(state, budget, recipe):
     )
 
 
-def _try_recipe(state, budget, recipe, maximum_virtual_bridge_nodes):
+def _try_recipe(
+    state,
+    budget,
+    recipe,
+    maximum_virtual_bridge_nodes,
+    diagnostics=None,
+    diagnostic_key=None,
+):
     action = recipe[0]
     if action in {
         NumericSearchAction.DELIVERY_INTRA_MOVE,
@@ -710,32 +830,75 @@ def _try_recipe(state, budget, recipe, maximum_virtual_bridge_nodes):
         NumericSearchAction.BLOCK_MOVE,
         NumericSearchAction.BLOCK_EXCHANGE,
     }:
-        return _try_segment_recipe(state, budget, recipe, maximum_virtual_bridge_nodes)
+        return _try_segment_recipe(
+            state,
+            budget,
+            recipe,
+            maximum_virtual_bridge_nodes,
+            diagnostics,
+            diagnostic_key,
+        )
     if action is NumericSearchAction.CHAIN_CUT:
-        return _try_chain_cut(state, budget, recipe)
+        return _try_chain_cut(state, budget, recipe, diagnostics, diagnostic_key)
     if action is NumericSearchAction.CHAIN_ORDER_RELOCATION:
-        return _try_order(state, budget, recipe)
+        return _try_order(state, budget, recipe, diagnostics, diagnostic_key)
     if action is NumericSearchAction.BRIDGE_RECLAMATION:
-        return _try_reclaim(state, budget, recipe)
+        return _try_reclaim(state, budget, recipe, diagnostics, diagnostic_key)
     raise NumericValueError("refinement", "known numeric refinement action required")
 
 
-def _scan_family(state, budget, recipes, maximum_virtual_bridge_nodes=2):
+def _scan_family(
+    state,
+    budget,
+    recipes,
+    maximum_virtual_bridge_nodes=2,
+    *,
+    diagnostics=None,
+    diagnostic_key="regular:unknown",
+):
     for _ in range(_PROPOSALS_PER_FAMILY):
         if not budget.allows_search():
             return False, False
         try:
+            started = perf_counter()
             recipe = next(recipes)
+            if diagnostics is not None:
+                diagnostics.maximum_generator_advance_seconds = max(
+                    diagnostics.maximum_generator_advance_seconds,
+                    perf_counter() - started,
+                )
         except StopIteration:
             return False, True
         if not budget.consume_candidate_check():
             return False, False
-        if _try_recipe(state, budget, recipe, maximum_virtual_bridge_nodes):
+        if diagnostics is not None:
+            diagnostics.record("candidate_checks", diagnostic_key)
+        evaluations = state.complete_candidate_evaluation_count if state is not None else 0
+        accepted = _try_recipe(
+            state,
+            budget,
+            recipe,
+            maximum_virtual_bridge_nodes,
+            diagnostics,
+            diagnostic_key,
+        )
+        if diagnostics is not None:
+            for _ in range(state.complete_candidate_evaluation_count - evaluations):
+                diagnostics.record("complete_evaluations", diagnostic_key)
+            if accepted:
+                diagnostics.record("accepted", diagnostic_key)
+        if accepted:
             return True, False
     return False, False
 
 
-def improve_numeric_refinement(state, budget, *, maximum_virtual_bridge_nodes=2):
+def improve_numeric_refinement(
+    state,
+    budget,
+    *,
+    maximum_virtual_bridge_nodes=2,
+    diagnostics=None,
+):
     """Alternate critical and regular action families until no improvement remains."""
     _validate_search_inputs(state.task, state.program, state.quality, state, budget)
     if type(maximum_virtual_bridge_nodes) is not int or not 0 <= maximum_virtual_bridge_nodes <= 2:
@@ -750,6 +913,7 @@ def improve_numeric_refinement(state, budget, *, maximum_virtual_bridge_nodes=2)
     next_family, next_lane = [0, 0], 0
     first_cleanup = True
     while budget.allows_search():
+        diagnostic_seen = set()
         critical_order = _critical_sources(state)
         critical = frozenset(critical_order)
         ordered_sources = (
@@ -766,12 +930,14 @@ def improve_numeric_refinement(state, budget, *, maximum_virtual_bridge_nodes=2)
                     critical,
                     lane == 0,
                     budget,
+                    diagnostics,
+                    diagnostic_seen,
                 )
                 for family in _FAMILIES[: _CRITICAL_FAMILY_COUNT if lane == 0 else -1]
             ]
             for lane in range(2)
         ]
-        cleanup = iter(_reclamation_stream(state))
+        cleanup = iter(_reclamation_stream(state, diagnostics))
         streams[1].append(cleanup)
         sizes = (_CRITICAL_FAMILY_COUNT, _REGULAR_FAMILY_COUNT)
         pending = [
@@ -781,7 +947,14 @@ def improve_numeric_refinement(state, budget, *, maximum_virtual_bridge_nodes=2)
         accepted = False
         if first_cleanup:
             first_cleanup = False
-            accepted, _ = _scan_family(state, budget, cleanup, maximum_virtual_bridge_nodes)
+            accepted, _ = _scan_family(
+                state,
+                budget,
+                cleanup,
+                maximum_virtual_bridge_nodes,
+                diagnostics=diagnostics,
+                diagnostic_key="regular:reclaim",
+            )
         while not accepted and any(pending) and budget.allows_search():
             lane = next_lane if pending[next_lane] else 1 - next_lane
             family = pending[lane].popleft()
@@ -790,6 +963,8 @@ def improve_numeric_refinement(state, budget, *, maximum_virtual_bridge_nodes=2)
                 budget,
                 streams[lane][family],
                 maximum_virtual_bridge_nodes,
+                diagnostics=diagnostics,
+                diagnostic_key=f"{'critical' if lane == 0 else 'regular'}:{_FAMILIES[family]}",
             )
             next_family[lane] = (family + 1) % sizes[lane]
             next_lane = 1 - lane
@@ -831,9 +1006,12 @@ def run_numeric_serial_search(
             maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes,
         )
     if budget.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE:
+        diagnostics = NumericRefinementDiagnostics()
         improve_numeric_refinement(
             state,
             budget,
             maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes,
+            diagnostics=diagnostics,
         )
+        logger.info("numeric_refinement_summary %s", diagnostics.snapshot())
     return state, NumericSearchCheckpoint.capture(state.task, state, budget, started)

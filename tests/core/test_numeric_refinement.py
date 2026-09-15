@@ -3,6 +3,7 @@
 import apsgo_scheduler.core._numeric_refinement as refinement
 from apsgo_scheduler.core._numeric_evaluation import evaluate_numeric_plan
 from apsgo_scheduler.core._numeric_refinement import (
+    NumericRefinementDiagnostics,
     _critical_sources,
     _round_robin,
     _scan_family,
@@ -78,12 +79,33 @@ def test_refinement_keeps_four_proposals_per_source_and_sixty_four_per_family(
     monkeypatch.setattr(
         refinement,
         "_try_recipe",
-        lambda state, current, recipe, maximum_virtual_bridge_nodes: False,
+        lambda state, current, recipe, maximum_virtual_bridge_nodes, *args: False,
     )
     runtime = budget(candidate_limit=100)
     accepted, exhausted = _scan_family(None, runtime, iter(range(100)))
     assert (accepted, exhausted) == (False, False)
     assert runtime.candidate_check_count == 64
+
+
+def test_refinement_diagnostics_separate_generated_and_consumed_work(monkeypatch):
+    diagnostics = NumericRefinementDiagnostics()
+    runtime = budget(candidate_limit=2)
+    state = type("State", (), {"complete_candidate_evaluation_count": 0})()
+    monkeypatch.setattr(refinement, "_try_recipe", lambda *args: False)
+
+    accepted, exhausted = _scan_family(
+        state,
+        runtime,
+        iter(("first", "second", "third")),
+        diagnostics=diagnostics,
+        diagnostic_key="regular:node",
+    )
+
+    assert (accepted, exhausted) == (False, False)
+    assert runtime.candidate_check_count == 2
+    assert diagnostics.candidate_checks == {"regular:node": 2}
+    assert diagnostics.complete_evaluations == {}
+    assert diagnostics.maximum_generator_advance_seconds >= 0
 
 
 def test_refinement_reclaims_only_ordinary_bridge_and_keeps_split_separator():
