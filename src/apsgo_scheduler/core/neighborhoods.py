@@ -99,6 +99,10 @@ class SearchContext:
     _evaluation_reuse: _AcceptedPlanEvaluation | None = field(
         default=None, init=False, repr=False, compare=False
     )
+    _numeric_view: object = field(default=None, init=False, repr=False, compare=False)
+    numeric_view_build_count: int = field(default=0, init=False)
+    numeric_prepare_seconds: float = field(default=0.0, init=False)
+    numeric_peak_row_count: int = field(default=0, init=False)
 
     def __post_init__(self):
         if not isinstance(self.factory, VirtualFactory) or not isinstance(
@@ -111,6 +115,26 @@ class SearchContext:
         self.accepted_move_traces = freeze_tuple(
             self.accepted_move_traces, AcceptedMoveTrace, "accepted_move_traces"
         )
+
+    def prepare_numeric_view(self, plan, generation):
+        from time import perf_counter
+        from ._search_numeric import PlanNumericView, TaskNumericCatalog
+
+        started = perf_counter()
+        previous = self._numeric_view
+        catalog = (previous.catalog if previous is not None and previous.catalog.cache is self.factory.cache
+                   else TaskNumericCatalog.build(self.factory.cache))
+        view = PlanNumericView.build(catalog, plan, generation)
+        self.numeric_view_build_count += 1
+        self.numeric_prepare_seconds += perf_counter() - started
+        self.numeric_peak_row_count = max(self.numeric_peak_row_count,
+                                          len(catalog.columns.nodes) + len(view.dynamic.nodes))
+        return view
+
+    def computation_view(self, state):
+        if self._numeric_view is None or not self._numeric_view.matches(state, self.factory.cache):
+            self._numeric_view = self.prepare_numeric_view(state.current_plan, state.accepted_move_count)
+        return self._numeric_view
 
 
 def _validate_search(state, context):
@@ -505,7 +529,7 @@ def try_complete_candidate(
     plan = SchedulePlan(tuple(normalized))
     if chain_order_only and {chain.chain_id: chain for chain in plan.chains} != current:
         return False
-    before = {node.node_id: node for chain in state.current_plan.chains for node in chain.nodes}
+    before = context.computation_view(state).nodes_by_id
     after = {node.node_id: node for chain in plan.chains for node in chain.nodes}
     if removed:
         eligible = {node.node_id for chain in state.current_plan.chains if chain.chain_id in affected
@@ -604,6 +628,8 @@ def try_complete_candidate(
         budget.candidate_check_count,
     )
     traces = context.accepted_move_traces + (trace,)
+    # Prepare before the sole commit: failure must leave the accepted plan/view pair intact.
+    candidate_view = context.prepare_numeric_view(plan, state.accepted_move_count + 1)
     if not budget.allows_search():
         return False
     state.commit_accepted(
@@ -613,6 +639,7 @@ def try_complete_candidate(
         split_mode=None if split_decision is None else split_decision.mode,
     )
     context._evaluation_reuse = candidate_reuse
+    context._numeric_view = candidate_view
     context.accepted_move_traces = traces
     emit(
         logger,

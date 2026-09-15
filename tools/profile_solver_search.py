@@ -105,6 +105,11 @@ def _snapshot(state, context):
         "edge_cache": {
             "hits": cache.hit_count, "misses": cache.miss_count, "entries": cache.entry_count,
         },
+        "numeric_layout": {
+            "view_build_count": context.numeric_view_build_count,
+            "prepare_seconds": Decimal(str(context.numeric_prepare_seconds)),
+            "peak_row_count": context.numeric_peak_row_count,
+        },
     })
 
 

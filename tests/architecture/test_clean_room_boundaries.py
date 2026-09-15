@@ -74,8 +74,8 @@ def check_source(source, path, package):
             for target in targets:
                 top = target.partition(".")[0]
                 numeric_dependency = (
-                    module == "apsgo_scheduler.core._bridge_numeric"
-                    and top in {"numpy", "numba"}
+                    (module == "apsgo_scheduler.core._bridge_numeric" and top in {"numpy", "numba"})
+                    or (module == "apsgo_scheduler.core._search_numeric" and top == "numpy")
                 )
                 assert top in sys.stdlib_module_names or top == "apsgo_scheduler" or (
                     numeric_dependency
@@ -272,6 +272,15 @@ def test_numeric_dependency_exception_is_only_the_private_bridge_module(source):
 def test_numeric_dependency_exception_does_not_relax_other_boundaries(source):
     with pytest.raises(AssertionError):
         check_source(source, PACKAGE / "core" / "_bridge_numeric.py", PACKAGE)
+
+
+def test_search_layout_allows_only_numpy_in_exact_private_module():
+    check_source("import numpy as np", PACKAGE / "core" / "_search_numeric.py", PACKAGE)
+    for source in ("import numba", "import scipy", "import llvmlite"):
+        with pytest.raises(AssertionError):
+            check_source(source, PACKAGE / "core" / "_search_numeric.py", PACKAGE)
+    with pytest.raises(AssertionError):
+        check_source("import numpy", PACKAGE / "core" / "_search_numeric_extra.py", PACKAGE)
 
 
 @pytest.mark.parametrize(
