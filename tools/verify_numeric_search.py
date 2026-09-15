@@ -14,7 +14,7 @@ from apsgo_scheduler.api.request import fingerprint_public_request
 from apsgo_scheduler.core.contracts import fingerprint
 
 
-def signature(run):
+def signature(run, *, allow_evaluation_count_change=False):
     request = load_request(run / "prepared_request.json")
     data = read_json(run / "measurement.json")
     state, context = load_case(run, require_virtual_sequence=True)
@@ -28,6 +28,8 @@ def signature(run):
             "accepted_move_count", "virtual_sequence", "stop_reason")}
         # Also check raw carriers; a stale stored fingerprint must not hide a difference.
         result[name]["raw"] = fingerprint({key: snapshot[key] for key in ("plan", "evaluation", "trace")})
+        if allow_evaluation_count_change:
+            del result[name]["complete_candidate_evaluation_count"]
     result["split_counts"] = {key: value for key, value in data["result"]["run_manifest"]["counters"].items()
                               if "split" in key or "borrow_return" in key}
     result["audits"] = {key: data["result"][key]["passed"] for key in ("core_audit", "audit_report")}
@@ -57,14 +59,15 @@ def main():
     parser.add_argument("--reference", type=Path, required=True)
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--allow-evaluation-count-change", action="store_true")
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(args.output)
-    reference = signature(args.reference)
+    reference = signature(args.reference, allow_evaluation_count_change=args.allow_evaluation_count_change)
     report = {"reference": str(args.reference), "signature": reference,
               "reference_sha256": _sha256(args.reference / "measurement.json")}
     if args.candidate:
-        candidate = signature(args.candidate)
+        candidate = signature(args.candidate, allow_evaluation_count_change=args.allow_evaluation_count_change)
         report.update(candidate=str(args.candidate), candidate_signature=candidate,
                       first_difference=first_difference(reference, candidate))
     args.output.parent.mkdir(parents=True, exist_ok=True)

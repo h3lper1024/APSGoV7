@@ -31,6 +31,7 @@ from .contracts import (
 from .evaluation import (
     _AcceptedPlanEvaluation,
     _evaluate_candidate_plan,
+    _screen_candidate_plan,
     quick_chain_prohibited_profile,
 )
 from .model import Chain, MaterialRole, SchedulePlan, SearchState, SplitLineage, VirtualPurpose
@@ -105,6 +106,9 @@ class SearchContext:
     numeric_peak_row_count: int = field(default=0, init=False)
     candidate_recipe_restore_count: int = field(default=0, init=False)
     complete_entry_plan_build_count: int = field(default=0, init=False)
+    _screen_enabled: bool = field(default=True, init=False, repr=False)
+    _screen_shadow: bool = field(default=False, init=False, repr=False)
+    candidate_screen_counts: dict = field(default_factory=dict, init=False)
 
     def __post_init__(self):
         if not isinstance(self.factory, VirtualFactory) or not isinstance(
@@ -596,11 +600,30 @@ def try_complete_candidate(
         plan = grouped_plan
     if not budget.allows_search():
         return False
-    context.complete_candidate_evaluation_count += 1
     if context._evaluation_reuse is not None and not context._evaluation_reuse.matches(
         state, cache.rule_set, cache.context
     ):
         context._evaluation_reuse = None
+    screen = (_screen_candidate_plan(plan, state, cache.rule_set, cache.context, context._evaluation_reuse)
+              if context._screen_enabled else None)
+    if screen is not None:
+        key = f"{screen.outcome}:{screen.reason}"
+        context.candidate_screen_counts[key] = context.candidate_screen_counts.get(key, 0) + 1
+        for name, value in screen.statistics:
+            context.candidate_screen_counts[name] = context.candidate_screen_counts.get(name, 0) + value
+    if not budget.allows_search():
+        return False
+    if screen is not None and screen.outcome == "reject":
+        if context._screen_shadow:
+            from .evaluation import evaluate_plan
+            context.complete_candidate_evaluation_count += 1
+            exact = evaluate_plan(plan, cache.rule_set, cache.context)
+            context.candidate_screen_counts["shadow_evaluations"] = context.candidate_screen_counts.get("shadow_evaluations", 0) + 1
+            if exact.quality_key < state.current_evaluation.quality_key or exact.quality_key[:len(screen.quality)] != screen.quality:
+                raise RuntimeError(f"candidate screen mismatch at {budget.candidate_check_count}: {action_name}; "
+                                   f"screen={screen.quality!r}, exact={exact.quality_key!r}")
+        return False
+    context.complete_candidate_evaluation_count += 1
     evaluation, candidate_reuse = _evaluate_candidate_plan(
         plan, state, cache.rule_set, cache.context, context._evaluation_reuse
     )

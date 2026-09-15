@@ -33,7 +33,7 @@ from .rules.base import (
 )
 from .rules.rule_set import ProcessRuleSet
 from ._rule_runs import RuleRuns
-from .delivery_timing import _DeliveryReuse
+from .delivery_timing import _DeliveryReuse, _context as _timing_context
 
 
 def _require_number(value, name):
@@ -140,6 +140,14 @@ class _AcceptedPlanEvaluation:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class _CandidateScreen:
+    outcome: str
+    quality: tuple = ()
+    reason: str = ""
+    statistics: tuple = ()
+
+
 # Only audited concrete implementations; unknown extensions keep uncached evaluation.
 _REUSABLE_RULE_TYPES = frozenset((
     concrete.SyntheticWidthLimitRule,
@@ -196,6 +204,58 @@ def _evaluate_candidate_plan(plan, state, rule_set, rule_context, previous):
     return evaluation, _AcceptedPlanEvaluation(
         state, plan, rule_set, rule_context, candidate_entries, resources, runs, delivery.snapshot
     )
+
+
+def _screen_candidate_plan(plan, state, rule_set, context, previous):
+    """An exact rejection proof, never authority to accept or to suppress input errors."""
+    if (previous is None or not previous.matches(state, rule_set, context)
+            or previous.delivery is None or type(rule_set) is not ProcessRuleSet
+            or not previous.delivery.second_precision
+            or any(type(rule) not in _REUSABLE_RULE_TYPES
+                   for scope in RuleScope for rule in rule_set.rules_for_scope(scope))):
+        return _CandidateScreen("unsupported", reason="unverified_context_or_rules")
+    # Delivery cannot raise a new input error for these proven conserved real nodes.
+    # Splits or replacements take the full path, including its original diagnostics.
+    old = {node.node_id: node for node in previous.delivery.nodes if node.virtual_lineage is None}
+    real, seen = {}, set()
+    largest_duration = max((value.adjusted() for value in previous.delivery.durations), default=0)
+    for chain in plan.chains:
+        for node in chain.nodes:
+            if node.node_id in seen:
+                return _CandidateScreen("unsupported", reason="duplicate_identity")
+            seen.add(node.node_id)
+            if node.virtual_lineage is None:
+                if old.get(node.node_id) is not node:
+                    return _CandidateScreen("unsupported", reason="new_real_or_split")
+                real[node.node_id] = node
+            elif node.virtual_lineage.prototype_id not in context.delivery_timing.virtual_hours_per_tonne:
+                return _CandidateScreen("unsupported", reason="missing_virtual_timing")
+            else:
+                rate = context.delivery_timing.virtual_hours_per_tonne[node.virtual_lineage.prototype_id]
+                largest_duration = max(largest_duration, node.weight.adjusted() + rate.adjusted() + 2)
+    if real.keys() != old.keys():
+        return _CandidateScreen("unsupported", reason="changed_real_coverage")
+    largest_weight = max(order.weight.adjusted() for order in context.delivery_timing.orders.values())
+    # A conservative decimal-exponent bound excludes overflow-sensitive candidates
+    # from early rejection; they still reach the original precise error path.
+    if largest_duration + max(0, largest_weight) + 2 * len(str(len(seen))) + 10 >= _timing_context().Emax:
+        return _CandidateScreen("unsupported", reason="decimal_exponent_boundary")
+    resources = []
+    for chain in plan.chains:
+        entry = previous.entries.get(chain.chain_id)
+        resources.append(previous.resources[chain.chain_id] if entry is not None and entry.chain is chain
+                         else derive_evaluation_resource_view(SchedulePlan((chain,)), context))
+    runs, delivery = RuleRuns(previous.runs), _DeliveryReuse(previous.delivery)
+    result, _ = _evaluate_plan(plan, rule_set, context, previous.entries,
+                               _combine_resource_views(resources), runs, delivery,
+                               state.current_evaluation.quality_key)
+    stats = [("run_key_hits", runs.key_hits), ("run_weight_hits", runs.weight_hits),
+             ("resource_chain_hits", sum(previous.entries.get(c.chain_id) is not None
+                                          and previous.entries[c.chain_id].chain is c for c in plan.chains))]
+    if delivery.snapshot is not None:
+        stats.extend((name, getattr(delivery.snapshot, name)) for name in
+                     ("reused_prefix", "reused_suffix", "reused_durations", "reused_orders"))
+    return _CandidateScreen(result.outcome, result.quality, result.reason, tuple(stats))
 
 
 def _validate_inputs(subject, subject_type, rule_set, context):
@@ -336,14 +396,15 @@ def evaluate_plan(
     return _evaluate_plan(plan, rule_set, context)[0]
 
 
-def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=None, runs=None, delivery=None):
+def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=None, runs=None, delivery=None,
+                   screen_limit=None):
     # None is the uncached path; an empty mapping captures a cold candidate.
     _validate_inputs(plan, SchedulePlan, rule_set, context)
     if resources is None:
         resources = derive_evaluation_resource_view(plan, context)
     declarations = rule_set.metric_aggregations()
     chain_evaluations, violations, contributions = [], [], []
-    entries = None if previous_entries is None else {}
+    entries = None if previous_entries is None or screen_limit is not None else {}
     chain_contributions = [] if entries is not None else None
     for chain in plan.chains:
         entry = None if previous_entries is None else previous_entries.get(chain.chain_id)
@@ -354,7 +415,7 @@ def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=Non
                 ChainRuleSubject(chain.chain_id, chain), context,
                 **({"_run_cache": runs} if runs is not None else {})
             )
-            evaluated = _chain_result(chain, result, declarations)
+            evaluated = None if screen_limit is not None else _chain_result(chain, result, declarations)
         chain_evaluations.append(evaluated)
         if chain_contributions is not None:
             chain_contributions.append(result)
@@ -385,10 +446,45 @@ def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=Non
                 tuple(node_contributions),
                 chain_evaluations[index],
             )
-    result = rule_set.evaluate_plan(PlanRuleSubject("plan", plan, resources), context,
-                                    **({"_delivery_cache": delivery} if delivery is not None else {}))
+    subject = PlanRuleSubject("plan", plan, resources)
+    if screen_limit is not None:
+        pending, plan_results = [], []
+        for rule in rule_set.rules_for_scope(RuleScope.PLAN):
+            if type(rule) is concrete.DeliveryDuePerformanceRule:
+                pending.append((len(plan_results), rule))
+                plan_results.append(None)
+            else:
+                plan_results.append(rule_set._evaluate(subject, context, PlanRuleSubject, RuleScope.PLAN, rules=(rule,)))
+        partial_violations = [*violations, *(v for result in plan_results if result is not None for v in result.violations)]
+        partial_metrics = [*contributions, *(m for result in plan_results if result is not None for m in result.metrics)]
+        delivery_keys = {key for _, rule in pending for key in rule.metric_keys()}
+        prefix_length = next((i for i, criterion in enumerate(rule_set.quality_spec)
+                              if criterion.metric_key in delivery_keys), len(rule_set.quality_spec))
+        _, prefix = _plan_scores(plan, resources, declarations, partial_violations, partial_metrics,
+                                 rule_set.quality_spec[:prefix_length])
+        if prefix > screen_limit[:prefix_length]:
+            return _CandidateScreen("reject", prefix, "worse_prefix"), None
+        if prefix < screen_limit[:prefix_length]:
+            return _CandidateScreen("confirm", prefix, "better_prefix"), None
+        for index, rule in pending:
+            plan_results[index] = rule_set._evaluate(subject, context, PlanRuleSubject, RuleScope.PLAN,
+                                                    rules=(rule,), _delivery_cache=delivery)
+        result = RuleContribution(tuple(v for item in plan_results for v in item.violations),
+                                   tuple(m for item in plan_results for m in item.metrics))
+    else:
+        result = rule_set.evaluate_plan(subject, context,
+                                        **({"_delivery_cache": delivery} if delivery is not None else {}))
     violations.extend(result.violations)
     contributions.extend(result.metrics)
+    metrics, quality = _plan_scores(plan, resources, declarations, violations, contributions, rule_set.quality_spec)
+    if screen_limit is not None:
+        return _CandidateScreen("reject" if quality >= screen_limit else "confirm", quality,
+                                "not_better" if quality >= screen_limit else "possibly_better"), None
+    evaluation = PlanEvaluation(tuple(chain_evaluations), tuple(violations), metrics, quality)
+    return evaluation, entries
+
+
+def _plan_scores(plan, resources, declarations, violations, contributions, criteria):
     prohibited = tuple(v for v in violations if v.disposition is RuleDisposition.PROHIBITED)
     grouped = _group_metrics(contributions)
     metrics = _raw_metrics(grouped, declarations)
@@ -405,10 +501,4 @@ def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=Non
     grouped["prohibited_violation_count"] = [1 for _ in prohibited]
     grouped["prohibited_violation_severity"] = [v.severity for v in prohibited]
     grouped["chain_count"] = [1 for _ in plan.chains]
-    evaluation = PlanEvaluation(
-        tuple(chain_evaluations),
-        tuple(violations),
-        metrics,
-        _quality_key(rule_set.quality_spec, metrics, grouped, violations),
-    )
-    return evaluation, entries
+    return metrics, _quality_key(criteria, metrics, grouped, violations)

@@ -99,3 +99,43 @@ def test_delivery_skips_only_exactly_matching_prefix_and_suffix():
     previous = _evaluate_delivery_reused(plan(virtual, left, right, b), timing, True)
     reused = _evaluate_delivery_reused(plan(virtual, right, left, b), timing, True, previous)
     assert (reused.reused_prefix, reused.reused_suffix, reused.reused_orders) == (1, 1, 2)
+
+
+def test_exact_screen_rejects_only_non_improvements_and_keeps_all_prefixes(monkeypatch):
+    from apsgo_scheduler.core.evaluation import _screen_candidate_plan
+    from tests.core.test_backlog_priority_objective import tradeoff_case
+    _, state, search = tradeoff_case(second_precision=True)
+    cache = search.factory.cache
+    _, previous = _evaluate_candidate_plan(state.current_plan, state, cache.rule_set, cache.context, None)
+    nodes = tuple(n for c in state.current_plan.chains for n in c.nodes)
+    outcomes = set()
+    for ordered in permutations(nodes):
+        for cut in (1, 2, 3):
+            candidate = SchedulePlan((Chain("first", ordered[:cut], "P0"), Chain("last", ordered[cut:], "P0")))
+            result = _screen_candidate_plan(candidate, state, cache.rule_set, cache.context, previous)
+            exact = evaluate_plan(candidate, cache.rule_set, cache.context)
+            outcomes.add(result.outcome)
+            assert exact.quality_key[:len(result.quality)] == result.quality
+            assert (result.outcome == "reject") == (exact.quality_key >= state.current_evaluation.quality_key)
+    assert outcomes == {"reject", "confirm"}
+    assert _screen_candidate_plan(state.current_plan, state, cache.rule_set, cache.context, None).outcome == "unsupported"
+    changed = SchedulePlan((replace(state.current_plan.chains[0], nodes=(replace(nodes[0], weight=D(1)), nodes[1])),
+                             state.current_plan.chains[1]))
+    assert _screen_candidate_plan(changed, state, cache.rule_set, cache.context, previous).outcome == "unsupported"
+
+
+def test_shadow_rejection_counts_actual_full_work_and_never_changes_state():
+    from tests.core.test_backlog_priority_objective import tradeoff_case
+    from apsgo_scheduler.core.neighborhoods import try_complete_candidate
+    from apsgo_scheduler.core.contracts import fingerprint
+    for shadow in (False, True):
+        _, state, search = tradeoff_case(second_precision=True)
+        cache = search.factory.cache
+        _, search._evaluation_reuse = _evaluate_candidate_plan(state.current_plan, state, cache.rule_set, cache.context, None)
+        before = fingerprint(state)
+        search._screen_shadow = shadow
+        assert not try_complete_candidate(state, search, state.current_plan.chains, affected_chain_ids=("first",),
+                                          virtual_sequence=0, action_name="test")
+        assert fingerprint(state) == before
+        assert search.complete_candidate_evaluation_count == int(shadow)
+        assert search.candidate_screen_counts["reject:not_better"] == 1

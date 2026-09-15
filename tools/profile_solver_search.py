@@ -115,6 +115,7 @@ def _snapshot(state, context):
             "batch_position_lookups": cache._batch_lookup_count,
             "batch_known_positions": cache._batch_known_position_count,
         },
+        "candidate_screen": dict(context.candidate_screen_counts),
     })
 
 
@@ -122,9 +123,11 @@ class FirstSearchComplete(BaseException):
     """Diagnostic escape before split/replay/audits; never a production result."""
 
 
-def measure(request, *, scope="first", profile=None, result_observer=None):
+def measure(request, *, scope="first", profile=None, result_observer=None, screen_mode="enabled"):
     if scope not in {"first", "full"}:
         raise ValueError("scope must be first or full")
+    if screen_mode not in {"enabled", "disabled", "shadow"}:
+        raise ValueError("unknown screen mode")
     report, functions, observed = {}, [], []
     original_search = solver.run_local_search
     original_refinement = solver.run_width_optimization
@@ -149,6 +152,8 @@ def measure(request, *, scope="first", profile=None, result_observer=None):
         return wrapped
 
     def first_search(state, context):
+        context._screen_enabled = screen_mode != "disabled"
+        context._screen_shadow = screen_mode == "shadow"
         # Snapshot construction is outside the measured first-search interval.
         initial = _snapshot(state, context)
         observed.append((state, context))
@@ -207,6 +212,7 @@ def main(argv=None):
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--scope", choices=("check", "first", "full"), default="first")
     parser.add_argument("--profile", action="store_true", help="Profile first local search only")
+    parser.add_argument("--screen-mode", choices=("enabled", "disabled", "shadow"), default="enabled")
     parser.add_argument("--total-time-limit-seconds", type=Decimal)
     args = parser.parse_args(argv)
     prepared_bytes = args.prepared_request.read_bytes()
@@ -232,13 +238,14 @@ def main(argv=None):
         "platform": platform.platform(), "python": platform.python_version(),
         "profile_enabled": args.profile,
         "requested_scope": args.scope,
+        "screen_mode": args.screen_mode,
     }
     _write_json(args.output_dir / "input_identity.json", identity)
     if args.scope == "check":
         return 0
     profile = cProfile.Profile() if args.profile else None
     try:
-        report = measure(request, scope=args.scope, profile=profile)
+        report = measure(request, scope=args.scope, profile=profile, screen_mode=args.screen_mode)
         _write_json(args.output_dir / "measurement.json", report)
     except Exception as error:
         _write_json(args.output_dir / "error.json", {
