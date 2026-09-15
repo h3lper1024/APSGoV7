@@ -2,9 +2,12 @@
 
 import logging
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from itertools import permutations, zip_longest
 from time import perf_counter
+from types import MappingProxyType
+
+import numpy as np
 
 from ._numeric_resources import NumericResourceExtension
 from ._numeric_rules import NumericRuleKind
@@ -26,6 +29,7 @@ from ._numeric_search import (
     _validate_search_inputs,
     improve_numeric_controlled_split,
 )
+from ._numeric_state import readonly
 from ._numeric_units import NumericValueError, checked_product
 from .budget import SolveRuntimeBudget
 from .contracts import SearchStopReason
@@ -84,6 +88,114 @@ class NumericRefinementDiagnostics:
         }
 
 
+@dataclass(frozen=True, slots=True)
+class NumericRefinementIndex:
+    """One read-only search index for one accepted numeric plan generation."""
+
+    task: object
+    plan: object
+    chains: tuple[np.ndarray, ...]
+    chain_lengths: np.ndarray
+    chain_id_to_index: object
+    source_positions: tuple[tuple[tuple[int, int], ...], ...]
+    critical_prefix: np.ndarray
+
+    @staticmethod
+    def _critical_prefix(task, plan, critical_sources):
+        critical_mask = np.zeros(task.originals.weight.size, dtype=np.bool_)
+        if critical_sources:
+            critical_mask[np.asarray(tuple(critical_sources), dtype=np.int64)] = True
+        owners = task.nodes.source[plan.node_rows]
+        marked = np.zeros(plan.node_rows.size, dtype=np.int64)
+        real = owners >= 0
+        marked[real] = critical_mask[owners[real]]
+        return readonly(
+            np.concatenate((np.zeros(1, dtype=np.int64), np.cumsum(marked))),
+            np.int64,
+        )
+
+    @classmethod
+    def build(cls, state, critical_sources=()):
+        task, plan = state.task, state.plan
+        chains = tuple(
+            plan.node_rows[int(plan.chain_offsets[index]) : int(plan.chain_offsets[index + 1])]
+            for index in range(plan.chain_ids.size)
+        )
+        positions = []
+        for source in range(task.originals.weight.size):
+            start = int(plan.source_piece_offsets[source])
+            stop = int(plan.source_piece_offsets[source + 1])
+            positions.append(
+                tuple(
+                    (
+                        int(plan.row_to_chain[int(row)]),
+                        int(plan.row_to_position[int(row)]),
+                    )
+                    for row in plan.source_piece_rows[start:stop]
+                )
+            )
+        return cls(
+            task,
+            plan,
+            chains,
+            readonly(np.diff(plan.chain_offsets), np.int64),
+            MappingProxyType(
+                {int(identity): index for index, identity in enumerate(plan.chain_ids)}
+            ),
+            tuple(positions),
+            cls._critical_prefix(task, plan, critical_sources),
+        )
+
+    def with_critical_sources(self, state, sources):
+        if state.task is not self.task or state.plan is not self.plan:
+            raise NumericValueError("refinement_index", "current plan generation required")
+        return replace(
+            self,
+            critical_prefix=self._critical_prefix(self.task, self.plan, sources),
+        )
+
+    def chain_index(self, chain_id):
+        try:
+            return self.chain_id_to_index[int(chain_id)]
+        except KeyError as error:
+            raise NumericValueError(
+                "refinement_recipe", "stable chain identity is absent from current plan"
+            ) from error
+
+    def _range_has_critical(self, chain, start, stop):
+        offset = int(self.plan.chain_offsets[chain])
+        return int(self.critical_prefix[offset + stop]) > int(
+            self.critical_prefix[offset + start]
+        )
+
+    def recipe_is_critical(self, recipe):
+        action, source_id, target_id, start, stop, other_start, other_stop = recipe
+        source = self.chain_index(source_id)
+        source_start = start if start >= 0 and stop > start else 0
+        source_stop = stop if start >= 0 and stop > start else int(self.chain_lengths[source])
+        if self._range_has_critical(source, source_start, source_stop):
+            return True
+        if action in {NumericSearchAction.NODE_EXCHANGE, NumericSearchAction.BLOCK_EXCHANGE}:
+            target = self.chain_index(target_id)
+            return self._range_has_critical(target, other_start, other_stop)
+        return False
+
+    def recipe_sources(self, recipe):
+        action, source_id, target_id, start, stop, other_start, other_stop = recipe
+        source = self.chain_index(source_id)
+        rows = self.chains[source][start:stop] if start >= 0 and stop > start else self.chains[source]
+        selections = [rows]
+        if action in {NumericSearchAction.NODE_EXCHANGE, NumericSearchAction.BLOCK_EXCHANGE}:
+            target = self.chain_index(target_id)
+            selections.append(self.chains[target][other_start:other_stop])
+        return {
+            int(owner)
+            for selection in selections
+            for owner in self.task.nodes.source[selection]
+            if int(owner) >= 0
+        }
+
+
 def _measured_layout(state, diagnostics):
     started = perf_counter()
     result = _layout(state.plan)
@@ -97,14 +209,8 @@ def _has_real(task, rows):
     return any(int(task.nodes.role[row]) != _GENERATED_VIRTUAL for row in rows)
 
 
-def _source_positions(state):
-    result = {source: [] for source in range(state.task.originals.weight.size)}
-    for chain in range(state.plan.chain_ids.size):
-        for position, row in enumerate(_chain_rows(state.plan, chain)):
-            source = int(state.task.nodes.source[row])
-            if source >= 0:
-                result[source].append((chain, position))
-    return result
+def _source_positions(state, index=None):
+    return (index or NumericRefinementIndex.build(state)).source_positions
 
 
 def _delivery_sources(state):
@@ -138,14 +244,15 @@ def _delivery_sources(state):
     return tuple(late + on_time)
 
 
-def _critical_sources(state):
+def _critical_sources(state, index=None):
     task, plan, delivery = state.task, state.plan, state.evaluation.delivery
     completion = delivery.original_completion_ms
     due = task.originals.due_ms
-    positions = _source_positions(state)
+    index = index or NumericRefinementIndex.build(state)
+    positions = index.source_positions
     potential = {}
     for chain in range(plan.chain_ids.size):
-        rows = _chain_rows(plan, chain)
+        rows = index.chains[chain]
         real = tuple(row for row in rows if int(task.nodes.source[row]) >= 0)
         earliest = min(int(task.nodes.source_period[row]) for row in real)
         owners = {
@@ -174,8 +281,9 @@ def _critical_sources(state):
             sum(int(task.nodes.duration_ms[row]) for row in remaining),
         )
     slack = [int(due[i]) - int(completion[i]) for i in range(due.size)]
+    present_sources = tuple(i for i, values in enumerate(positions) if values)
     backlog = sorted(
-        (i for i in positions if bool(task.originals.old_backlog[i])),
+        (i for i in present_sources if bool(task.originals.old_backlog[i])),
         key=lambda i: (
             -int(completion[i]),
             -checked_product(int(task.originals.weight[i]), int(completion[i]), "critical_backlog"),
@@ -187,7 +295,7 @@ def _critical_sources(state):
         key=lambda i: (-potential[i], -int(completion[i]), i),
     )
     late = sorted(
-        (i for i in positions if int(due[i]) > 0 and slack[i] < 0),
+        (i for i in present_sources if int(due[i]) > 0 and slack[i] < 0),
         key=lambda i: (
             checked_product(int(task.originals.weight[i]), slack[i], "critical_late"),
             slack[i],
@@ -204,13 +312,14 @@ def _critical_sources(state):
     )
 
 
-def _chain_order(state):
+def _chain_order(state, index=None):
     task, plan = state.task, state.plan
+    index = index or NumericRefinementIndex.build(state)
 
     def due(chain):
         owners = (
             int(task.nodes.source[row])
-            for row in _chain_rows(plan, chain)
+            for row in index.chains[chain]
             if int(task.nodes.source[row]) >= 0
         )
         return min(max(0, int(task.originals.due_ms[source])) for source in owners)
@@ -240,11 +349,14 @@ def _round_robin(streams, budget, allowance):
 
 
 def _direct_slots(state, row, target, positions):
+    row = int(row)
     direct, repaired = [], []
     for position in positions:
-        left = position == 0 or _edge_allowed(state.task, state.program, target[position - 1], row)
+        left = position == 0 or _edge_allowed(
+            state.task, state.program, int(target[position - 1]), row
+        )
         right = position == len(target) or _edge_allowed(
-            state.task, state.program, row, target[position]
+            state.task, state.program, row, int(target[position])
         )
         (direct if left and right else repaired).append(position)
     return tuple((*direct, *repaired))
@@ -266,20 +378,22 @@ def _source_recipe_stream(
     ordered_sources=None,
     critical_lane=False,
     diagnostics=None,
+    index=None,
 ):
     plan = state.plan
-    chains, chain_ids, _ = _measured_layout(state, diagnostics)
-    positions = tuple(reversed(_source_positions(state)[source]))
+    index = index or NumericRefinementIndex.build(state)
+    chains, chain_ids = index.chains, plan.chain_ids
+    positions = tuple(reversed(index.source_positions[source]))
     ordered_sources = ordered_sources or _delivery_sources(state)
-    ranked_chains = _chain_order(state)
+    ranked_chains = _chain_order(state, index)
 
     if family == "intra":
         for chain, start in positions:
             for target in range(start):
                 yield (
                     NumericSearchAction.DELIVERY_INTRA_MOVE,
-                    chain_ids[chain],
-                    chain_ids[chain],
+                    int(chain_ids[chain]),
+                    int(chain_ids[chain]),
                     start,
                     start + 1,
                     target,
@@ -289,9 +403,9 @@ def _source_recipe_stream(
 
     if family == "node":
         ranks = {
-            position: index
-            for index, owner in enumerate(ordered_sources)
-            for position in reversed(_source_positions(state)[owner])
+            position: rank
+            for rank, owner in enumerate(ordered_sources)
+            for position in reversed(index.source_positions[owner])
         }
 
         def moves():
@@ -306,8 +420,8 @@ def _source_recipe_stream(
                     for slot in slots:
                         yield (
                             NumericSearchAction.NODE_MOVE,
-                            chain_ids[chain],
-                            chain_ids[target],
+                            int(chain_ids[chain]),
+                            int(chain_ids[target]),
                             start,
                             start + 1,
                             slot,
@@ -319,14 +433,14 @@ def _source_recipe_stream(
                 for target, slot in (
                     position
                     for owner in ordered_sources
-                    for position in reversed(_source_positions(state)[owner])
+                    for position in reversed(index.source_positions[owner])
                     if position[0] != chain
                     and ranks.get((chain, start), -1) < ranks.get(position, -1)
                 ):
                     yield (
                         NumericSearchAction.NODE_EXCHANGE,
-                        chain_ids[chain],
-                        chain_ids[target],
+                        int(chain_ids[chain]),
+                        int(chain_ids[target]),
                         start,
                         start + 1,
                         slot,
@@ -338,9 +452,9 @@ def _source_recipe_stream(
 
     if family == "block":
         ranks = {
-            position: index
-            for index, owner in enumerate(ordered_sources)
-            for position in reversed(_source_positions(state)[owner])
+            position: rank
+            for rank, owner in enumerate(ordered_sources)
+            for position in reversed(index.source_positions[owner])
         }
 
         def owner(chain, start, stop):
@@ -367,8 +481,8 @@ def _source_recipe_stream(
                             for slot in range(len(chains[target]) + 1):
                                 yield (
                                     NumericSearchAction.BLOCK_MOVE,
-                                    chain_ids[chain],
-                                    chain_ids[target],
+                                    int(chain_ids[chain]),
+                                    int(chain_ids[target]),
                                     start,
                                     start + length,
                                     slot,
@@ -397,8 +511,8 @@ def _source_recipe_stream(
                                         continue
                                     yield (
                                         NumericSearchAction.BLOCK_EXCHANGE,
-                                        chain_ids[chain],
-                                        chain_ids[target],
+                                        int(chain_ids[chain]),
+                                        int(chain_ids[target]),
                                         start,
                                         start + length,
                                         slot,
@@ -410,13 +524,13 @@ def _source_recipe_stream(
 
     owned_chains = tuple(dict.fromkeys(chain for chain, _ in positions))
     if family == "cut":
-        new_id = max(chain_ids, default=-1) + 1
+        new_id = max((int(value) for value in chain_ids), default=-1) + 1
         for chain in owned_chains:
             for cut in range(1, len(chains[chain])):
                 for prefix, suffix in permutations(range(len(chains) + 1), 2):
                     yield (
                         NumericSearchAction.CHAIN_CUT,
-                        chain_ids[chain],
+                        int(chain_ids[chain]),
                         new_id,
                         cut,
                         -1,
@@ -432,8 +546,8 @@ def _source_recipe_stream(
                 ):
                     yield (
                         NumericSearchAction.CHAIN_ORDER_RELOCATION,
-                        chain_ids[chain],
-                        chain_ids[position],
+                        int(chain_ids[chain]),
+                        int(chain_ids[position]),
                         -1,
                         -1,
                         position,
@@ -451,6 +565,7 @@ def _family_stream(
     budget,
     diagnostics=None,
     diagnostic_seen=None,
+    index=None,
 ):
     sources = _rotate_after(ordered_sources, cursor[family])
     lane = "critical" if critical_lane else "regular"
@@ -464,6 +579,7 @@ def _family_stream(
             ordered_sources=ordered_sources,
             critical_lane=critical_lane is True,
             diagnostics=diagnostics,
+            index=index,
         ):
             if not budget.allows_search():
                 return
@@ -472,8 +588,7 @@ def _family_stream(
                 if diagnostic_seen is not None and recipe not in diagnostic_seen:
                     diagnostic_seen.add(recipe)
                     diagnostics.record("unique_combinations", key)
-            rows = _recipe_real_sources(state, recipe, diagnostics)
-            is_critical = bool(rows & critical)
+            is_critical = index.recipe_is_critical(recipe)
             if critical_lane is not None and is_critical is not critical_lane:
                 if diagnostics is not None:
                     diagnostics.record("lane_filtered", key)
@@ -488,8 +603,9 @@ def _family_stream(
     )
 
 
-def _reclamation_stream(state, diagnostics=None):
-    chains, chain_ids, _ = _measured_layout(state, diagnostics)
+def _reclamation_stream(state, diagnostics=None, index=None):
+    index = index or NumericRefinementIndex.build(state)
+    chains, chain_ids = index.chains, state.plan.chain_ids
     for chain, rows in enumerate(chains):
         position = 0
         while position < len(rows):
@@ -502,8 +618,8 @@ def _reclamation_stream(state, diagnostics=None):
             stop = position
             yield (
                 NumericSearchAction.BRIDGE_RECLAMATION,
-                chain_ids[chain],
-                chain_ids[chain],
+                int(chain_ids[chain]),
+                int(chain_ids[chain]),
                 start,
                 stop,
                 -1,
@@ -513,8 +629,8 @@ def _reclamation_stream(state, diagnostics=None):
                 for item in range(start, stop):
                     yield (
                         NumericSearchAction.BRIDGE_RECLAMATION,
-                        chain_ids[chain],
-                        chain_ids[chain],
+                        int(chain_ids[chain]),
+                        int(chain_ids[chain]),
                         item,
                         item + 1,
                         -1,
@@ -522,17 +638,8 @@ def _reclamation_stream(state, diagnostics=None):
                     )
 
 
-def _recipe_real_sources(state, recipe, diagnostics=None):
-    action, source_id, target_id, start, stop, other_start, other_stop = recipe
-    chains, chain_ids, _ = _measured_layout(state, diagnostics)
-    source = chains[chain_ids.index(source_id)]
-    rows = source[start:stop] if start >= 0 and stop > start else source
-    if action in {NumericSearchAction.NODE_EXCHANGE, NumericSearchAction.BLOCK_EXCHANGE}:
-        target = chains[chain_ids.index(target_id)]
-        rows += target[other_start:other_stop]
-    return {
-        int(state.task.nodes.source[row]) for row in rows if int(state.task.nodes.source[row]) >= 0
-    }
+def _recipe_real_sources(state, recipe, diagnostics=None, index=None):
+    return (index or NumericRefinementIndex.build(state)).recipe_sources(recipe)
 
 
 def _trim_inner_bridges(task, pieces):
@@ -914,8 +1021,10 @@ def improve_numeric_refinement(
     first_cleanup = True
     while budget.allows_search():
         diagnostic_seen = set()
-        critical_order = _critical_sources(state)
+        index = NumericRefinementIndex.build(state)
+        critical_order = _critical_sources(state, index)
         critical = frozenset(critical_order)
+        index = index.with_critical_sources(state, critical)
         ordered_sources = (
             *critical_order,
             *(source for source in _delivery_sources(state) if source not in critical),
@@ -932,12 +1041,13 @@ def improve_numeric_refinement(
                     budget,
                     diagnostics,
                     diagnostic_seen,
+                    index,
                 )
                 for family in _FAMILIES[: _CRITICAL_FAMILY_COUNT if lane == 0 else -1]
             ]
             for lane in range(2)
         ]
-        cleanup = iter(_reclamation_stream(state, diagnostics))
+        cleanup = iter(_reclamation_stream(state, diagnostics, index))
         streams[1].append(cleanup)
         sizes = (_CRITICAL_FAMILY_COUNT, _REGULAR_FAMILY_COUNT)
         pending = [
