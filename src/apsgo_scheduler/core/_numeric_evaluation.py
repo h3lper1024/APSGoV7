@@ -1,6 +1,6 @@
 """Complete integer plan evaluation before search and incremental wiring."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 
 import numpy as np
@@ -128,7 +128,8 @@ class NumericQualityProgram:
                 or criterion.numeric_projection is not expected_projection
             ):
                 raise NumericValueError(
-                    criterion.criterion_id, "quality declaration does not use the new numeric standard"
+                    criterion.criterion_id,
+                    "quality declaration does not use the new numeric standard",
                 )
             objectives.append(objective)
         if set(objectives) != set(NumericObjective):
@@ -151,13 +152,13 @@ class NumericQualityProgram:
             or not isinstance(rule_program, NumericRuleProgram)
             or rule_program.task_fingerprint != task.fingerprint
         ):
-            raise NumericValueError('quality', 'expanded task and rule program must match')
+            raise NumericValueError("quality", "expanded task and rule program must match")
         identity = fingerprint(
             {
-                'compiler': 1,
-                'task': task.fingerprint,
-                'rules': rule_program.fingerprint,
-                'objectives': tuple(item.value for item in self.objectives),
+                "compiler": 1,
+                "task": task.fingerprint,
+                "rules": rule_program.fingerprint,
+                "objectives": tuple(item.value for item in self.objectives),
             }
         )
         return NumericQualityProgram(
@@ -208,6 +209,39 @@ class NumericDeliveryEvaluation:
 
 
 @dataclass(frozen=True, slots=True, eq=False)
+class NumericChainFacts:
+    total_weight: np.ndarray
+    duration_ms: np.ndarray
+    real_weight: np.ndarray
+    virtual_weight: np.ndarray
+    borrowed_weight: np.ndarray
+
+    def __post_init__(self):
+        values = (
+            self.total_weight,
+            self.duration_ms,
+            self.real_weight,
+            self.virtual_weight,
+            self.borrowed_weight,
+        )
+        if (
+            any(
+                not isinstance(value, np.ndarray)
+                or value.ndim != 1
+                or value.dtype != np.int64
+                or value.flags.writeable
+                or not value.flags.c_contiguous
+                for value in values
+            )
+            or len({value.size for value in values}) != 1
+            or any(np.any(value < 0) for value in values)
+        ):
+            raise NumericValueError(
+                "chain_facts", "matching read-only nonnegative columns required"
+            )
+
+
+@dataclass(frozen=True, slots=True, eq=False)
 class NumericPlanEvaluation:
     task_fingerprint: str
     rule_program_fingerprint: str
@@ -223,6 +257,7 @@ class NumericPlanEvaluation:
     generated_virtual_weight: int
     borrowed_future_weight: int
     quality_key: np.ndarray
+    chain_facts: NumericChainFacts
 
     def __post_init__(self):
         for name in (
@@ -244,6 +279,8 @@ class NumericPlanEvaluation:
             or not isinstance(self.violations, tuple)
             or any(not isinstance(value, NumericViolation) for value in self.violations)
             or not isinstance(self.delivery, NumericDeliveryEvaluation)
+            or not isinstance(self.chain_facts, NumericChainFacts)
+            or self.chain_facts.total_weight.size != len(self.chain_results)
         ):
             raise NumericValueError("evaluation", "complete immutable numeric results required")
         for name in ("scheduled_real_weight", "generated_virtual_weight", "borrowed_future_weight"):
@@ -260,17 +297,49 @@ class NumericPlanEvaluation:
             raise NumericValueError("quality_key", "read-only int64 quality vector required")
 
 
-def _delivery(task, plan):
+def _delivery(task, plan, previous_plan=None, previous=None):
     if task.start_ms is None:
         raise NumericValueError("delivery", "task has no production start and duration input")
-    ends, clock = [], 0
-    for row in plan.node_rows:
-        clock = checked_sum((clock, int(task.nodes.duration_ms[int(row)])), "production_clock")
-        ends.append(clock)
+    rows = plan.node_rows
+    ends = np.empty(rows.size, dtype=np.int64)
+    prefix = suffix = 0
+    if previous_plan is not None and previous is not None:
+        limit = min(rows.size, previous_plan.node_rows.size)
+        while prefix < limit and rows[prefix] == previous_plan.node_rows[prefix]:
+            prefix += 1
+        while (
+            suffix < limit - prefix
+            and rows[rows.size - suffix - 1]
+            == previous_plan.node_rows[previous_plan.node_rows.size - suffix - 1]
+        ):
+            suffix += 1
+    clock = int(previous.node_end_ms[prefix - 1]) if prefix else 0
+    if prefix:
+        ends[:prefix] = previous.node_end_ms[:prefix]
+    middle_stop = rows.size - suffix
+    for position in range(prefix, middle_stop):
+        clock = checked_sum(
+            (clock, int(task.nodes.duration_ms[int(rows[position])])), "production_clock"
+        )
+        ends[position] = clock
+    if suffix:
+        previous_start = previous_plan.node_rows.size - suffix
+        previous_entry = int(previous.node_end_ms[previous_start - 1]) if previous_start else 0
+        if clock == previous_entry:
+            ends[middle_stop:] = previous.node_end_ms[previous_start:]
+        else:
+            for position in range(middle_stop, rows.size):
+                clock = checked_sum(
+                    (clock, int(task.nodes.duration_ms[int(rows[position])])),
+                    "production_clock",
+                )
+                ends[position] = clock
     completion = [int(ends[int(position)]) for position in plan.source_last_position]
     due = task.originals.due_ms
-    late = [int(due[index]) > 0 and completion[index] > int(due[index])
-            for index in range(len(completion))]
+    late = [
+        int(due[index]) > 0 and completion[index] > int(due[index])
+        for index in range(len(completion))
+    ]
     waits = [
         score_seconds(max(0, completion[index] - max(0, int(due[index]))), "delivery_wait")
         for index in range(len(completion))
@@ -302,10 +371,78 @@ def _delivery(task, plan):
     )
 
 
+def _chain_rows(plan, chain):
+    start, stop = int(plan.chain_offsets[chain]), int(plan.chain_offsets[chain + 1])
+    return plan.node_rows[start:stop]
+
+
+def _one_chain_facts(task, plan, chain):
+    rows = _chain_rows(plan, chain)
+    virtual = task.nodes.role[rows] == _GENERATED_VIRTUAL
+    real_rows, virtual_rows = rows[~virtual], rows[virtual]
+    real_weight = checked_sum(
+        (int(task.nodes.weight[int(row)]) for row in real_rows), "chain_real_weight"
+    )
+    virtual_weight = checked_sum(
+        (int(task.nodes.weight[int(row)]) for row in virtual_rows), "chain_virtual_weight"
+    )
+    borrowed_weight = checked_sum(
+        (
+            int(task.nodes.weight[int(row)])
+            for row in real_rows
+            if int(plan.chain_periods[chain]) < int(task.nodes.source_period[int(row)])
+        ),
+        "chain_borrowed_weight",
+    )
+    return (
+        checked_sum((real_weight, virtual_weight), "chain_total_weight"),
+        checked_sum((int(task.nodes.duration_ms[int(row)]) for row in rows), "chain_duration"),
+        real_weight,
+        virtual_weight,
+        borrowed_weight,
+    )
+
+
+def _chain_facts(task, plan, previous_plan=None, previous=None):
+    old_by_id = (
+        {int(identity): index for index, identity in enumerate(previous_plan.chain_ids)}
+        if previous_plan is not None and previous is not None
+        else {}
+    )
+    columns = [[] for _ in range(5)]
+    for chain, identity in enumerate(plan.chain_ids):
+        old = old_by_id.get(int(identity))
+        reusable = (
+            old is not None
+            and int(plan.chain_periods[chain]) == int(previous_plan.chain_periods[old])
+            and np.array_equal(_chain_rows(plan, chain), _chain_rows(previous_plan, old))
+        )
+        values = (
+            tuple(
+                int(column[old])
+                for column in (
+                    previous.total_weight,
+                    previous.duration_ms,
+                    previous.real_weight,
+                    previous.virtual_weight,
+                    previous.borrowed_weight,
+                )
+            )
+            if reusable
+            else _one_chain_facts(task, plan, chain)
+        )
+        for column, value in zip(columns, values):
+            column.append(value)
+    return NumericChainFacts(*(readonly(column, np.int64) for column in columns))
+
+
 def _node_metrics(task, program, plan):
     metrics = []
     for rule in program.rules:
-        if rule.kind not in (NumericRuleKind.SYNTHETIC_PRIORITY, NumericRuleKind.STRATEGIC_PRIORITY):
+        if rule.kind not in (
+            NumericRuleKind.SYNTHETIC_PRIORITY,
+            NumericRuleKind.STRATEGIC_PRIORITY,
+        ):
             continue
         kind = (
             NumericMetricKind.SYNTHETIC_PRIORITY
@@ -325,7 +462,7 @@ def _node_metrics(task, program, plan):
     return tuple(metrics)
 
 
-def evaluate_numeric_plan(task, rule_program, quality_program, plan):
+def _validate_evaluation_inputs(task, rule_program, quality_program, plan):
     if (
         not isinstance(task, NumericTask)
         or not isinstance(rule_program, NumericRuleProgram)
@@ -337,12 +474,35 @@ def evaluate_numeric_plan(task, rule_program, quality_program, plan):
         or plan.task_fingerprint != task.fingerprint
     ):
         raise NumericValueError("evaluation", "matching task, rules, quality and plan required")
-    chain_results = tuple(
-        evaluate_numeric_chain(task, rule_program, plan, chain)
-        for chain in range(plan.chain_ids.size)
+
+
+def _assemble_evaluation(
+    task,
+    rule_program,
+    quality_program,
+    plan,
+    chain_results,
+    chain_facts,
+    delivery,
+    node_metrics=None,
+):
+    real_weight = checked_sum(
+        (int(value) for value in chain_facts.real_weight), "scheduled_real_weight"
     )
-    static_plan = evaluate_numeric_static_plan_rules(task, rule_program, plan)
-    delivery = _delivery(task, plan)
+    virtual_weight = checked_sum(
+        (int(value) for value in chain_facts.virtual_weight), "generated_virtual_weight"
+    )
+    borrowed_weight = checked_sum(
+        (int(value) for value in chain_facts.borrowed_weight), "borrowed_future_weight"
+    )
+    static_plan = evaluate_numeric_static_plan_rules(
+        task,
+        rule_program,
+        plan,
+        chain_total_weights=chain_facts.total_weight,
+        real_weight=real_weight,
+        virtual_weight=virtual_weight,
+    )
     delivery_rule = rule_program.for_kind(NumericRuleKind.DELIVERY)[0]
     delivery_metrics = (
         NumericMetric(
@@ -366,9 +526,7 @@ def evaluate_numeric_plan(task, rule_program, quality_program, plan):
         (*static_plan.metrics, *delivery_metrics),
     )
     violations = tuple(
-        violation
-        for result in (*chain_results, plan_result)
-        for violation in result.violations
+        violation for result in (*chain_results, plan_result) for violation in result.violations
     )
     prohibited = tuple(value for value in violations if value.prohibited)
     prohibited_count = len(prohibited)
@@ -405,19 +563,6 @@ def evaluate_numeric_plan(task, rule_program, quality_program, plan):
         ),
         "inter_chain_width_gap",
     )
-    real_weights, virtual_weights, borrowed_weights = [], [], []
-    for row_value in plan.node_rows:
-        row = int(row_value)
-        if int(task.nodes.role[row]) == _GENERATED_VIRTUAL:
-            virtual_weights.append(int(task.nodes.weight[row]))
-            continue
-        real_weights.append(int(task.nodes.weight[row]))
-        chain = int(plan.row_to_chain[row])
-        if int(plan.chain_periods[chain]) < int(task.nodes.source_period[row]):
-            borrowed_weights.append(int(task.nodes.weight[row]))
-    real_weight = checked_sum(real_weights, "scheduled_real_weight")
-    virtual_weight = checked_sum(virtual_weights, "generated_virtual_weight")
-    borrowed_weight = checked_sum(borrowed_weights, "borrowed_future_weight")
 
     def objective_value(objective):
         if objective is NumericObjective.PROHIBITED_COUNT:
@@ -441,7 +586,10 @@ def evaluate_numeric_plan(task, rule_program, quality_program, plan):
         raise NumericValueError("quality", "unsupported compiled objective")
 
     quality = readonly(
-        [int64(objective_value(objective), objective.value) for objective in quality_program.objectives],
+        [
+            int64(objective_value(objective), objective.value)
+            for objective in quality_program.objectives
+        ],
         np.int64,
     )
     return NumericPlanEvaluation(
@@ -452,11 +600,99 @@ def evaluate_numeric_plan(task, rule_program, quality_program, plan):
         plan.fingerprint,
         chain_results,
         plan_result,
-        _node_metrics(task, rule_program, plan),
+        _node_metrics(task, rule_program, plan) if node_metrics is None else node_metrics,
         violations,
         delivery,
         real_weight,
         virtual_weight,
         borrowed_weight,
         quality,
+        chain_facts,
+    )
+
+
+def evaluate_numeric_plan(task, rule_program, quality_program, plan):
+    _validate_evaluation_inputs(task, rule_program, quality_program, plan)
+    chain_results = tuple(
+        evaluate_numeric_chain(task, rule_program, plan, chain)
+        for chain in range(plan.chain_ids.size)
+    )
+    chain_facts = _chain_facts(task, plan)
+    return _assemble_evaluation(
+        task,
+        rule_program,
+        quality_program,
+        plan,
+        chain_results,
+        chain_facts,
+        _delivery(task, plan),
+    )
+
+
+def evaluate_numeric_candidate(
+    task,
+    rule_program,
+    quality_program,
+    plan,
+    previous_task,
+    previous_rule_program,
+    previous_quality_program,
+    previous_plan,
+    previous_evaluation,
+):
+    """Reuse only facts proven unchanged; all aggregation follows the full evaluator."""
+    _validate_evaluation_inputs(task, rule_program, quality_program, plan)
+    _validate_evaluation_inputs(
+        previous_task, previous_rule_program, previous_quality_program, previous_plan
+    )
+    if (
+        not isinstance(previous_evaluation, NumericPlanEvaluation)
+        or previous_evaluation.task_fingerprint != previous_task.fingerprint
+        or previous_evaluation.rule_program_fingerprint != previous_rule_program.fingerprint
+        or previous_evaluation.quality_program_fingerprint != previous_quality_program.fingerprint
+        or previous_evaluation.plan_fingerprint != previous_plan.fingerprint
+        or previous_evaluation.plan_generation != previous_plan.generation
+        or len(previous_evaluation.chain_results) != previous_plan.chain_ids.size
+        or previous_evaluation.delivery.node_end_ms.size != previous_plan.node_rows.size
+        or previous_evaluation.delivery.original_completion_ms.size
+        != previous_task.originals.weight.size
+    ):
+        raise NumericValueError("evaluation_reuse", "matching previous evaluation required")
+    if (
+        task is not previous_task
+        or rule_program.fingerprint != previous_rule_program.fingerprint
+        or quality_program.fingerprint != previous_quality_program.fingerprint
+        or rule_program.rules != previous_rule_program.rules
+        or quality_program.objectives != previous_quality_program.objectives
+    ):
+        return evaluate_numeric_plan(task, rule_program, quality_program, plan)
+
+    old_by_id = {int(identity): index for index, identity in enumerate(previous_plan.chain_ids)}
+    chain_results = []
+    for chain, identity in enumerate(plan.chain_ids):
+        old = old_by_id.get(int(identity))
+        if (
+            old is None
+            or int(plan.chain_periods[chain]) != int(previous_plan.chain_periods[old])
+            or not np.array_equal(_chain_rows(plan, chain), _chain_rows(previous_plan, old))
+        ):
+            chain_results.append(evaluate_numeric_chain(task, rule_program, plan, chain))
+            continue
+        result = previous_evaluation.chain_results[old]
+        if old != chain:
+            result = NumericRuleResult(
+                tuple(replace(value, chain_index=chain) for value in result.violations),
+                result.metrics,
+            )
+        chain_results.append(result)
+    chain_facts = _chain_facts(task, plan, previous_plan, previous_evaluation.chain_facts)
+    return _assemble_evaluation(
+        task,
+        rule_program,
+        quality_program,
+        plan,
+        tuple(chain_results),
+        chain_facts,
+        _delivery(task, plan, previous_plan, previous_evaluation.delivery),
+        previous_evaluation.node_metrics,
     )

@@ -745,7 +745,9 @@ def evaluate_numeric_chain(task, program, plan, chain_index):
     return _evaluate_numeric_rows(task, program, plan.node_rows[start:stop], chain_index)
 
 
-def evaluate_numeric_static_plan_rules(task, program, plan):
+def evaluate_numeric_static_plan_rules(
+        task, program, plan, *, chain_total_weights=None,
+        real_weight=None, virtual_weight=None):
     if (not isinstance(plan, NumericPlan) or program.task_fingerprint != task.fingerprint
             or plan.task_fingerprint != task.fingerprint):
         raise NumericValueError('plan', 'matching numeric task, program and plan required')
@@ -754,10 +756,34 @@ def evaluate_numeric_static_plan_rules(task, program, plan):
     if any(int(plan.chain_periods[index]) < int(plan.chain_periods[index-1])
            for index in range(1, plan.chain_periods.size)):
         raise NumericValueError('chain_periods', 'production chains must follow task period order')
-    real_weight = checked_sum((int(nodes.weight[int(row)]) for row in plan.node_rows
-                               if int(nodes.role[int(row)]) != _GENERATED_VIRTUAL), 'scheduled_real_weight')
-    virtual_weight = checked_sum((int(nodes.weight[int(row)]) for row in plan.node_rows
-                                  if int(nodes.role[int(row)]) == _GENERATED_VIRTUAL), 'generated_virtual_weight')
+    provided = tuple(value is not None for value in
+                     (chain_total_weights, real_weight, virtual_weight))
+    if any(provided) and not all(provided):
+        raise NumericValueError('plan_facts', 'complete chain and resource facts required')
+    if all(provided):
+        try:
+            chain_weights = tuple(int64(integer_index(value), 'chain_total_weight')
+                                  for value in chain_total_weights)
+            real_weight = int64(integer_index(real_weight), 'scheduled_real_weight')
+            virtual_weight = int64(integer_index(virtual_weight), 'generated_virtual_weight')
+        except TypeError as error:
+            raise NumericValueError('plan_facts', 'integer chain and resource facts required') from error
+        if (len(chain_weights) != plan.chain_ids.size
+                or min((*chain_weights, real_weight, virtual_weight), default=0) < 0
+                or checked_sum(chain_weights, 'scheduled_total_weight')
+                != checked_sum((real_weight, virtual_weight), 'scheduled_total_weight')):
+            raise NumericValueError('plan_facts', 'chain and resource facts do not match')
+    else:
+        real_weight = checked_sum((int(nodes.weight[int(row)]) for row in plan.node_rows
+                                   if int(nodes.role[int(row)]) != _GENERATED_VIRTUAL), 'scheduled_real_weight')
+        virtual_weight = checked_sum((int(nodes.weight[int(row)]) for row in plan.node_rows
+                                      if int(nodes.role[int(row)]) == _GENERATED_VIRTUAL), 'generated_virtual_weight')
+        chain_weights = tuple(
+            checked_sum((int(nodes.weight[int(row)])
+                         for row in plan.node_rows[int(plan.chain_offsets[chain]):
+                                                   int(plan.chain_offsets[chain+1])]),
+                        'chain_total_weight')
+            for chain in range(plan.chain_ids.size))
     total_weight = checked_sum((real_weight, virtual_weight), 'scheduled_total_weight')
     for rule in program.rules:
         if rule.kind is NumericRuleKind.LATE_PERIOD:
@@ -795,9 +821,7 @@ def evaluate_numeric_static_plan_rules(task, program, plan):
         elif rule.kind is NumericRuleKind.FUTURE_FILL:
             target, gap = rule.values[0], 0
             for chain in range(plan.chain_ids.size):
-                start, stop = int(plan.chain_offsets[chain]), int(plan.chain_offsets[chain+1])
-                weight = checked_sum((int(nodes.weight[int(row)]) for row in plan.node_rows[start:stop]), rule.rule_id)
-                gap = int64(gap + max(0, target-weight), rule.rule_id)
+                gap = int64(gap + max(0, target-chain_weights[chain]), rule.rule_id)
             metrics.append(NumericMetric(rule.index, NumericMetricKind.FUTURE_FILL_TOTAL_GAP, gap))
     return NumericRuleResult(tuple(violations), tuple(metrics))
 

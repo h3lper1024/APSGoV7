@@ -9,7 +9,7 @@ from ._numeric_construction import NumericInitialSolution
 from ._numeric_evaluation import (
     NumericPlanEvaluation,
     NumericQualityProgram,
-    evaluate_numeric_plan,
+    evaluate_numeric_candidate,
 )
 from ._numeric_resources import (
     NumericResourceExtension,
@@ -615,8 +615,16 @@ def _try_prepared_candidate(
 ):
     if edit.sequence != budget.candidate_check_count:
         raise NumericValueError("candidate", "candidate sequence does not match consumed budget")
-    evaluation = evaluate_numeric_plan(
-        candidate_task, candidate_program, candidate_quality, candidate
+    evaluation = evaluate_numeric_candidate(
+        candidate_task,
+        candidate_program,
+        candidate_quality,
+        candidate,
+        state.task,
+        state.program,
+        state.quality,
+        state.plan,
+        state.evaluation,
     )
     state.complete_candidate_evaluation_count += 1
     if any(

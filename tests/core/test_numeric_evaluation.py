@@ -156,8 +156,9 @@ def test_numeric_evaluation_rejects_cross_task_identity_and_malformed_arrays():
     with pytest.raises(NumericValueError, match="matching task"):
         evaluate_numeric_plan(task, program, quality, replace(plan, task_fingerprint="other"))
     with pytest.raises(NumericValueError, match="read-only delivery"):
-        NumericDeliveryEvaluation([], readonly([], np.int64), readonly([], np.bool_),
-                                  readonly([], np.int64), 0, 0, 0)
+        NumericDeliveryEvaluation(
+            [], readonly([], np.int64), readonly([], np.bool_), readonly([], np.int64), 0, 0, 0
+        )
     result = evaluate_numeric_plan(task, program, quality, plan)
     with pytest.raises(NumericValueError, match="quality vector"):
         replace(result, quality_key=readonly(result.quality_key[:-1], np.int64))
@@ -196,4 +197,5 @@ def test_numeric_plan_evaluation_requires_exactly_nine_quality_values():
             result.generated_virtual_weight,
             result.borrowed_future_weight,
             readonly([0], np.int64),
+            result.chain_facts,
         )
