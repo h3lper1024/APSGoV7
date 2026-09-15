@@ -8,11 +8,19 @@ import pytest
 
 from apsgo_scheduler.app.input_normalizer import normalize_input
 from apsgo_scheduler.app.rule_set_loader import load_rule_set
-from apsgo_scheduler.core._numeric_state import NumericTask, NumericPlan, NumericNodeColumns, readonly
+from apsgo_scheduler.core._numeric_state import (
+    NumericNodeColumns,
+    NumericPlan,
+    NumericTask,
+    readonly,
+)
 from apsgo_scheduler.core._numeric_units import NumericValueError, allocate_piece_milliseconds
 from apsgo_scheduler.core.contracts import RuleScope
 from apsgo_scheduler.core.delivery_timing import OrderTimingInput
-from apsgo_scheduler.core.rules.concrete import HighSurfaceRunCountRule, SameSpecContinuousRealWeightRule
+from apsgo_scheduler.core.rules.concrete import (
+    HighSurfaceRunCountRule,
+    SameSpecContinuousRealWeightRule,
+)
 from tests.core.test_delivery_timing import timed_request
 
 
@@ -102,11 +110,16 @@ def test_all_split_pieces_remain_indexed_and_conserve():
     for field in fields(value.nodes):
         original=getattr(value.nodes,field.name)
         added=original[[0,0]].copy()
-        if field.name=='weight': added[:]=piece_weights
-        elif field.name=='duration_ms': added[:]=durations
-        elif field.name=='piece_index': added[:]=[0,1]
-        elif field.name=='piece_count': added[:]=2
-        elif field.name=='split_group': added[:]=0
+        if field.name=='weight':
+            added[:]=piece_weights
+        elif field.name=='duration_ms':
+            added[:]=durations
+        elif field.name=='piece_index':
+            added[:]=[0,1]
+        elif field.name=='piece_count':
+            added[:]=2
+        elif field.name=='split_group':
+            added[:]=0
         columns[field.name]=readonly(np.concatenate((original,added)),original.dtype)
     altered=replace(value,nodes=NumericNodeColumns(**columns))
     plan=NumericPlan.build(altered,[count,1,count+1],[0,2,3],[55,12],[0,0])

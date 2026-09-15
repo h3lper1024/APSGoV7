@@ -9,15 +9,23 @@ from hashlib import sha256
 
 import numpy as np
 
+from ._numeric_units import (
+    INT64_MAX,
+    NumericUnits,
+    NumericValueError,
+    checked_product,
+    checked_sum,
+    choose_scale,
+    due_milliseconds,
+    hours_to_milliseconds,
+    int64,
+    start_milliseconds,
+    to_ticks,
+)
 from .contracts import fingerprint
 from .delivery_timing import DeliveryTimingInput
 from .model import MaterialRole, SchedulingProblem
 from .rules.rule_set import ProcessRuleSet
-from ._numeric_units import (
-    INT64_MAX, NumericUnits, NumericValueError, checked_product, checked_sum,
-    choose_scale, due_milliseconds, hours_to_milliseconds, int64,
-    start_milliseconds, to_ticks,
-)
 
 _PHYSICAL = ('width', 'thickness', 'min_temperature', 'max_temperature')
 _TEXT = ('grade', 'hot_roll_grade', 'soft_hard_class', 'grade_class', 'surface_grade')
@@ -171,6 +179,7 @@ class NumericTask:
     prototype_ids: tuple
     text_labels: tuple
     derived_rule_ids: tuple
+    rule_set_fingerprint: str
     fingerprint: str
 
     @classmethod
@@ -309,7 +318,8 @@ class NumericTask:
                    readonly(range(original_count,count),np.int64), *derived,
                    start, problem.period_order, tuple(n.node_id for n in problem.nodes), source_ids,
                    tuple(n.source_resource_id for n in problem.nodes), prototype_ids, tuple(text_labels),
-                   (tuple(priority_ids),tuple(narrow_ids),tuple(surface_ids),tuple(group_ids)), digest.hexdigest())
+                   (tuple(priority_ids),tuple(narrow_ids),tuple(surface_ids),tuple(group_ids)),
+                   rule_set.fingerprint, digest.hexdigest())
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -324,6 +334,7 @@ class NumericPlan:
     source_piece_rows: np.ndarray
     source_last_position: np.ndarray
     generation: int
+    task_fingerprint: str
 
     @classmethod
     def build(cls, task, node_rows, chain_offsets, chain_ids, chain_periods, *, generation=0):
@@ -384,4 +395,5 @@ class NumericPlan:
         row_chain[rows] = chains_by_position
         row_position[rows] = positions - offsets[chains_by_position]
         return cls(rows,offsets,ids,periods,readonly(row_chain,np.int64),readonly(row_position,np.int64),
-                   readonly(source_offsets,np.int64),readonly(pieces,np.int64),readonly(last,np.int64),generation)
+                   readonly(source_offsets,np.int64),readonly(pieces,np.int64),readonly(last,np.int64),
+                   generation, task.fingerprint)

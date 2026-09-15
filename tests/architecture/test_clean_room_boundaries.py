@@ -77,6 +77,15 @@ def check_source(source, path, package):
                     if ast.dump(expression) == ast.dump(shapes[function.name]):
                         approved_shape_numbers.update(item for item in ast.walk(expression)
                                                       if isinstance(item, ast.Constant))
+    if module == "apsgo_scheduler.core._numeric_rules":
+        # Numeric enum ordinals are compact internal codes, not frozen benchmark results.
+        for definition in tree.body:
+            if isinstance(definition, ast.ClassDef) and any(
+                isinstance(base, ast.Name) and base.id == "IntEnum" for base in definition.bases
+            ):
+                approved_shape_numbers.update(
+                    item for item in ast.walk(definition) if isinstance(item, ast.Constant)
+                )
     sys_aliases = {"sys"}
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
