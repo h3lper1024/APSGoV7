@@ -33,6 +33,7 @@ from .rules.base import (
 )
 from .rules.rule_set import ProcessRuleSet
 from ._rule_runs import RuleRuns
+from .delivery_timing import _DeliveryReuse
 
 
 def _require_number(value, name):
@@ -128,6 +129,7 @@ class _AcceptedPlanEvaluation:
     entries: Mapping[str, _ChainEvaluationEntry]
     resources: Mapping
     runs: RuleRuns
+    delivery: object
 
     def matches(self, state, rule_set, rule_context):
         return (
@@ -185,13 +187,14 @@ def _evaluate_candidate_plan(plan, state, rule_set, rule_context, previous):
             else derive_evaluation_resource_view(SchedulePlan((chain,)), rule_context)
         )
     runs = RuleRuns(previous.runs if previous is not None and previous.matches(state, rule_set, rule_context) else None)
+    delivery = _DeliveryReuse(previous.delivery if previous is not None and previous.matches(state, rule_set, rule_context) else None)
     evaluation, candidate_entries = _evaluate_plan(
-        plan, rule_set, rule_context, entries, _combine_resource_views(resources.values()), runs
+        plan, rule_set, rule_context, entries, _combine_resource_views(resources.values()), runs, delivery
     )
     runs.detach()
     # Prepared before acceptance; a rejected candidate never becomes long-lived state.
     return evaluation, _AcceptedPlanEvaluation(
-        state, plan, rule_set, rule_context, candidate_entries, resources, runs
+        state, plan, rule_set, rule_context, candidate_entries, resources, runs, delivery.snapshot
     )
 
 
@@ -333,7 +336,7 @@ def evaluate_plan(
     return _evaluate_plan(plan, rule_set, context)[0]
 
 
-def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=None, runs=None):
+def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=None, runs=None, delivery=None):
     # None is the uncached path; an empty mapping captures a cold candidate.
     _validate_inputs(plan, SchedulePlan, rule_set, context)
     if resources is None:
@@ -382,7 +385,8 @@ def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=Non
                 tuple(node_contributions),
                 chain_evaluations[index],
             )
-    result = rule_set.evaluate_plan(PlanRuleSubject("plan", plan, resources), context)
+    result = rule_set.evaluate_plan(PlanRuleSubject("plan", plan, resources), context,
+                                    **({"_delivery_cache": delivery} if delivery is not None else {}))
     violations.extend(result.violations)
     contributions.extend(result.metrics)
     prohibited = tuple(v for v in violations if v.disposition is RuleDisposition.PROHIBITED)

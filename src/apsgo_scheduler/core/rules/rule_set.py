@@ -159,7 +159,8 @@ class ProcessRuleSet:
             {key: rule.metric_aggregation for rule in self.rules for key in rule.metric_keys()}
         )
 
-    def _evaluate(self, subject, context, expected_type, scope, *, rules=None, _run_cache=None):
+    def _evaluate(self, subject, context, expected_type, scope, *, rules=None, _run_cache=None,
+                  _delivery_cache=None):
         if not isinstance(subject, expected_type):
             raise UnsupportedRuleSubjectError(type(subject))
         if not isinstance(context, RuleEvaluationContext):
@@ -171,6 +172,8 @@ class ProcessRuleSet:
                 ContinuousNarrowSteelWeightRule, SameSpecContinuousRealWeightRule,
             ):
                 contribution = rule.evaluate(subject, context, _run_cache=_run_cache)
+            elif _delivery_cache is not None and type(rule) is DeliveryDuePerformanceRule:
+                contribution = rule.evaluate(subject, context, _delivery_cache=_delivery_cache)
             else:
                 contribution = rule.evaluate(subject, context)
             if not isinstance(contribution, RuleContribution):
@@ -230,9 +233,9 @@ class ProcessRuleSet:
             tuple(item for contribution in contributions for item in contribution.metrics),
         )
 
-    def evaluate_plan(self, subject: PlanRuleSubject, context: RuleEvaluationContext):
+    def evaluate_plan(self, subject: PlanRuleSubject, context: RuleEvaluationContext, *, _delivery_cache=None):
         # This entry dispatches PLAN rules only; complete plan evaluation belongs to function 7.
-        return self._evaluate(subject, context, PlanRuleSubject, RuleScope.PLAN)
+        return self._evaluate(subject, context, PlanRuleSubject, RuleScope.PLAN, _delivery_cache=_delivery_cache)
 
     def construction_priority(self, node: Node) -> tuple[Decimal | int, ...]:
         if not isinstance(node, Node):

@@ -3,6 +3,7 @@
 from dataclasses import replace
 from decimal import Decimal as D, localcontext
 from itertools import permutations
+import pytest
 
 from apsgo_scheduler.core.evaluation import evaluate_plan, _evaluate_candidate_plan
 from apsgo_scheduler.core._rule_runs import RuleRuns
@@ -62,3 +63,39 @@ def test_run_reuse_keeps_boundaries_and_does_not_confuse_replaced_nodes():
     subject = ChainRuleSubject("changed", Chain("changed", modified, "first"))
     assert rules[0].evaluate(subject, ctx, _run_cache=current) == rules[0].evaluate(subject, ctx)
     assert current.key_hits == 2
+
+
+@pytest.mark.parametrize("second", (False, True))
+@pytest.mark.parametrize("hours", ("0.000125", "0.00375", "4", "1.2345678901234567890123456789", "1e35"))
+def test_delivery_reuse_exact_clock_and_all_fragments(second, hours):
+    from apsgo_scheduler.core.delivery_timing import evaluate_delivery, _evaluate_delivery_reused
+    from tests.core.test_delivery_objective import example, plan
+    a, b, virtual, timing = example(hours_a=hours)
+    pieces = (replace(a, node_id="a-left", weight=D(3)), replace(a, node_id="a-right", weight=D(7)))
+    original = plan(*pieces, virtual, b)
+    previous = _evaluate_delivery_reused(original, timing, second)
+    for ordered in permutations((*pieces, virtual, b)):
+        candidate = plan(*ordered)
+        reused = _evaluate_delivery_reused(candidate, timing, second, previous)
+        expected = evaluate_delivery(candidate, timing, second_precision=second, details=True)
+        assert reused.performance == replace(expected, node_times=())
+        assert tuple(v.as_tuple() for v in reused.ends) == tuple(row[2].as_tuple() for row in expected.node_times)
+        assert reused.reused_durations == 4
+    removed = plan(b, *pieces)
+    reused = _evaluate_delivery_reused(removed, timing, second, previous)
+    assert reused.performance == evaluate_delivery(removed, timing, second_precision=second)
+    assert reused.ends[-1] == evaluate_delivery(removed, timing, details=True).node_times[-1][2]
+    changed_timing = replace(timing, virtual_hours_per_tonne={"prototype": D(2)})
+    assert _evaluate_delivery_reused(original, changed_timing, second, previous).reused_durations == 0
+    with pytest.raises(ValueError, match="conserved"):
+        _evaluate_delivery_reused(plan(pieces[0], b), timing, second, previous)
+
+
+def test_delivery_skips_only_exactly_matching_prefix_and_suffix():
+    from apsgo_scheduler.core.delivery_timing import _evaluate_delivery_reused
+    from tests.core.test_delivery_objective import example, plan
+    a, b, virtual, timing = example()
+    left, right = replace(a, node_id="left", weight=D(5)), replace(a, node_id="right", weight=D(5))
+    previous = _evaluate_delivery_reused(plan(virtual, left, right, b), timing, True)
+    reused = _evaluate_delivery_reused(plan(virtual, right, left, b), timing, True, previous)
+    assert (reused.reused_prefix, reused.reused_suffix, reused.reused_orders) == (1, 1, 2)

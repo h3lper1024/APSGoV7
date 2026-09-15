@@ -213,3 +213,123 @@ def evaluate_delivery(plan, timing, *, details=False, second_precision=False):
             burden = score_seconds_to_hours(sum_weights(seconds_burdens))
             clearance = score_seconds_to_hours(score_time_seconds(clearance))
     return DeliveryPerformance(newly_late, burden, MappingProxyType(completion), tuple(rows), clearance)
+
+
+@dataclass(frozen=True, slots=True)
+class _DeliverySnapshot:
+    timing: DeliveryTiming
+    second_precision: bool
+    nodes: tuple
+    durations: tuple
+    ends: tuple
+    contributions: tuple
+    performance: DeliveryPerformance
+    reused_prefix: int
+    reused_suffix: int
+    reused_durations: int
+    reused_orders: int
+
+
+def _evaluate_delivery_reused(plan, timing, second_precision, previous=None):
+    """Keep the original ordered Decimal clock; reuse only exactly identical inputs."""
+    if not isinstance(timing, DeliveryTiming):
+        raise ValueError("delivery evaluation requires validated task timing")
+    if type(second_precision) is not bool:
+        raise ValueError("second_precision must be boolean")
+    if previous is not None and (previous.timing is not timing or previous.second_precision != second_precision):
+        previous = None
+    nodes = tuple(node for chain in plan.chains for node in chain.nodes)
+    old_nodes = {} if previous is None else {
+        node.node_id: (node, duration) for node, duration in zip(previous.nodes, previous.durations)
+    }
+    durations, seen, weights = [], set(), {}
+    unchanged_members = previous is not None and len(nodes) == len(old_nodes)
+    reused_durations = 0
+    with localcontext(_context()):
+        for node in nodes:
+            if node.node_id in seen:
+                raise ValueError("duplicate node in delivery evaluation")
+            seen.add(node.node_id)
+            old = old_nodes.get(node.node_id)
+            if old is not None and old[0] is node:
+                durations.append(old[1])
+                reused_durations += 1
+            else:
+                unchanged_members = False
+                if node.virtual_lineage is not None:
+                    rate = timing.virtual_hours_per_tonne.get(node.virtual_lineage.prototype_id)
+                    if rate is None:
+                        raise ValueError("missing virtual prototype timing")
+                else:
+                    order = timing.orders.get(node.source_order_id)
+                    if order is None:
+                        raise ValueError("missing original order timing")
+                    rate = order.hours_per_tonne
+                durations.append(node.weight * rate)
+        if not unchanged_members:
+            for node in nodes:
+                if node.virtual_lineage is None:
+                    weights.setdefault(node.source_order_id, []).append(node.weight)
+            if set(weights) != set(timing.orders) or any(
+                sum_weights(weights[key]) != order.weight for key, order in timing.orders.items()
+            ):
+                raise ValueError("delivery evaluation requires conserved original order weights")
+        prefix, suffix = 0, 0
+        if previous is not None:
+            while prefix < min(len(nodes), len(previous.nodes)) and nodes[prefix] is previous.nodes[prefix]:
+                prefix += 1
+            while (suffix < min(len(nodes), len(previous.nodes)) - prefix
+                   and nodes[-1-suffix] is previous.nodes[-1-suffix]):
+                suffix += 1
+        ends = [] if previous is None else list(previous.ends[:prefix])
+        clock = ends[-1] if ends else Decimal(0)
+        reused_suffix = 0
+        for index in range(prefix, len(nodes)):
+            if suffix and index == len(nodes) - suffix:
+                old_start = len(previous.nodes) - suffix
+                old_clock = previous.ends[old_start - 1] if old_start else Decimal(0)
+                if clock.as_tuple() == old_clock.as_tuple():
+                    ends.extend(previous.ends[old_start:])
+                    reused_suffix = suffix
+                    break
+            clock += durations[index]
+            ends.append(clock)
+        completion = {node.source_order_id: end for node, end in zip(nodes, ends)
+                      if node.virtual_lineage is None}
+        contributions = []
+        newly_late, burden, clearance = Decimal(0), Decimal(0), Decimal(0)
+        reused_orders = 0
+        for index, (key, order) in enumerate(timing.orders.items()):
+            finish = completion[key]
+            if previous is not None and previous.performance.original_completion_hours[key].as_tuple() == finish.as_tuple():
+                late, cost, backlog = previous.contributions[index]
+                reused_orders += 1
+            else:
+                late = order.weight if order.due_hours > 0 and finish > order.due_hours else Decimal(0)
+                backlog = finish if order.due_hours <= 0 else Decimal(0)
+                wait = max(Decimal(0), finish - max(Decimal(0), order.due_hours))
+                cost = weighted_wait_seconds(order.weight, wait) if second_precision else order.weight * wait
+            contributions.append((late, cost, backlog))
+            # Match the reference's conditional addition, including its Decimal context.
+            if late:
+                newly_late += late
+            if not second_precision:
+                burden += cost
+            clearance = max(clearance, backlog)
+        if second_precision:
+            burden = score_seconds_to_hours(sum_weights(item[1] for item in contributions))
+            clearance = score_seconds_to_hours(score_time_seconds(clearance))
+    performance = DeliveryPerformance(newly_late, burden, MappingProxyType(completion), (), clearance)
+    return _DeliverySnapshot(timing, second_precision, nodes, tuple(durations), tuple(ends),
+                             tuple(contributions), performance, prefix, reused_suffix,
+                             reused_durations, reused_orders)
+
+
+class _DeliveryReuse:
+    def __init__(self, previous=None):
+        self.previous = previous
+        self.snapshot = None
+
+    def evaluate(self, plan, timing, second_precision):
+        self.snapshot = _evaluate_delivery_reused(plan, timing, second_precision, self.previous)
+        return self.snapshot.performance

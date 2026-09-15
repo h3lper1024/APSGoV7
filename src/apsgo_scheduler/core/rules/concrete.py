@@ -67,12 +67,14 @@ class DeliveryDuePerformanceRule(Rule):
             ("old_backlog_last_completion_hours",) if self.include_backlog_clearance else ()
         )
 
-    def evaluate(self, subject, context):
+    def evaluate(self, subject, context, *, _delivery_cache=None):
         if not isinstance(subject, PlanRuleSubject):
             raise UnsupportedRuleSubjectError(type(subject))
         if not self.enabled:
             return RuleContribution((), ())
-        result = evaluate_delivery(subject.plan, context.delivery_timing, second_precision=self.second_precision)
+        result = (evaluate_delivery(subject.plan, context.delivery_timing, second_precision=self.second_precision)
+                  if _delivery_cache is None else
+                  _delivery_cache.evaluate(subject.plan, context.delivery_timing, self.second_precision))
         return RuleContribution((), tuple(
             MetricContribution(key, getattr(result, key)) for key in self.metric_keys()
         ))
