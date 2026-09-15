@@ -497,9 +497,9 @@ def test_reuse_requires_the_same_chain_object_and_recomputes_global_rules(monkey
     for method in ("evaluate_complete_chain", "evaluate_node", "evaluate_plan"):
         original = getattr(ProcessRuleSet, method)
 
-        def observe(self, subject, context, method=method, original=original):
+        def observe(self, subject, context, method=method, original=original, **kwargs):
             calls.append((method, subject.subject_id))
-            return original(self, subject, context)
+            return original(self, subject, context, **kwargs)
 
         monkeypatch.setattr(ProcessRuleSet, method, observe)
     actual, retained = evaluation._evaluate_candidate_plan(candidate, state, active, ctx, previous)

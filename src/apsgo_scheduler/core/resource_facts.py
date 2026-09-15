@@ -298,6 +298,19 @@ def derive_evaluation_resource_view(
     )
 
 
+def _combine_resource_views(views):
+    """Exact sums can be regrouped; identity lists must follow the new chain order."""
+    views = tuple(views)
+    return EvaluationResourceView(
+        borrowed_node_ids=tuple(key for view in views for key in view.borrowed_node_ids),
+        generated_virtual_node_ids=tuple(key for view in views for key in view.generated_virtual_node_ids),
+        split_partition_ids=tuple(dict.fromkeys(key for view in views for key in view.split_partition_ids)),
+        **{name: sum_weights(getattr(view, name) for view in views) for name in (
+            "scheduled_real_weight", "generated_virtual_weight", "future_pool_weight", "borrowed_future_weight"
+        )},
+    )
+
+
 def _derive_audited_resource_facts(
     plan: SchedulePlan,
     problem: SchedulingProblem,

@@ -25,7 +25,9 @@ from .base import (
     RuleScope,
     UnsupportedRuleSubjectError,
 )
-from .concrete import ControlledOrderSplitRule, DeliveryDuePerformanceRule, WidthTransitionRule, _VirtualBridgeWidthRule
+from .concrete import (ControlledOrderSplitRule, DeliveryDuePerformanceRule, WidthTransitionRule,
+                       _VirtualBridgeWidthRule, HighSurfaceRunCountRule, ConsecutiveVirtualMaterialRule,
+                       ContinuousNarrowSteelWeightRule, SameSpecContinuousRealWeightRule)
 from .helpers import create_controlled_split_decision
 
 PROHIBITED_METRIC_KEYS = ("prohibited_violation_count", "prohibited_violation_severity")
@@ -157,14 +159,20 @@ class ProcessRuleSet:
             {key: rule.metric_aggregation for rule in self.rules for key in rule.metric_keys()}
         )
 
-    def _evaluate(self, subject, context, expected_type, scope, *, rules=None):
+    def _evaluate(self, subject, context, expected_type, scope, *, rules=None, _run_cache=None):
         if not isinstance(subject, expected_type):
             raise UnsupportedRuleSubjectError(type(subject))
         if not isinstance(context, RuleEvaluationContext):
             raise ValueError("context must be RuleEvaluationContext")
         violations, metrics = [], []
         for rule in self._by_scope[scope] if rules is None else rules:
-            contribution = rule.evaluate(subject, context)
+            if _run_cache is not None and type(rule) in (
+                HighSurfaceRunCountRule, ConsecutiveVirtualMaterialRule,
+                ContinuousNarrowSteelWeightRule, SameSpecContinuousRealWeightRule,
+            ):
+                contribution = rule.evaluate(subject, context, _run_cache=_run_cache)
+            else:
+                contribution = rule.evaluate(subject, context)
             if not isinstance(contribution, RuleContribution):
                 raise ValueError("rule must return RuleContribution")
             if any(
@@ -189,10 +197,12 @@ class ProcessRuleSet:
         return self._evaluate(subject, context, ChainRuleSubject, RuleScope.CHAIN)
 
     def evaluate_complete_chain(
-        self, subject: ChainRuleSubject, context: RuleEvaluationContext
+        self, subject: ChainRuleSubject, context: RuleEvaluationContext, *, _run_cache=None
     ) -> RuleContribution:
         if not self._by_scope[RuleScope.EDGE]:
-            return self.evaluate_chain(subject, context)
+            if _run_cache is None:
+                return self.evaluate_chain(subject, context)
+            return self._evaluate(subject, context, ChainRuleSubject, RuleScope.CHAIN, _run_cache=_run_cache)
         first_edge = next(
             index for index, rule in enumerate(self.rules) if rule.scope is RuleScope.EDGE
         )
@@ -200,7 +210,8 @@ class ProcessRuleSet:
         chain_rules = self._by_scope[RuleScope.CHAIN]
         contributions = [
             self._evaluate(
-                subject, context, ChainRuleSubject, RuleScope.CHAIN, rules=chain_rules[:split_index]
+                subject, context, ChainRuleSubject, RuleScope.CHAIN, rules=chain_rules[:split_index],
+                _run_cache=_run_cache
             )
         ]
         for left, right in pairwise(subject.chain.nodes):
@@ -210,7 +221,8 @@ class ProcessRuleSet:
             contributions.append(self.evaluate_edge(edge, context))
         contributions.append(
             self._evaluate(
-                subject, context, ChainRuleSubject, RuleScope.CHAIN, rules=chain_rules[split_index:]
+                subject, context, ChainRuleSubject, RuleScope.CHAIN, rules=chain_rules[split_index:],
+                _run_cache=_run_cache
             )
         )
         return RuleContribution(

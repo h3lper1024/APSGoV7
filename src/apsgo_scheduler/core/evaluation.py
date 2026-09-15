@@ -16,7 +16,7 @@ from .contracts import (
     sum_weights,
 )
 from .model import Chain, SchedulePlan, SearchState
-from .resource_facts import derive_evaluation_resource_view
+from .resource_facts import derive_evaluation_resource_view, _combine_resource_views
 from .rules import concrete
 from .rules.base import (
     ChainRuleSubject,
@@ -32,6 +32,7 @@ from .rules.base import (
     RuleViolation,
 )
 from .rules.rule_set import ProcessRuleSet
+from ._rule_runs import RuleRuns
 
 
 def _require_number(value, name):
@@ -125,6 +126,8 @@ class _AcceptedPlanEvaluation:
     rule_set: ProcessRuleSet
     rule_context: RuleEvaluationContext
     entries: Mapping[str, _ChainEvaluationEntry]
+    resources: Mapping
+    runs: RuleRuns
 
     def matches(self, state, rule_set, rule_context):
         return (
@@ -173,10 +176,22 @@ def _evaluate_candidate_plan(plan, state, rule_set, rule_context, previous):
         if previous is not None and previous.matches(state, rule_set, rule_context)
         else {}
     )
-    evaluation, candidate_entries = _evaluate_plan(plan, rule_set, rule_context, entries)
+    resources = {}
+    previous_resources = previous.resources if previous is not None and previous.matches(state, rule_set, rule_context) else {}
+    for chain in plan.chains:
+        entry = entries.get(chain.chain_id)
+        resources[chain.chain_id] = (
+            previous_resources[chain.chain_id] if entry is not None and entry.chain is chain
+            else derive_evaluation_resource_view(SchedulePlan((chain,)), rule_context)
+        )
+    runs = RuleRuns(previous.runs if previous is not None and previous.matches(state, rule_set, rule_context) else None)
+    evaluation, candidate_entries = _evaluate_plan(
+        plan, rule_set, rule_context, entries, _combine_resource_views(resources.values()), runs
+    )
+    runs.detach()
     # Prepared before acceptance; a rejected candidate never becomes long-lived state.
     return evaluation, _AcceptedPlanEvaluation(
-        state, plan, rule_set, rule_context, candidate_entries
+        state, plan, rule_set, rule_context, candidate_entries, resources, runs
     )
 
 
@@ -318,10 +333,11 @@ def evaluate_plan(
     return _evaluate_plan(plan, rule_set, context)[0]
 
 
-def _evaluate_plan(plan, rule_set, context, previous_entries=None):
+def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=None, runs=None):
     # None is the uncached path; an empty mapping captures a cold candidate.
     _validate_inputs(plan, SchedulePlan, rule_set, context)
-    resources = derive_evaluation_resource_view(plan, context)
+    if resources is None:
+        resources = derive_evaluation_resource_view(plan, context)
     declarations = rule_set.metric_aggregations()
     chain_evaluations, violations, contributions = [], [], []
     entries = None if previous_entries is None else {}
@@ -332,7 +348,8 @@ def _evaluate_plan(plan, rule_set, context, previous_entries=None):
             result, evaluated = entry.contribution, entry.evaluation
         else:
             result = rule_set.evaluate_complete_chain(
-                ChainRuleSubject(chain.chain_id, chain), context
+                ChainRuleSubject(chain.chain_id, chain), context,
+                **({"_run_cache": runs} if runs is not None else {})
             )
             evaluated = _chain_result(chain, result, declarations)
         chain_evaluations.append(evaluated)

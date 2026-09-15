@@ -90,17 +90,20 @@ def _positive_weight_difference(left, right):
     return Context(prec=max(1, precision)).subtract(left, right)
 
 
-def _continuous_weight_contribution(rule, subject, group_key, metric_key, reason_code):
+def _continuous_weight_contribution(rule, subject, group_key, metric_key, reason_code, _run_cache=None):
     """A None key breaks a run; tuples containing None remain ordinary group keys."""
     limit = rule.parameters["max_real_weight"]
     allowed_weight = sum_weights((limit, WEIGHT_EPSILON))
     violations = []
     maximum = Decimal(0)
-    for key, segment in groupby(enumerate(subject.chain.nodes), group_key):
+    groups = (groupby(enumerate(subject.chain.nodes), group_key) if _run_cache is None
+              else _run_cache.groups(rule, subject.chain.nodes, group_key))
+    for key, segment in groups:
         if key is None:
             continue
         members = tuple(segment)
-        total = sum_weights(node.weight for _, node in members)
+        total = (sum_weights(node.weight for _, node in members) if _run_cache is None
+                 else _run_cache.total(members))
         maximum = max(maximum, total)
         if total > allowed_weight:
             severity = _positive_weight_difference(total, limit)
@@ -654,7 +657,7 @@ class HighSurfaceRunCountRule(Rule):
     def metric_keys(self):
         return ("max_high_surface_run_count",) if self.enabled else ()
 
-    def evaluate(self, subject, context):
+    def evaluate(self, subject, context, *, _run_cache=None):
         if not isinstance(subject, ChainRuleSubject):
             raise UnsupportedRuleSubjectError(type(subject))
         if not self.enabled:
@@ -671,7 +674,9 @@ class HighSurfaceRunCountRule(Rule):
 
         violations = []
         maximum = 0
-        for matched, segment in groupby(enumerate(subject.chain.nodes), matches):
+        groups = (groupby(enumerate(subject.chain.nodes), matches) if _run_cache is None
+                  else _run_cache.groups(self, subject.chain.nodes, matches))
+        for matched, segment in groups:
             if not matched:
                 continue
             start, _ = next(segment)
@@ -728,7 +733,7 @@ class ContinuousNarrowSteelWeightRule(Rule):
     def metric_keys(self):
         return ("max_if_narrow_real_run_weight",) if self.enabled else ()
 
-    def evaluate(self, subject, context):
+    def evaluate(self, subject, context, *, _run_cache=None):
         if not isinstance(subject, ChainRuleSubject):
             raise UnsupportedRuleSubjectError(type(subject))
         if not self.enabled:
@@ -744,7 +749,7 @@ class ContinuousNarrowSteelWeightRule(Rule):
             )
 
         return _continuous_weight_contribution(
-            self, subject, group_key, "max_if_narrow_real_run_weight", "if_narrow_run_weight"
+            self, subject, group_key, "max_if_narrow_real_run_weight", "if_narrow_run_weight", _run_cache
         )
 
 
@@ -774,7 +779,7 @@ class SameSpecContinuousRealWeightRule(Rule):
     def metric_keys(self):
         return ("max_same_spec_real_run_weight",) if self.enabled else ()
 
-    def evaluate(self, subject, context):
+    def evaluate(self, subject, context, *, _run_cache=None):
         if not isinstance(subject, ChainRuleSubject):
             raise UnsupportedRuleSubjectError(type(subject))
         if not self.enabled:
@@ -798,7 +803,7 @@ class SameSpecContinuousRealWeightRule(Rule):
             return tuple(values)
 
         return _continuous_weight_contribution(
-            self, subject, group_key, "max_same_spec_real_run_weight", "same_spec_run_weight"
+            self, subject, group_key, "max_same_spec_real_run_weight", "same_spec_run_weight", _run_cache
         )
 
 
@@ -900,7 +905,7 @@ class ConsecutiveVirtualMaterialRule(Rule):
     def metric_keys(self):
         return ("max_consecutive_virtual_sphc",) if self.enabled else ()
 
-    def evaluate(self, subject, context):
+    def evaluate(self, subject, context, *, _run_cache=None):
         if not isinstance(subject, ChainRuleSubject):
             raise UnsupportedRuleSubjectError(type(subject))
         if not self.enabled:
@@ -908,10 +913,11 @@ class ConsecutiveVirtualMaterialRule(Rule):
         limit = self.parameters["max_count"]
         violations = []
         maximum = 0
-        for virtual, segment in groupby(
-            enumerate(subject.chain.nodes),
-            lambda item: item[1].material_role is MaterialRole.GENERATED_VIRTUAL,
-        ):
+        def matches(item):
+            return item[1].material_role is MaterialRole.GENERATED_VIRTUAL
+        groups = (groupby(enumerate(subject.chain.nodes), matches) if _run_cache is None
+                  else _run_cache.groups(self, subject.chain.nodes, matches))
+        for virtual, segment in groups:
             if not virtual:
                 continue
             start, _ = next(segment)
