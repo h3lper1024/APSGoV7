@@ -39,8 +39,11 @@ def construction_case(
     widths=("1000", "900"),
     due_dates=None,
     temperatures=None,
+    grade_class="ordinary",
+    source_periods=None,
 ):
     temperatures = temperatures or (("700", "800"),) * len(weights)
+    source_periods = source_periods or ("P0",) * len(weights)
     orders = tuple(
         make_order(
             index,
@@ -49,15 +52,15 @@ def construction_case(
             min_temperature=D(temperature[0]),
             max_temperature=D(temperature[1]),
             grade=f"G{index}",
-            source_period="P0",
+            source_period=source_period,
             rule_attributes=attributes(
                 surface_grade="",
-                grade_class="ordinary",
+                grade_class=grade_class,
                 customer_name="ordinary",
             ),
         )
-        for index, (weight, width, temperature) in enumerate(
-            zip(weights, widths, temperatures)
+        for index, (weight, width, temperature, source_period) in enumerate(
+            zip(weights, widths, temperatures, source_periods)
         )
     )
     spec = numeric_quality_spec()

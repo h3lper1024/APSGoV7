@@ -432,6 +432,21 @@ class NumericRuleProgram:
             raise NumericValueError('rule_kind', 'known numeric rule kind required')
         return tuple(rule for rule in self.rules if rule.kind is kind)
 
+    def rebind(self, task):
+        """Bind unchanged compiled parameters to an accepted expanded task catalog."""
+        if not isinstance(task, NumericTask) or task.rule_set_fingerprint != self.rule_set_fingerprint:
+            raise NumericValueError('rules', 'expanded task does not match compiled rules')
+        identity = fingerprint({
+            'compiler': 1,
+            'task': task.fingerprint,
+            'rule_set': self.rule_set_fingerprint,
+            'rules': tuple((rule.index, rule.rule_id, int(rule.kind), rule.scope.value,
+                            rule.values, rule.flags, rule.bands) for rule in self.rules),
+        })
+        return NumericRuleProgram(
+            task.fingerprint, self.rule_set_fingerprint, self.rules, identity
+        )
+
 
 def _severity_ratio(numerator, denominator, path, *, at_least_one=True):
     if numerator <= 0 or denominator <= 0:

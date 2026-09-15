@@ -11,18 +11,33 @@ from ._numeric_evaluation import (
     NumericQualityProgram,
     evaluate_numeric_plan,
 )
+from ._numeric_resources import (
+    NumericResourceExtension,
+    choose_split_separator,
+    choose_virtual_bridge,
+    extend_resource_workspace,
+    split_group,
+    split_piece_node,
+    virtual_node,
+)
 from ._numeric_rules import (
     NumericMetricKind,
     NumericRuleKind,
     NumericRuleProgram,
     evaluate_numeric_edge,
     evaluate_numeric_rows,
+    evaluate_numeric_split,
 )
 from ._numeric_state import NumericPlan, NumericTask
-from ._numeric_units import NumericValueError, checked_sum, int64
+from ._numeric_units import (
+    NumericValueError,
+    allocate_piece_milliseconds,
+    checked_sum,
+    int64,
+)
 from .budget import SolveRuntimeBudget
 from .contracts import SearchStopReason, fingerprint
-from .model import MaterialRole
+from .model import MaterialRole, VirtualPurpose
 
 _GENERATED_VIRTUAL = tuple(MaterialRole).index(MaterialRole.GENERATED_VIRTUAL)
 
@@ -33,6 +48,8 @@ class NumericSearchAction(str, Enum):
     WHOLE_CHAIN_INSERTION = "whole_chain_insertion"
     REAL_NODE_RELOCATION = "real_node_relocation"
     CHAIN_ORDER_RELOCATION = "chain_order_relocation"
+    VIRTUAL_WEIGHT_FILL = "virtual_weight_fill"
+    CONTROLLED_ORDER_SPLIT = "controlled_order_split"
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,19 +80,50 @@ class NumericCandidateEdit:
         ):
             int64(getattr(self, name), name)
         if self.generation < 0 or self.sequence <= 0:
-            raise NumericValueError("candidate", "nonnegative generation and positive sequence required")
+            raise NumericValueError(
+                "candidate", "nonnegative generation and positive sequence required"
+            )
         if not isinstance(self.action, NumericSearchAction):
             raise NumericValueError("candidate", "known numeric search action required")
-        if self.source_chain_id == self.target_chain_id:
+        if (
+            self.source_chain_id == self.target_chain_id
+            and self.action is not NumericSearchAction.VIRTUAL_WEIGHT_FILL
+        ):
             raise NumericValueError("candidate", "source and target chains must differ")
         if type(self.source_reversed) is not bool or type(self.target_reversed) is not bool:
             raise NumericValueError("candidate", "reversal flags must be boolean")
         if self.action is NumericSearchAction.REAL_NODE_RELOCATION:
-            if self.node_row < 0 or self.target_position < 0 or self.source_reversed or self.target_reversed:
+            if (
+                self.node_row < 0
+                or self.target_position < 0
+                or self.source_reversed
+                or self.target_reversed
+            ):
                 raise NumericValueError("candidate", "invalid real-node relocation description")
         elif self.action is NumericSearchAction.CHAIN_ORDER_RELOCATION:
-            if self.node_row != -1 or self.target_position < 0 or self.source_reversed or self.target_reversed:
+            if (
+                self.node_row != -1
+                or self.target_position < 0
+                or self.source_reversed
+                or self.target_reversed
+            ):
                 raise NumericValueError("candidate", "invalid chain-order description")
+        elif self.action is NumericSearchAction.CONTROLLED_ORDER_SPLIT:
+            if (
+                self.node_row < 0
+                or self.target_position != -1
+                or self.source_reversed
+                or self.target_reversed
+            ):
+                raise NumericValueError("candidate", "invalid controlled-split description")
+        elif self.action is NumericSearchAction.VIRTUAL_WEIGHT_FILL:
+            if (
+                self.node_row != -1
+                or self.target_position < 0
+                or self.source_reversed
+                or self.target_reversed
+            ):
+                raise NumericValueError("candidate", "invalid virtual-fill description")
         elif self.node_row != -1 or self.target_position < 0:
             raise NumericValueError("candidate", "invalid whole-chain description")
 
@@ -107,17 +155,33 @@ class NumericAcceptedMove:
 
 @dataclass(slots=True)
 class NumericSearchState:
+    task: NumericTask
+    program: NumericRuleProgram
+    quality: NumericQualityProgram
     plan: NumericPlan
     evaluation: NumericPlanEvaluation
     accepted_move_count: int = 0
     complete_candidate_evaluation_count: int = 0
-    deferred_bridge_candidate_count: int = 0
+    bridge_required_candidate_count: int = 0
+    virtual_sequence: int = 0
+    split_sequence: int = 0
+    replay_count: int = 0
     accepted_moves: tuple[NumericAcceptedMove, ...] = ()
 
     def __post_init__(self):
         if (
-            not isinstance(self.plan, NumericPlan)
+            not isinstance(self.task, NumericTask)
+            or not isinstance(self.program, NumericRuleProgram)
+            or not isinstance(self.quality, NumericQualityProgram)
+            or not isinstance(self.plan, NumericPlan)
             or not isinstance(self.evaluation, NumericPlanEvaluation)
+            or self.program.task_fingerprint != self.task.fingerprint
+            or self.quality.task_fingerprint != self.task.fingerprint
+            or self.quality.rule_program_fingerprint != self.program.fingerprint
+            or self.plan.task_fingerprint != self.task.fingerprint
+            or self.evaluation.task_fingerprint != self.task.fingerprint
+            or self.evaluation.rule_program_fingerprint != self.program.fingerprint
+            or self.evaluation.quality_program_fingerprint != self.quality.fingerprint
             or self.evaluation.plan_fingerprint != self.plan.fingerprint
             or self.evaluation.plan_generation != self.plan.generation
         ):
@@ -125,7 +189,10 @@ class NumericSearchState:
         for name in (
             "accepted_move_count",
             "complete_candidate_evaluation_count",
-            "deferred_bridge_candidate_count",
+            "bridge_required_candidate_count",
+            "virtual_sequence",
+            "split_sequence",
+            "replay_count",
         ):
             if int64(getattr(self, name), name) < 0:
                 raise NumericValueError(name, "nonnegative search counter required")
@@ -137,26 +204,50 @@ class NumericSearchState:
             raise NumericValueError("accepted_moves", "accepted trace count mismatch")
 
     @classmethod
-    def start(cls, initial):
+    def start(cls, task, program, quality, initial):
         if (
-            not isinstance(initial, NumericInitialSolution)
+            not isinstance(task, NumericTask)
+            or not isinstance(program, NumericRuleProgram)
+            or not isinstance(quality, NumericQualityProgram)
+            or not isinstance(initial, NumericInitialSolution)
             or not initial.complete
             or initial.plan is None
             or initial.evaluation is None
         ):
             raise NumericValueError("search_state", "complete numeric initial solution required")
-        return cls(initial.plan, initial.evaluation)
+        return cls(task, program, quality, initial.plan, initial.evaluation)
 
-    def commit(self, candidate, evaluation, edit, affected_rows):
+    def commit(
+        self,
+        candidate_task,
+        candidate_program,
+        candidate_quality,
+        candidate,
+        evaluation,
+        edit,
+        affected_rows,
+        *,
+        virtual_sequence=None,
+        split_sequence=None,
+    ):
         if (
-            not isinstance(candidate, NumericPlan)
+            not isinstance(candidate_task, NumericTask)
+            or not isinstance(candidate_program, NumericRuleProgram)
+            or not isinstance(candidate_quality, NumericQualityProgram)
+            or not isinstance(candidate, NumericPlan)
             or not isinstance(evaluation, NumericPlanEvaluation)
             or not isinstance(edit, NumericCandidateEdit)
-            or candidate.task_fingerprint != self.plan.task_fingerprint
+            or candidate_program.task_fingerprint != candidate_task.fingerprint
+            or candidate_quality.task_fingerprint != candidate_task.fingerprint
+            or candidate_quality.rule_program_fingerprint != candidate_program.fingerprint
+            or candidate.task_fingerprint != candidate_task.fingerprint
             or candidate.generation != self.plan.generation + 1
             or evaluation.plan_fingerprint != candidate.fingerprint
             or evaluation.plan_generation != candidate.generation
-            or edit.task_fingerprint != self.plan.task_fingerprint
+            or evaluation.task_fingerprint != candidate_task.fingerprint
+            or evaluation.rule_program_fingerprint != candidate_program.fingerprint
+            or evaluation.quality_program_fingerprint != candidate_quality.fingerprint
+            or edit.task_fingerprint != self.task.fingerprint
             or edit.plan_fingerprint != self.plan.fingerprint
             or edit.generation != self.plan.generation
         ):
@@ -165,7 +256,11 @@ class NumericSearchState:
         after = tuple(int(value) for value in evaluation.quality_key)
         affected = (
             (edit.source_chain_id,)
-            if edit.action is NumericSearchAction.CHAIN_ORDER_RELOCATION
+            if edit.action
+            in {
+                NumericSearchAction.CHAIN_ORDER_RELOCATION,
+                NumericSearchAction.VIRTUAL_WEIGHT_FILL,
+            }
             else (edit.source_chain_id, edit.target_chain_id)
         )
         move = NumericAcceptedMove(
@@ -176,10 +271,24 @@ class NumericSearchState:
             before,
             after,
         )
+        next_virtual_sequence = (
+            self.virtual_sequence if virtual_sequence is None else virtual_sequence
+        )
+        next_split_sequence = self.split_sequence if split_sequence is None else split_sequence
+        if (
+            int64(next_virtual_sequence, "virtual_sequence") < self.virtual_sequence
+            or int64(next_split_sequence, "split_sequence") < self.split_sequence
+        ):
+            raise NumericValueError("accepted_sequence", "accepted sequence cannot go backwards")
+        self.task = candidate_task
+        self.program = candidate_program
+        self.quality = candidate_quality
         self.plan = candidate
         self.evaluation = evaluation
         self.accepted_move_count += 1
         self.accepted_moves += (move,)
+        self.virtual_sequence = next_virtual_sequence
+        self.split_sequence = next_split_sequence
 
 
 @dataclass(frozen=True, slots=True)
@@ -191,7 +300,10 @@ class NumericSearchCheckpoint:
     candidate_check_count: int
     complete_candidate_evaluation_count: int
     accepted_move_count: int
-    deferred_bridge_candidate_count: int
+    bridge_required_candidate_count: int
+    virtual_sequence: int
+    split_sequence: int
+    replay_count: int
     stop_reason: SearchStopReason | None
     elapsed_seconds: float
     fingerprint: str
@@ -205,7 +317,10 @@ class NumericSearchCheckpoint:
             "candidate_check_count",
             "complete_candidate_evaluation_count",
             "accepted_move_count",
-            "deferred_bridge_candidate_count",
+            "bridge_required_candidate_count",
+            "virtual_sequence",
+            "split_sequence",
+            "replay_count",
         ):
             if int64(getattr(self, name), name) < 0:
                 raise NumericValueError(name, "nonnegative checkpoint counter required")
@@ -232,7 +347,10 @@ class NumericSearchCheckpoint:
             checked=budget.candidate_check_count,
             evaluated=state.complete_candidate_evaluation_count,
             accepted=state.accepted_move_count,
-            deferred=state.deferred_bridge_candidate_count,
+            bridge_required=state.bridge_required_candidate_count,
+            virtual_sequence=state.virtual_sequence,
+            split_sequence=state.split_sequence,
+            replay_count=state.replay_count,
             moves=tuple(
                 (
                     move.sequence,
@@ -254,7 +372,10 @@ class NumericSearchCheckpoint:
             values["checked"],
             values["evaluated"],
             values["accepted"],
-            values["deferred"],
+            values["bridge_required"],
+            values["virtual_sequence"],
+            values["split_sequence"],
+            values["replay_count"],
             budget.stop_reason,
             elapsed,
             fingerprint(values),
@@ -350,7 +471,9 @@ def apply_numeric_candidate(task, plan, edit):
         NumericSearchAction.WHOLE_CHAIN_INSERTION,
     }:
         merged = _joined_rows(edit, source, target)
-        retained = [index for index in range(len(chains)) if index not in (source_index, target_index)]
+        retained = [
+            index for index in range(len(chains)) if index not in (source_index, target_index)
+        ]
         return _build_plan(
             task,
             plan,
@@ -362,17 +485,24 @@ def apply_numeric_candidate(task, plan, edit):
         if edit.node_row not in source or edit.target_position > len(target):
             raise NumericValueError("candidate", "relocated node or insertion position is stale")
         if int(task.nodes.role[edit.node_row]) == _GENERATED_VIRTUAL:
-            raise NumericValueError("candidate", "real-node relocation cannot move generated material")
+            raise NumericValueError(
+                "candidate", "real-node relocation cannot move generated material"
+            )
         donor = tuple(row for row in source if row != edit.node_row)
         if not donor:
             raise NumericValueError("candidate", "real-node relocation cannot empty a chain")
-        receiver = target[: edit.target_position] + (edit.node_row,) + target[edit.target_position :]
+        receiver = (
+            target[: edit.target_position] + (edit.node_row,) + target[edit.target_position :]
+        )
         chains[source_index], chains[target_index] = donor, receiver
         periods[source_index] = _assigned_period(task, donor)
         periods[target_index] = _assigned_period(task, receiver)
         return _build_plan(task, plan, chains, chain_ids, periods)
     if edit.action is NumericSearchAction.CHAIN_ORDER_RELOCATION:
-        if edit.target_position >= len(chains) or chain_ids[edit.target_position] != edit.target_chain_id:
+        if (
+            edit.target_position >= len(chains)
+            or chain_ids[edit.target_position] != edit.target_chain_id
+        ):
             raise NumericValueError("candidate", "chain-order target anchor is stale")
         if periods[source_index] != periods[target_index]:
             raise NumericValueError("candidate", "chain-order relocation changes assigned period")
@@ -390,16 +520,53 @@ def _quality(evaluation):
     return tuple(int(value) for value in evaluation.quality_key)
 
 
-def _try_candidate(task, program, quality, state, budget, edit, affected_rows=()):
+def _try_prepared_candidate(
+    state,
+    budget,
+    edit,
+    candidate_task,
+    candidate_program,
+    candidate_quality,
+    candidate,
+    affected_rows=(),
+    *,
+    virtual_sequence=None,
+    split_sequence=None,
+    reject_prohibited_kinds=(),
+):
     if edit.sequence != budget.candidate_check_count:
         raise NumericValueError("candidate", "candidate sequence does not match consumed budget")
-    candidate = apply_numeric_candidate(task, state.plan, edit)
-    evaluation = evaluate_numeric_plan(task, program, quality, candidate)
+    evaluation = evaluate_numeric_plan(
+        candidate_task, candidate_program, candidate_quality, candidate
+    )
     state.complete_candidate_evaluation_count += 1
+    if any(
+        violation.prohibited
+        and candidate_program.rules[violation.rule_index].kind in reject_prohibited_kinds
+        for violation in evaluation.violations
+    ):
+        return False
     if not budget.allows_search() or not _quality(evaluation) < _quality(state.evaluation):
         return False
-    state.commit(candidate, evaluation, edit, affected_rows)
+    state.commit(
+        candidate_task,
+        candidate_program,
+        candidate_quality,
+        candidate,
+        evaluation,
+        edit,
+        affected_rows,
+        virtual_sequence=virtual_sequence,
+        split_sequence=split_sequence,
+    )
     return True
+
+
+def _try_candidate(task, program, quality, state, budget, edit, affected_rows=()):
+    candidate = apply_numeric_candidate(task, state.plan, edit)
+    return _try_prepared_candidate(
+        state, budget, edit, task, program, quality, candidate, affected_rows
+    )
 
 
 def _prohibited_profile(task, program, rows):
@@ -413,15 +580,17 @@ def _prohibited_profile(task, program, rows):
 def _variants(task, program, rows):
     variants = ((False, rows),)
     reversed_rows = tuple(reversed(rows))
-    if reversed_rows != rows and _prohibited_profile(task, program, reversed_rows) <= _prohibited_profile(
-        task, program, rows
-    ):
+    if reversed_rows != rows and _prohibited_profile(
+        task, program, reversed_rows
+    ) <= _prohibited_profile(task, program, rows):
         variants += ((True, reversed_rows),)
     return variants
 
 
 def _edge_allowed(task, program, left, right):
-    return not any(value.prohibited for value in evaluate_numeric_edge(task, program, left, right).violations)
+    return not any(
+        value.prohibited for value in evaluate_numeric_edge(task, program, left, right).violations
+    )
 
 
 def _join_is_direct(task, program, edit, source, target):
@@ -439,6 +608,58 @@ def _join_is_direct(task, program, edit, source, target):
         if position < len(target):
             boundaries.append((source[-1], target[position]))
     return all(_edge_allowed(task, program, left, right) for left, right in boundaries)
+
+
+def _join_with_bridge(workspace, left, right, max_nodes, sequence):
+    if not left or not right:
+        return workspace, left + right, sequence
+    if _edge_allowed(workspace.task, workspace.program, left[-1], right[0]):
+        return workspace, left + right, sequence
+    selected = choose_virtual_bridge(
+        workspace.task,
+        workspace.program,
+        workspace.quality,
+        left[-1],
+        right[0],
+        max_nodes=max_nodes,
+        first_sequence=sequence + 1,
+    )
+    if selected is None:
+        return None
+    return selected, left + selected.rows + right, sequence + len(selected.rows)
+
+
+def _resource_whole_chain_candidate(state, edit, source, target, max_nodes):
+    source = tuple(reversed(source)) if edit.source_reversed else source
+    target = tuple(reversed(target)) if edit.target_reversed else target
+    workspace = NumericResourceExtension(state.task, state.program, state.quality, ())
+    sequence = state.virtual_sequence
+    if edit.action is NumericSearchAction.WHOLE_CHAIN_APPEND:
+        joined = _join_with_bridge(workspace, target, source, max_nodes, sequence)
+    elif edit.action is NumericSearchAction.WHOLE_CHAIN_PREPEND:
+        joined = _join_with_bridge(workspace, source, target, max_nodes, sequence)
+    else:
+        position = edit.target_position
+        first = _join_with_bridge(workspace, target[:position], source, max_nodes, sequence)
+        if first is None:
+            return None
+        workspace, rows, sequence = first
+        joined = _join_with_bridge(workspace, rows, target[position:], max_nodes, sequence)
+    if joined is None:
+        return None
+    workspace, merged, sequence = joined
+    chains, chain_ids, periods = _layout(state.plan)
+    source_index = _chain_index(state.plan, edit.source_chain_id)
+    target_index = _chain_index(state.plan, edit.target_chain_id)
+    retained = [index for index in range(len(chains)) if index not in (source_index, target_index)]
+    candidate = _build_plan(
+        workspace.task,
+        state.plan,
+        [*(chains[index] for index in retained), merged],
+        [*(chain_ids[index] for index in retained), edit.target_chain_id],
+        [*(periods[index] for index in retained), _assigned_period(workspace.task, merged)],
+    )
+    return workspace, candidate, sequence
 
 
 def _chain_weight(task, rows):
@@ -463,6 +684,9 @@ def _validate_search_inputs(task, program, quality, state, budget):
         or not isinstance(quality, NumericQualityProgram)
         or not isinstance(state, NumericSearchState)
         or not isinstance(budget, SolveRuntimeBudget)
+        or state.task is not task
+        or state.program is not program
+        or state.quality is not quality
         or program.task_fingerprint != task.fingerprint
         or quality.task_fingerprint != task.fingerprint
         or quality.rule_program_fingerprint != program.fingerprint
@@ -472,23 +696,44 @@ def _validate_search_inputs(task, program, quality, state, budget):
         or state.evaluation.quality_program_fingerprint != quality.fingerprint
         or state.evaluation.plan_fingerprint != state.plan.fingerprint
     ):
-        raise NumericValueError("search", "matching numeric task, programs, state and budget required")
+        raise NumericValueError(
+            "search", "matching numeric task, programs, state and budget required"
+        )
 
 
-def improve_numeric_whole_chain(task, program, quality, state, budget, *, pair_scan_slack_weight):
+def improve_numeric_whole_chain(
+    task,
+    program,
+    quality,
+    state,
+    budget,
+    *,
+    pair_scan_slack_weight,
+    maximum_virtual_bridge_nodes=2,
+):
     _validate_search_inputs(task, program, quality, state, budget)
     if type(pair_scan_slack_weight) is not int or pair_scan_slack_weight < 0:
         raise NumericValueError("pair_scan_slack_weight", "nonnegative integer weight required")
+    if type(maximum_virtual_bridge_nodes) is not int or not 0 <= maximum_virtual_bridge_nodes <= 2:
+        raise NumericValueError(
+            "maximum_virtual_bridge_nodes", "zero, one or two bridge nodes required"
+        )
     weight_rules = program.for_kind(NumericRuleKind.CHAIN_WEIGHT)
     maximum = weight_rules[0].values[1] if weight_rules else None
-    pair_maximum = None if maximum is None else checked_sum(
-        (maximum, pair_scan_slack_weight), "pair_scan_maximum"
+    pair_maximum = (
+        None
+        if maximum is None
+        else checked_sum((maximum, pair_scan_slack_weight), "pair_scan_maximum")
     )
     while budget.allows_search():
+        task, program, quality = state.task, state.program, state.quality
         plan = state.plan
         chains, chain_ids, _ = _layout(plan)
         underweight = _underweight_indices(state.evaluation)
-        donor_order = [*underweight, *(index for index in range(len(chains)) if index not in underweight)]
+        donor_order = [
+            *underweight,
+            *(index for index in range(len(chains)) if index not in underweight),
+        ]
         accepted = False
         for donor_index in donor_order:
             for target_index, target in enumerate(chains):
@@ -497,7 +742,9 @@ def improve_numeric_whole_chain(task, program, quality, state, budget, *, pair_s
                 if donor_index == target_index:
                     continue
                 source = chains[donor_index]
-                total = checked_sum((_chain_weight(task, source), _chain_weight(task, target)), "pair_weight")
+                total = checked_sum(
+                    (_chain_weight(task, source), _chain_weight(task, target)), "pair_weight"
+                )
                 if pair_maximum is not None and total > pair_maximum:
                     continue
                 source_variants = _variants(task, program, source)
@@ -507,7 +754,10 @@ def improve_numeric_whole_chain(task, program, quality, state, budget, *, pair_s
                         descriptions = (
                             (NumericSearchAction.WHOLE_CHAIN_APPEND, len(target_rows)),
                             (NumericSearchAction.WHOLE_CHAIN_PREPEND, 0),
-                            *((NumericSearchAction.WHOLE_CHAIN_INSERTION, position) for position in range(len(target_rows) + 1)),
+                            *(
+                                (NumericSearchAction.WHOLE_CHAIN_INSERTION, position)
+                                for position in range(len(target_rows) + 1)
+                            ),
                         )
                         for action, position in descriptions:
                             if not budget.consume_candidate_check():
@@ -526,7 +776,44 @@ def improve_numeric_whole_chain(task, program, quality, state, budget, *, pair_s
                                 target_reversed,
                             )
                             if not _join_is_direct(task, program, edit, source, target):
-                                state.deferred_bridge_candidate_count += 1
+                                state.bridge_required_candidate_count += 1
+                                prepared = _resource_whole_chain_candidate(
+                                    state,
+                                    edit,
+                                    source,
+                                    target,
+                                    maximum_virtual_bridge_nodes,
+                                )
+                                if prepared is None:
+                                    continue
+                                workspace, candidate, sequence = prepared
+                                if maximum is not None:
+                                    merged_index = _chain_index(candidate, edit.target_chain_id)
+                                    if (
+                                        _chain_weight(
+                                            workspace.task, _chain_rows(candidate, merged_index)
+                                        )
+                                        > maximum
+                                    ):
+                                        continue
+                                if _try_prepared_candidate(
+                                    state,
+                                    budget,
+                                    edit,
+                                    workspace.task,
+                                    workspace.program,
+                                    workspace.quality,
+                                    candidate,
+                                    tuple(
+                                        range(
+                                            state.task.nodes.weight.size,
+                                            workspace.task.nodes.weight.size,
+                                        )
+                                    ),
+                                    virtual_sequence=sequence,
+                                ):
+                                    accepted = True
+                                    break
                                 continue
                             if maximum is not None and total > maximum:
                                 continue
@@ -571,12 +858,14 @@ def improve_numeric_real_node_relocation(task, program, quality, state, budget):
                     if (
                         not donor_rows
                         or _chain_weight(task, donor_rows) < minimum
-                        or checked_sum((target_weight, int(task.nodes.weight[row])), "target_weight") > maximum
+                        or checked_sum(
+                            (target_weight, int(task.nodes.weight[row])), "target_weight"
+                        )
+                        > maximum
                     ):
                         continue
-                    if (
-                        0 < node_position < len(donor) - 1
-                        and not _edge_allowed(task, program, donor[node_position - 1], donor[node_position + 1])
+                    if 0 < node_position < len(donor) - 1 and not _edge_allowed(
+                        task, program, donor[node_position - 1], donor[node_position + 1]
                     ):
                         continue
                     for position in range(len(target) + 1):
@@ -584,7 +873,9 @@ def improve_numeric_real_node_relocation(task, program, quality, state, budget):
                             return state
                         if position and not _edge_allowed(task, program, target[position - 1], row):
                             continue
-                        if position < len(target) and not _edge_allowed(task, program, row, target[position]):
+                        if position < len(target) and not _edge_allowed(
+                            task, program, row, target[position]
+                        ):
                             continue
                         edit = NumericCandidateEdit(
                             task.fingerprint,
@@ -608,6 +899,349 @@ def improve_numeric_real_node_relocation(task, program, quality, state, budget):
                 break
         if not accepted:
             return state
+    return state
+
+
+def improve_numeric_virtual_weight_fill(task, program, quality, state, budget):
+    """Insert one generated unit at each ordered boundary and restart on improvement."""
+    _validate_search_inputs(task, program, quality, state, budget)
+    while budget.allows_search():
+        task, program, quality = state.task, state.program, state.quality
+        weight_rules = program.for_kind(NumericRuleKind.CHAIN_WEIGHT)
+        if not weight_rules or not task.prototype_ids:
+            return state
+        maximum = weight_rules[0].values[1]
+        plan = state.plan
+        chains, chain_ids, periods = _layout(plan)
+        accepted = False
+        for target_index in _underweight_indices(state.evaluation):
+            target = chains[target_index]
+            target_weight = _chain_weight(task, target)
+            if target_weight >= maximum:
+                continue
+            for position in range(len(target) + 1):
+                left = target[position - 1] if position else None
+                right = target[position] if position < len(target) else None
+                anchor_left = left if left is not None else right
+                anchor_right = right if right is not None else left
+                if anchor_left is None or anchor_right is None:
+                    continue
+                for prototype in range(len(task.prototype_ids)):
+                    if not budget.consume_candidate_check():
+                        return state
+                    sequence = state.virtual_sequence + 1
+                    node = virtual_node(
+                        task,
+                        prototype,
+                        anchor_left,
+                        anchor_right,
+                        purpose=VirtualPurpose.WEIGHT_FILL,
+                        sequence=sequence,
+                    )
+                    workspace = extend_resource_workspace(task, program, quality, (node,))
+                    row = workspace.rows[0]
+                    if left is not None and not _edge_allowed(
+                        workspace.task, workspace.program, left, row
+                    ):
+                        continue
+                    if right is not None and not _edge_allowed(
+                        workspace.task, workspace.program, row, right
+                    ):
+                        continue
+                    if (
+                        checked_sum(
+                            (target_weight, int(workspace.task.nodes.weight[row])),
+                            "target_weight",
+                        )
+                        > maximum
+                    ):
+                        continue
+                    candidate_chains = list(chains)
+                    candidate_chains[target_index] = target[:position] + (row,) + target[position:]
+                    candidate = _build_plan(
+                        workspace.task,
+                        plan,
+                        candidate_chains,
+                        chain_ids,
+                        periods,
+                    )
+                    edit = NumericCandidateEdit(
+                        task.fingerprint,
+                        plan.fingerprint,
+                        plan.generation,
+                        budget.candidate_check_count,
+                        NumericSearchAction.VIRTUAL_WEIGHT_FILL,
+                        chain_ids[target_index],
+                        chain_ids[target_index],
+                        target_position=position,
+                    )
+                    if _try_prepared_candidate(
+                        state,
+                        budget,
+                        edit,
+                        workspace.task,
+                        workspace.program,
+                        workspace.quality,
+                        candidate,
+                        (row,),
+                        virtual_sequence=sequence,
+                        reject_prohibited_kinds=(NumericRuleKind.VIRTUAL_RATIO,),
+                    ):
+                        accepted = True
+                        break
+                if accepted:
+                    break
+            if accepted:
+                break
+        if not accepted:
+            return state
+    return state
+
+
+def _split_piece_weights(parent_weight, decision):
+    count = (parent_weight + decision.maximum_piece_weight - 1) // decision.maximum_piece_weight
+    if count < 2 or count - 1 > decision.maximum_separator_node_count:
+        return ()
+    weights = (decision.maximum_piece_weight,) * (count - 1) + (
+        parent_weight - decision.maximum_piece_weight * (count - 1),
+    )
+    return (
+        weights
+        if all(
+            decision.minimum_piece_weight <= value <= decision.maximum_piece_weight
+            for value in weights
+        )
+        else ()
+    )
+
+
+def _ordinary_bridge(task, row):
+    return (
+        int(task.nodes.role[row]) == _GENERATED_VIRTUAL
+        and int(task.nodes.purpose[row]) == tuple(VirtualPurpose).index(VirtualPurpose.EDGE_BRIDGE)
+        and int(task.nodes.split_group[row]) < 0
+    )
+
+
+def _split_donor_rows(task, donor, parent_position):
+    left, right = parent_position, parent_position + 1
+    while left and _ordinary_bridge(task, donor[left - 1]):
+        left -= 1
+    while right < len(donor) and _ordinary_bridge(task, donor[right]):
+        right += 1
+    prefix, suffix = donor[:left], donor[right:]
+    if (
+        prefix
+        and int(task.nodes.role[prefix[-1]]) == _GENERATED_VIRTUAL
+        or suffix
+        and int(task.nodes.role[suffix[0]]) == _GENERATED_VIRTUAL
+    ):
+        return None
+    return prefix, suffix, donor[left:right]
+
+
+def _prepare_numeric_split(state, parent_row, donor_index, decision, maximum_bridge_nodes):
+    task, program, quality = state.task, state.program, state.quality
+    chains, chain_ids, periods = _layout(state.plan)
+    donor = chains[donor_index]
+    parent_position = donor.index(parent_row)
+    sides = _split_donor_rows(task, donor, parent_position)
+    if sides is None:
+        return None
+    prefix, suffix, removed = sides
+    workspace = NumericResourceExtension(task, program, quality, ())
+    virtual_sequence = state.virtual_sequence
+    if prefix and suffix:
+        repaired = _join_with_bridge(
+            workspace, prefix, suffix, maximum_bridge_nodes, virtual_sequence
+        )
+        if repaired is None:
+            return None
+        workspace, remaining, virtual_sequence = repaired
+    else:
+        remaining = prefix + suffix
+    added_rows = list(workspace.rows)
+
+    weights = _split_piece_weights(int(task.nodes.weight[parent_row]), decision)
+    if not weights:
+        return None
+    durations = allocate_piece_milliseconds(
+        int(task.nodes.weight[parent_row]),
+        int(task.nodes.duration_ms[parent_row]),
+        weights,
+        "controlled_split.duration",
+    )
+    split_sequence = state.split_sequence + 1
+    group_index = task.split_groups.parent_row.size
+    group = split_group(task, parent_row, decision, periods[donor_index], split_sequence)
+    pieces = tuple(
+        split_piece_node(
+            task,
+            parent_row,
+            group_index=group_index,
+            piece_index=index,
+            piece_count=len(weights),
+            weight=weight,
+            duration_ms=duration,
+            accepted_sequence=split_sequence,
+        )
+        for index, (weight, duration) in enumerate(zip(weights, durations), start=1)
+    )
+    workspace = extend_resource_workspace(
+        workspace.task,
+        workspace.program,
+        workspace.quality,
+        pieces,
+        split_group=group,
+    )
+    piece_rows = workspace.rows
+    added_rows.extend(piece_rows)
+    returned = [piece_rows[0]]
+    separator_weight = 0
+    for left, right in zip(piece_rows, piece_rows[1:]):
+        selected = choose_split_separator(
+            workspace.task,
+            workspace.program,
+            workspace.quality,
+            left,
+            right,
+            sequence=virtual_sequence + 1,
+            group_index=group_index,
+        )
+        if selected is None:
+            return None
+        workspace = selected
+        separator = selected.rows[0]
+        added_rows.append(separator)
+        separator_weight = checked_sum(
+            (separator_weight, int(workspace.task.nodes.weight[separator])),
+            "controlled_split.separator_weight",
+        )
+        if separator_weight > decision.maximum_separator_weight:
+            return None
+        virtual_sequence += 1
+        returned.extend((separator, right))
+
+    candidate_chains = []
+    candidate_ids = []
+    candidate_periods = []
+    for index, chain in enumerate(chains):
+        if index != donor_index:
+            candidate_chains.append(chain)
+            candidate_ids.append(chain_ids[index])
+            candidate_periods.append(periods[index])
+        elif remaining:
+            candidate_chains.append(remaining)
+            candidate_ids.append(chain_ids[index])
+            candidate_periods.append(_assigned_period(workspace.task, remaining))
+    new_chain_id = max(chain_ids, default=-1) + 1
+    candidate_chains.append(tuple(returned))
+    candidate_ids.append(new_chain_id)
+    candidate_periods.append(decision.target_period)
+    candidate = _build_plan(
+        workspace.task,
+        state.plan,
+        candidate_chains,
+        candidate_ids,
+        candidate_periods,
+    )
+    return (
+        workspace,
+        candidate,
+        new_chain_id,
+        virtual_sequence,
+        split_sequence,
+        tuple((*removed, *added_rows)),
+    )
+
+
+def improve_numeric_controlled_split(
+    state,
+    budget,
+    *,
+    pair_scan_slack_weight,
+    maximum_virtual_bridge_nodes=2,
+):
+    """Accept complete authorized partitions, then replay local search exactly once."""
+    _validate_search_inputs(state.task, state.program, state.quality, state, budget)
+    if budget.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE:
+        budget.stop_reason = None
+    if not budget.allows_search():
+        return state
+    starting_split_sequence = state.split_sequence
+    while budget.allows_search():
+        task, program = state.task, state.program
+        chains, chain_ids, periods = _layout(state.plan)
+        accepted = False
+        for donor_index, donor in enumerate(chains):
+            for parent_row in donor:
+                decision = evaluate_numeric_split(
+                    task,
+                    program,
+                    parent_row,
+                    periods[donor_index],
+                    state.split_sequence,
+                )
+                if not decision.eligible:
+                    continue
+                prepared = _prepare_numeric_split(
+                    state,
+                    parent_row,
+                    donor_index,
+                    decision,
+                    maximum_virtual_bridge_nodes,
+                )
+                if prepared is None:
+                    continue
+                (
+                    workspace,
+                    candidate,
+                    new_chain_id,
+                    virtual_sequence,
+                    split_sequence,
+                    affected_rows,
+                ) = prepared
+                if not budget.consume_candidate_check():
+                    return state
+                edit = NumericCandidateEdit(
+                    task.fingerprint,
+                    state.plan.fingerprint,
+                    state.plan.generation,
+                    budget.candidate_check_count,
+                    NumericSearchAction.CONTROLLED_ORDER_SPLIT,
+                    chain_ids[donor_index],
+                    new_chain_id,
+                    node_row=parent_row,
+                )
+                if _try_prepared_candidate(
+                    state,
+                    budget,
+                    edit,
+                    workspace.task,
+                    workspace.program,
+                    workspace.quality,
+                    candidate,
+                    affected_rows,
+                    virtual_sequence=virtual_sequence,
+                    split_sequence=split_sequence,
+                    reject_prohibited_kinds=(NumericRuleKind.VIRTUAL_RATIO,),
+                ):
+                    accepted = True
+                    break
+            if accepted or budget.must_stop:
+                break
+        if not accepted:
+            break
+    if budget.allows_search() and state.split_sequence > starting_split_sequence:
+        state.replay_count += 1
+        _run_numeric_local_search(
+            state,
+            budget,
+            pair_scan_slack_weight=pair_scan_slack_weight,
+            maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes,
+        )
+    elif budget.allows_search():
+        budget.stop_reason = SearchStopReason.LOCAL_SEARCH_COMPLETE
     return state
 
 
@@ -661,6 +1295,66 @@ def improve_numeric_chain_order(task, program, quality, state, budget):
     return state
 
 
+def _run_numeric_local_search(
+    state,
+    budget,
+    *,
+    pair_scan_slack_weight,
+    maximum_virtual_bridge_nodes,
+):
+    if budget.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE:
+        budget.stop_reason = None
+    improve_numeric_whole_chain(
+        state.task,
+        state.program,
+        state.quality,
+        state,
+        budget,
+        pair_scan_slack_weight=pair_scan_slack_weight,
+        maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes,
+    )
+    if budget.allows_search():
+        improve_numeric_real_node_relocation(
+            state.task, state.program, state.quality, state, budget
+        )
+    if budget.allows_search():
+        improve_numeric_virtual_weight_fill(state.task, state.program, state.quality, state, budget)
+    if budget.allows_search():
+        improve_numeric_chain_order(state.task, state.program, state.quality, state, budget)
+    if budget.allows_search():
+        budget.stop_reason = SearchStopReason.LOCAL_SEARCH_COMPLETE
+    return state
+
+
+def run_numeric_search_with_split_replay(
+    task,
+    program,
+    quality,
+    initial,
+    budget,
+    *,
+    pair_scan_slack_weight,
+    maximum_virtual_bridge_nodes=2,
+):
+    started = perf_counter()
+    state = NumericSearchState.start(task, program, quality, initial)
+    _validate_search_inputs(task, program, quality, state, budget)
+    _run_numeric_local_search(
+        state,
+        budget,
+        pair_scan_slack_weight=pair_scan_slack_weight,
+        maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes,
+    )
+    if budget.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE:
+        improve_numeric_controlled_split(
+            state,
+            budget,
+            pair_scan_slack_weight=pair_scan_slack_weight,
+            maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes,
+        )
+    return state, NumericSearchCheckpoint.capture(state.task, state, budget, started)
+
+
 def run_numeric_first_search_prefix(
     task,
     program,
@@ -671,7 +1365,7 @@ def run_numeric_first_search_prefix(
     pair_scan_slack_weight,
 ):
     started = perf_counter()
-    state = NumericSearchState.start(initial)
+    state = NumericSearchState.start(task, program, quality, initial)
     _validate_search_inputs(task, program, quality, state, budget)
     improve_numeric_whole_chain(
         task,

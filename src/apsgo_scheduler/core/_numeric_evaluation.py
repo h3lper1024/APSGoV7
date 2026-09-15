@@ -145,6 +145,25 @@ class NumericQualityProgram:
         )
         return cls(task.fingerprint, rule_program.fingerprint, tuple(objectives), identity)
 
+    def rebind(self, task, rule_program):
+        if (
+            not isinstance(task, NumericTask)
+            or not isinstance(rule_program, NumericRuleProgram)
+            or rule_program.task_fingerprint != task.fingerprint
+        ):
+            raise NumericValueError('quality', 'expanded task and rule program must match')
+        identity = fingerprint(
+            {
+                'compiler': 1,
+                'task': task.fingerprint,
+                'rules': rule_program.fingerprint,
+                'objectives': tuple(item.value for item in self.objectives),
+            }
+        )
+        return NumericQualityProgram(
+            task.fingerprint, rule_program.fingerprint, self.objectives, identity
+        )
+
 
 @dataclass(frozen=True, slots=True, eq=False)
 class NumericDeliveryEvaluation:
