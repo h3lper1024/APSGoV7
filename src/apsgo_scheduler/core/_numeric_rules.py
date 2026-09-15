@@ -6,6 +6,7 @@ code consumes only the compact records and numeric task/plan columns below.
 
 from dataclasses import dataclass
 from enum import IntEnum
+from operator import index as integer_index
 
 from ._numeric_state import NumericPlan, NumericTask
 from ._numeric_units import (
@@ -566,7 +567,7 @@ def _runs(mask, rows):
         yield start, len(rows)
 
 
-def _chain_rule(task, plan, chain, rows, rule):
+def _chain_rule(task, chain, rows, rule):
     nodes, violations, metrics = task.nodes, [], []
     if rule.kind in (NumericRuleKind.HIGH_SURFACE, NumericRuleKind.NARROW_WEIGHT,
                      NumericRuleKind.SAME_SPEC_WEIGHT):
@@ -683,6 +684,42 @@ def _chain_rule(task, plan, chain, rows, rule):
     return NumericRuleResult(tuple(violations), tuple(metrics))
 
 
+def _evaluate_numeric_rows(task, program, rows, chain_index):
+    results = []
+    edge_rules = tuple(rule for rule in program.rules if rule.scope is RuleScope.EDGE)
+    first_edge = min((rule.index for rule in edge_rules), default=len(program.rules))
+    results.extend(_chain_rule(task, chain_index, rows, rule)
+                   for rule in program.rules
+                   if rule.scope is RuleScope.CHAIN and rule.index < first_edge)
+    for position in range(len(rows)-1):
+        results.extend(_edge_rule(task, rule, int(rows[position]), int(rows[position+1]),
+                                  chain_index, position) for rule in edge_rules)
+    results.extend(_chain_rule(task, chain_index, rows, rule)
+                   for rule in program.rules
+                   if ((rule.scope is RuleScope.CHAIN and rule.index >= first_edge)
+                       or rule.kind is NumericRuleKind.WIDTH))
+    return NumericRuleResult(tuple(v for result in results for v in result.violations),
+                             tuple(m for result in results for m in result.metrics))
+
+
+def evaluate_numeric_rows(task, program, rows, *, chain_index=0):
+    if not isinstance(task, NumericTask) or not isinstance(program, NumericRuleProgram):
+        raise NumericValueError('chain', 'numeric task and rule program required')
+    if program.task_fingerprint != task.fingerprint:
+        raise NumericValueError('chain', 'program belongs to another numeric task')
+    if type(chain_index) is not int or chain_index < 0:
+        raise NumericValueError('chain_index', 'nonnegative chain index required')
+    supplied = tuple(rows)
+    try:
+        values = tuple(integer_index(row) for row in supplied)
+    except TypeError as error:
+        raise NumericValueError('chain_rows', 'nonempty unique task rows required') from error
+    if (not values or any(type(row) is bool or not 0 <= value < task.nodes.weight.size
+                          for row, value in zip(supplied, values)) or len(set(values)) != len(values)):
+        raise NumericValueError('chain_rows', 'nonempty unique task rows required')
+    return _evaluate_numeric_rows(task, program, values, chain_index)
+
+
 def evaluate_numeric_chain(task, program, plan, chain_index):
     if (not isinstance(plan, NumericPlan) or program.task_fingerprint != task.fingerprint
             or plan.task_fingerprint != task.fingerprint):
@@ -690,22 +727,7 @@ def evaluate_numeric_chain(task, program, plan, chain_index):
     if type(chain_index) is not int or not 0 <= chain_index < plan.chain_ids.size:
         raise NumericValueError('chain_index', 'chain is outside numeric plan')
     start, stop = int(plan.chain_offsets[chain_index]), int(plan.chain_offsets[chain_index+1])
-    rows = plan.node_rows[start:stop]
-    results = []
-    edge_rules = tuple(rule for rule in program.rules if rule.scope is RuleScope.EDGE)
-    first_edge = min((rule.index for rule in edge_rules), default=len(program.rules))
-    results.extend(_chain_rule(task, plan, chain_index, rows, rule)
-                   for rule in program.rules
-                   if rule.scope is RuleScope.CHAIN and rule.index < first_edge)
-    for position in range(len(rows)-1):
-        results.extend(_edge_rule(task, rule, int(rows[position]), int(rows[position+1]),
-                                  chain_index, position) for rule in edge_rules)
-    results.extend(_chain_rule(task, plan, chain_index, rows, rule)
-                   for rule in program.rules
-                   if ((rule.scope is RuleScope.CHAIN and rule.index >= first_edge)
-                       or rule.kind is NumericRuleKind.WIDTH))
-    return NumericRuleResult(tuple(v for result in results for v in result.violations),
-                             tuple(m for result in results for m in result.metrics))
+    return _evaluate_numeric_rows(task, program, plan.node_rows[start:stop], chain_index)
 
 
 def evaluate_numeric_static_plan_rules(task, program, plan):

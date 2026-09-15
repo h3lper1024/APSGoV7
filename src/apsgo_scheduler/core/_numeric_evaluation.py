@@ -194,6 +194,7 @@ class NumericPlanEvaluation:
     rule_program_fingerprint: str
     quality_program_fingerprint: str
     plan_generation: int
+    plan_fingerprint: str
     chain_results: tuple[NumericRuleResult, ...]
     plan_result: NumericRuleResult
     node_metrics: tuple[NumericMetric, ...]
@@ -205,7 +206,12 @@ class NumericPlanEvaluation:
     quality_key: np.ndarray
 
     def __post_init__(self):
-        for name in ("task_fingerprint", "rule_program_fingerprint", "quality_program_fingerprint"):
+        for name in (
+            "task_fingerprint",
+            "rule_program_fingerprint",
+            "quality_program_fingerprint",
+            "plan_fingerprint",
+        ):
             if not isinstance(getattr(self, name), str) or not getattr(self, name):
                 raise NumericValueError("evaluation", f"nonempty {name} required")
         if int64(self.plan_generation, "plan_generation") < 0:
@@ -424,6 +430,7 @@ def evaluate_numeric_plan(task, rule_program, quality_program, plan):
         rule_program.fingerprint,
         quality_program.fingerprint,
         plan.generation,
+        plan.fingerprint,
         chain_results,
         plan_result,
         _node_metrics(task, rule_program, plan),

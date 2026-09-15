@@ -75,6 +75,9 @@ def test_plan_positions_use_stable_identity_not_chain_index():
     assert plan.source_piece_rows.tolist()==[0,1]
     assert plan.source_last_position.tolist()==[1,0]
     assert plan.chain_ids.tolist()==[71,91]
+    assert plan.fingerprint == NumericPlan.build(value,[1,0],[0,1,2],[71,91],[0,0],generation=8).fingerprint
+    assert replace(plan, chain_ids=readonly([71,92],np.int64)).fingerprint != plan.fingerprint
+    assert replace(plan, source_last_position=readonly([0,1],np.int64)).fingerprint != plan.fingerprint
     assert np.all(plan.row_to_chain[value.prototype_rows]==-1)
     assert plan.generation==7
 

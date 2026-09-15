@@ -5,6 +5,7 @@ columns contain no Nodes, Decimals, dictionaries or object-dtype arrays.
 """
 
 from dataclasses import dataclass, fields
+from dataclasses import field as dataclass_field
 from hashlib import sha256
 
 import numpy as np
@@ -335,6 +336,39 @@ class NumericPlan:
     source_last_position: np.ndarray
     generation: int
     task_fingerprint: str
+    fingerprint: str = dataclass_field(init=False)
+
+    def __post_init__(self):
+        if not isinstance(self.task_fingerprint, str) or not self.task_fingerprint:
+            raise NumericValueError('plan', 'nonempty task fingerprint required')
+        if int64(self.generation, 'generation') < 0:
+            raise NumericValueError('generation', 'nonnegative generation required')
+        arrays = (
+            ('rows', self.node_rows),
+            ('offsets', self.chain_offsets),
+            ('ids', self.chain_ids),
+            ('periods', self.chain_periods),
+            ('row_chain', self.row_to_chain),
+            ('row_position', self.row_to_position),
+            ('source_offsets', self.source_piece_offsets),
+            ('source_rows', self.source_piece_rows),
+            ('source_last', self.source_last_position),
+        )
+        if any(
+            not isinstance(value, np.ndarray)
+            or value.ndim != 1
+            or value.dtype != np.int64
+            or value.flags.writeable
+            or not value.flags.c_contiguous
+            for _, value in arrays
+        ):
+            raise NumericValueError('plan', 'read-only int64 plan structure required')
+        digest = sha256()
+        digest.update(fingerprint({'task': self.task_fingerprint, 'layout': 1}).encode('ascii'))
+        for name, value in arrays:
+            digest.update(fingerprint((name, value.shape, value.dtype.str)).encode('ascii'))
+            digest.update(value.astype(value.dtype.newbyteorder('<'), copy=False).tobytes())
+        object.__setattr__(self, 'fingerprint', digest.hexdigest())
 
     @classmethod
     def build(cls, task, node_rows, chain_offsets, chain_ids, chain_periods, *, generation=0):

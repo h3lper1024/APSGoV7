@@ -186,6 +186,7 @@ def test_numeric_plan_evaluation_requires_exactly_nine_quality_values():
             result.rule_program_fingerprint,
             result.quality_program_fingerprint,
             result.plan_generation,
+            result.plan_fingerprint,
             result.chain_results,
             result.plan_result,
             result.node_metrics,

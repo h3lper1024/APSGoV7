@@ -98,6 +98,7 @@ def check_source(source, path, package):
                     or (module == "apsgo_scheduler.core._search_numeric" and top == "numpy")
                     or (module == "apsgo_scheduler.core._numeric_state" and top == "numpy")
                     or (module == "apsgo_scheduler.core._numeric_evaluation" and top == "numpy")
+                    or (module == "apsgo_scheduler.core._numeric_construction" and top == "numpy")
                 )
                 assert top in sys.stdlib_module_names or top == "apsgo_scheduler" or (
                     numeric_dependency
@@ -330,6 +331,15 @@ def test_numeric_evaluation_dependency_exception_is_exact():
             check_source(source, PACKAGE / "core" / "_numeric_evaluation.py", PACKAGE)
     with pytest.raises(AssertionError, match="External production dependency"):
         check_source("import numpy", PACKAGE / "core" / "_numeric_evaluation_extra.py", PACKAGE)
+
+
+def test_numeric_construction_dependency_exception_is_exact():
+    check_source("import numpy", PACKAGE / "core" / "_numeric_construction.py", PACKAGE)
+    for source in ("import numba", "import scipy", "import pandas"):
+        with pytest.raises(AssertionError, match="External production dependency"):
+            check_source(source, PACKAGE / "core" / "_numeric_construction.py", PACKAGE)
+    with pytest.raises(AssertionError, match="External production dependency"):
+        check_source("import numpy", PACKAGE / "core" / "_numeric_construction_extra.py", PACKAGE)
 
 
 def test_candidate_recipe_arity_is_not_a_benchmark_constant():
