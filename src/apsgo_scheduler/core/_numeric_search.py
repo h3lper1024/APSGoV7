@@ -209,6 +209,7 @@ class NumericAcceptedMove:
     action: NumericSearchAction
     affected_chain_ids: tuple[int, ...]
     affected_rows: tuple[int, ...]
+    affected_sources: tuple[int, ...]
     quality_before: tuple[int, ...]
     quality_after: tuple[int, ...]
 
@@ -221,6 +222,9 @@ class NumericAcceptedMove:
             or len(set(self.affected_chain_ids)) != len(self.affected_chain_ids)
             or any(type(value) is not int or value < 0 for value in self.affected_chain_ids)
             or any(type(value) is not int or value < 0 for value in self.affected_rows)
+            or not self.affected_sources
+            or len(set(self.affected_sources)) != len(self.affected_sources)
+            or any(type(value) is not int or value < 0 for value in self.affected_sources)
             or len(self.quality_before) != len(self.quality_after)
             or any(type(value) is not int for value in (*self.quality_before, *self.quality_after))
             or not self.quality_after < self.quality_before
@@ -342,11 +346,25 @@ class NumericSearchState:
                 else (edit.source_chain_id, edit.target_chain_id)
             )
         )
+        affected_sources = tuple(
+            dict.fromkeys(
+                int(candidate_task.nodes.source[int(row)])
+                for chain_id in affected
+                for chain_index in range(candidate.chain_ids.size)
+                if int(candidate.chain_ids[chain_index]) == chain_id
+                for row in candidate.node_rows[
+                    int(candidate.chain_offsets[chain_index]) :
+                    int(candidate.chain_offsets[chain_index + 1])
+                ]
+                if int(candidate_task.nodes.source[int(row)]) >= 0
+            )
+        )
         move = NumericAcceptedMove(
             edit.sequence,
             edit.action,
             affected,
             tuple(dict.fromkeys(affected_rows)),
+            affected_sources,
             before,
             after,
         )

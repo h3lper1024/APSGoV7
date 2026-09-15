@@ -9,6 +9,7 @@ from .budget import SolveRuntimeBudget
 from .chain_order import chain_order_objective_index, refinement_admissible
 from .compatibility import RuleEdgeDecisionCache, _finite_projection, build_construction_dag
 from .contracts import (
+    INTEGER_NUMERIC_SEMANTICS_KEY,
     AuditedCoreRelease,
     CoreAuditReport,
     CoreAuditStatus,
@@ -21,8 +22,8 @@ from .contracts import (
     SolverPolicy,
     SolverResult,
     SolveStatus,
-    fingerprint,
     contract_values,
+    fingerprint,
     freeze_tuple,
     sum_weights,
 )
@@ -464,9 +465,14 @@ def solve(
     rule_set: ProcessRuleSet,
     policy: SolverPolicy,
     runtime: SolveRuntimeBudget,
+    timing_input=None,
 ) -> SolverResult:
     """Run the fixed phases once, preserving the accepted state on every exit path."""
     _require_arguments(problem, rule_set, policy, runtime)
+    if policy.numeric_semantics_key == INTEGER_NUMERIC_SEMANTICS_KEY:
+        from ._numeric_solver import solve_numeric
+
+        return solve_numeric(problem, rule_set, policy, runtime, timing_input)
     state, context, audit = None, None, None
     metrics, issues, durations = SolveMetrics(), [], {}
     phase = "input_validation"

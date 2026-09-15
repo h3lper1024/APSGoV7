@@ -99,6 +99,7 @@ def check_source(source, path, package):
                     or (module == "apsgo_scheduler.core._numeric_state" and top == "numpy")
                     or (module == "apsgo_scheduler.core._numeric_evaluation" and top == "numpy")
                     or (module == "apsgo_scheduler.core._numeric_construction" and top == "numpy")
+                    or (module == "apsgo_scheduler.core._numeric_audit" and top == "numpy")
                 )
                 assert top in sys.stdlib_module_names or top == "apsgo_scheduler" or (
                     numeric_dependency

@@ -10,6 +10,7 @@ from ..api.request import SchedulingRequest, fingerprint_public_request
 from ..api.result import ResultAuditReport, ResultAuditStatus, RunManifest, SchedulingResult
 from ..core.budget import SolveRuntimeBudget, _finite_time
 from ..core.contracts import (
+    INTEGER_NUMERIC_SEMANTICS_KEY,
     DiagnosticIssue,
     DiagnosticPhase,
     DiagnosticSeverity,
@@ -130,7 +131,11 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
     def manifest():
         metrics = SolveMetrics() if core_result is None else core_result.metrics
         return RunManifest(
-            algorithm_version="path-cover-local-search-v1",
+            algorithm_version=(
+                "numeric-path-cover-local-search-v1"
+                if request.policy.numeric_semantics_key == INTEGER_NUMERIC_SEMANTICS_KEY
+                else "path-cover-local-search-v1"
+            ),
             code_revision="unversioned",
             request_fingerprint=request_fingerprint,
             problem_fingerprint=None if problem is None else problem.input_fingerprint,
@@ -275,7 +280,17 @@ def solve_request(request: SchedulingRequest, cancellation=None) -> SchedulingRe
             return unavailable()
         phase, stage, stage_started = DiagnosticPhase.CONSTRUCTION, "core_solve", perf_counter()
         log_stage("solver_stage_started")
-        solved = core.solve(problem, rule_set, request.policy, runtime)
+        solved = (
+            core.solve(
+                problem,
+                rule_set,
+                request.policy,
+                runtime,
+                timing_input=request.delivery_timing,
+            )
+            if request.policy.numeric_semantics_key == INTEGER_NUMERIC_SEMANTICS_KEY
+            else core.solve(problem, rule_set, request.policy, runtime)
+        )
         if not isinstance(solved, SolverResult):
             raise ValueError("core.solve must return SolverResult")
         core_result = solved

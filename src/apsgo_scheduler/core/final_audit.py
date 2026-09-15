@@ -65,6 +65,11 @@ class CoreAuditOutcome:
             raise ValueError("audit outcome must preserve the audited resource identity")
 
 
+def derive_resource_facts_for_audit(plan, problem, context, partitions, budget):
+    """Keep the private resource derivation owned by the final-audit boundary."""
+    return _derive_audited_resource_facts(plan, problem, context, partitions, budget)
+
+
 def _record(issues, codes, code, message, subject_id=None, field_path=None):
     issues.append(
         DiagnosticIssue(

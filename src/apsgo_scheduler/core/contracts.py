@@ -23,6 +23,7 @@ RuleParameterValue: TypeAlias = Union[
 ]
 CONSTRUCTION_ORDER_KEY = "solverpy_stable_order_v1"
 NUMERIC_SEMANTICS_KEY = "solverpy_float_epsilon_1e_9"
+INTEGER_NUMERIC_SEMANTICS_KEY = "integer_physical_ms_half_up_v1"
 
 
 def contract_values(value, omitted=()):
@@ -292,7 +293,10 @@ class SolverPolicy:
             raise ValueError("finalization reserve must be smaller than total time")
         if self.construction_order_key != CONSTRUCTION_ORDER_KEY:
             raise ValueError("unknown construction_order_key")
-        if self.numeric_semantics_key != NUMERIC_SEMANTICS_KEY:
+        if self.numeric_semantics_key not in {
+            NUMERIC_SEMANTICS_KEY,
+            INTEGER_NUMERIC_SEMANTICS_KEY,
+        }:
             raise ValueError("unknown numeric_semantics_key")
         require_decimal(
             self.whole_chain_pair_scan_slack_weight,

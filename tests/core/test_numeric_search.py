@@ -60,6 +60,7 @@ def test_whole_chain_merge_consumes_candidates_and_accepts_first_improvement():
     assert state.complete_candidate_evaluation_count == 1
     assert runtime.candidate_check_count == 2
     assert state.accepted_moves[0].action is NumericSearchAction.WHOLE_CHAIN_PREPEND
+    assert state.accepted_moves[0].affected_sources == (0, 1)
 
 
 def test_real_node_relocation_uses_stable_row_and_preserves_source_chain():
