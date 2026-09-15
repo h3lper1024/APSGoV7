@@ -281,14 +281,19 @@ def _round_robin(streams, budget, allowance=4):
 def _direct_insertion_slots(node, target_nodes, positions, context):
     """Stable direct-first ordering, not a feasibility filter or a second evaluator."""
     cache, budget = context.factory.cache, context.factory.budget
+    from ._search_numeric import direct_insertion_flags
+
+    flags = direct_insertion_flags(cache, node, target_nodes)
     deferred = []
     for slot in positions:
         if not budget.allows_search():
             return
-        left_allowed = slot == 0 or cache.allows(target_nodes[slot - 1], node)
+        known = -1 if flags is None else int(flags[slot])
+        left_allowed = known == 1 if known >= 0 else (slot == 0 or cache.allows(target_nodes[slot - 1], node))
         if not budget.allows_search():
             return
-        direct = left_allowed and (slot == len(target_nodes) or cache.allows(node, target_nodes[slot]))
+        direct = bool(known) if known >= 0 else (
+            left_allowed and (slot == len(target_nodes) or cache.allows(node, target_nodes[slot])))
         if not budget.allows_search():
             return
         if direct:
@@ -318,6 +323,7 @@ def _backlog_iterators(state, context, *, progress=None, positions=None, critica
                        critical_lane=None, revisit=()):
     """One queue slot per original, no candidate plans or rejection cache."""
     chains, budget = state.current_plan.chains, context.factory.budget
+    view = context.computation_view(state)
     if positions is None:
         positions = delivery_node_positions(state.current_plan, context.factory.cache.context.delivery_timing,
                                             backlog_first=True)
@@ -337,12 +343,14 @@ def _backlog_iterators(state, context, *, progress=None, positions=None, critica
 
     def targets(i, hint):
         earlier_first = (*range(i), *range(i + 1, len(chains)))
-        previous = next((j for j in earlier_first if hint and chains[j].chain_id == hint[0]), None)
+        previous = view.chain_positions.get(hint[0]) if hint else None
+        if previous == i:
+            previous = None
         return rotate_after(earlier_first, previous)
 
     def slots(j, values, hint):
-        previous = next((k for k, node in enumerate(chains[j].nodes)
-                         if hint and chains[j].chain_id == hint[0] and node.node_id == hint[1]), None)
+        location = view.node_positions.get(hint[1]) if hint and chains[j].chain_id == hint[0] else None
+        previous = location[1] if location is not None and location[0] == j else None
         return rotate_after(values, previous)
 
     def node_target(i, anchor, j, hint):
@@ -694,6 +702,9 @@ def _try_bridge_reclamation(state, context, recipe):
 
 def _try_width_recipe(state, context, recipe):
     action = recipe[0]
+    if action in ("delivery_intra_move", "width_node_move", "width_node_exchange",
+                  "width_block_move", "width_block_exchange", "width_chain_order_relocation"):
+        recipe = context.restore_recipe(state, recipe, "width_optimization")
     if action == "delivery_intra_move":
         return _try_intra_move(state, context, recipe)
     if action == "width_bridge_reclamation":

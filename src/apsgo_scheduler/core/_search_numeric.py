@@ -5,7 +5,7 @@ from types import MappingProxyType
 
 import numpy as np
 
-from .compatibility import _finite_projection
+from .compatibility import RuleEdgeDecisionCache, _finite_projection
 from .contracts import require_int
 from .model import MaterialRole
 
@@ -131,3 +131,27 @@ class PlanNumericView:
         if row >= count + len(self.dynamic.nodes):
             raise ValueError("numeric node row is out of range")
         return self.catalog.columns.nodes[row] if row < count else self.dynamic.nodes[row - count]
+
+
+def direct_insertion_flags(cache, node, target_nodes):
+    """Batch only known decisions: -1 resumes the authoritative query at the old cursor.
+
+    Pre-evaluating missing edges would move errors, budget polls and cancellation
+    ahead of the candidate which requested them. No decision cache is duplicated.
+    """
+    if type(cache) is not RuleEdgeDecisionCache:
+        return None
+    inserted = cache._known_semantic_row(node)
+    rows = tuple(cache._known_semantic_row(item) for item in target_nodes)
+
+    def known(left, right):
+        value = cache._entries.get((left, right)) if left >= 0 and right >= 0 else None
+        return -1 if value is None else int(value.allowed)
+
+    left = np.fromiter((1, *(known(row, inserted) for row in rows)), dtype=np.int8)
+    right = np.fromiter((*(known(inserted, row) for row in rows), 1), dtype=np.int8)
+    # Preserve short-circuit semantics when the left decision is not known.
+    flags = np.where(left == 0, 0, np.where(left == 1, right, -1)).astype(np.int8)
+    flags.setflags(write=False)
+    object.__setattr__(cache, "_batch_lookup_count", cache._batch_lookup_count + len(flags))
+    return flags

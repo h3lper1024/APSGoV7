@@ -103,6 +103,8 @@ class SearchContext:
     numeric_view_build_count: int = field(default=0, init=False)
     numeric_prepare_seconds: float = field(default=0.0, init=False)
     numeric_peak_row_count: int = field(default=0, init=False)
+    candidate_recipe_restore_count: int = field(default=0, init=False)
+    complete_entry_plan_build_count: int = field(default=0, init=False)
 
     def __post_init__(self):
         if not isinstance(self.factory, VirtualFactory) or not isinstance(
@@ -135,6 +137,15 @@ class SearchContext:
         if self._numeric_view is None or not self._numeric_view.matches(state, self.factory.cache):
             self._numeric_view = self.prepare_numeric_view(state.current_plan, state.accepted_move_count)
         return self._numeric_view
+
+    def restore_recipe(self, state, recipe, guard):
+        from ._candidate_edit import CandidateEdit
+
+        sequence = self.factory.budget.candidate_check_count
+        edit = CandidateEdit.bind(self.computation_view(state), recipe, sequence, guard)
+        result = edit.restore(state, self.factory.cache, sequence, guard)
+        self.candidate_recipe_restore_count += 1
+        return result
 
 
 def _validate_search(state, context):
@@ -527,6 +538,7 @@ def try_complete_candidate(
     ):
         return False
     plan = SchedulePlan(tuple(normalized))
+    context.complete_entry_plan_build_count += 1
     if chain_order_only and {chain.chain_id: chain for chain in plan.chains} != current:
         return False
     before = context.computation_view(state).nodes_by_id
@@ -579,7 +591,9 @@ def try_complete_candidate(
     if has_production_order_rule(cache.rule_set):
         if not budget.allows_search():
             return False
-        plan = stable_group_plan(plan, cache.context.period_index)
+        grouped_plan = stable_group_plan(plan, cache.context.period_index)
+        context.complete_entry_plan_build_count += int(grouped_plan is not plan)
+        plan = grouped_plan
     if not budget.allows_search():
         return False
     context.complete_candidate_evaluation_count += 1
@@ -1073,7 +1087,9 @@ def improve_chain_order(state: SearchState, context: SearchContext) -> SearchSta
             for position in _chain_order_positions(chains, source_index):
                 if not budget.consume_candidate_check():
                     return state
-                candidate = _relocate_chain(chains, source_index, position)
+                _, actual_source, actual_position = context.restore_recipe(
+                    state, ("chain_order_relocation", source_index, position), "chain_order")
+                candidate = _relocate_chain(chains, actual_source, actual_position)
                 if try_complete_candidate(
                     state,
                     context,

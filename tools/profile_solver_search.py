@@ -109,6 +109,10 @@ def _snapshot(state, context):
             "view_build_count": context.numeric_view_build_count,
             "prepare_seconds": Decimal(str(context.numeric_prepare_seconds)),
             "peak_row_count": context.numeric_peak_row_count,
+            "recipe_restore_count": context.candidate_recipe_restore_count,
+            "complete_entry_plan_build_count": context.complete_entry_plan_build_count,
+            "semantic_row_count": len(cache._semantic_rows),
+            "batch_position_lookups": cache._batch_lookup_count,
         },
     })
 

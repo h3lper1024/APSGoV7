@@ -102,9 +102,11 @@ class RuleEdgeDecisionCache:
     _node_fingerprints: OrderedDict[int, tuple[Node, str]] = field(
         default_factory=OrderedDict, init=False, repr=False
     )
-    _entries: dict[tuple[str, str, str], _EdgeDecision] = field(
+    _entries: dict[tuple[int, int], _EdgeDecision] = field(
         default_factory=dict, init=False, repr=False
     )
+    _semantic_rows: dict[str, int] = field(default_factory=dict, init=False, repr=False)
+    _batch_lookup_count: int = field(default=0, init=False, repr=False)
     _hit_count: int = field(default=0, init=False, repr=False)
     _miss_count: int = field(default=0, init=False, repr=False)
 
@@ -210,12 +212,22 @@ class RuleEdgeDecisionCache:
             self._node_fingerprints.popitem(last=False)
         return result
 
+    def _semantic_row(self, node: Node) -> int:
+        semantic = self.semantic_fingerprint(node)
+        row = self._semantic_rows.get(semantic)
+        if row is None:
+            row = len(self._semantic_rows)
+            self._semantic_rows[semantic] = row
+        return row
+
+    def _known_semantic_row(self, node: Node) -> int:
+        # Pure peek: do not evaluate future nodes or disturb the original cursor's LRU order.
+        memo = self._node_fingerprints.get(id(node))
+        return self._semantic_rows.get(memo[1], -1) if memo is not None and memo[0] is node else -1
+
     def _decision(self, left: Node, right: Node, subject_id: str) -> _EdgeDecision:
-        key = (
-            self.rule_set.fingerprint,
-            self.semantic_fingerprint(left),
-            self.semantic_fingerprint(right),
-        )
+        # Each cache is already bound to one immutable task/rule/numeric identity.
+        key = self._semantic_row(left), self._semantic_row(right)
         if key in self._entries:
             object.__setattr__(self, "_hit_count", self._hit_count + 1)
             return self._entries[key]

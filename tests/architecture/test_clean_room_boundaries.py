@@ -54,6 +54,16 @@ def check_source(source, path, package):
     tree = ast.parse(source, filename=str(path))
     module = module_name(path, package)
     approved_shape_numbers = set()
+    if module == "apsgo_scheduler.core._candidate_edit":
+        shape = ast.parse('guard != "width_optimization" or len(indices) != 3', mode="eval").body
+        for definition in tree.body:
+            if isinstance(definition, ast.ClassDef) and definition.name == "CandidateEdit":
+                for function in definition.body:
+                    if isinstance(function, ast.FunctionDef) and function.name == "bind":
+                        for expression in ast.walk(function):
+                            if ast.dump(expression) == ast.dump(shape):
+                                approved_shape_numbers.update(item for item in ast.walk(expression)
+                                                              if isinstance(item, ast.Constant))
     if module == "apsgo_scheduler.core.width_optimization":
         # The approved three-node neighborhood and three critical families are
         # algorithm shapes, not the historical three-violation benchmark result.
@@ -281,6 +291,16 @@ def test_search_layout_allows_only_numpy_in_exact_private_module():
             check_source(source, PACKAGE / "core" / "_search_numeric.py", PACKAGE)
     with pytest.raises(AssertionError):
         check_source("import numpy", PACKAGE / "core" / "_search_numeric_extra.py", PACKAGE)
+
+
+def test_candidate_recipe_arity_is_not_a_benchmark_constant():
+    source = 'class CandidateEdit:\n    def bind(self):\n        return guard != "width_optimization" or len(indices) != 3\n'
+    path = PACKAGE / "core" / "_candidate_edit.py"
+    check_source(source, path, PACKAGE)
+    for changed in (source.replace("bind", "unrelated"), source + "benchmark = 3\n",
+                    source.replace("3", "37")):
+        with pytest.raises(AssertionError, match="Benchmark numeric literal"):
+            check_source(changed, path, PACKAGE)
 
 
 @pytest.mark.parametrize(
