@@ -29,16 +29,25 @@ from tests.core.test_numeric_rules import attributes
 D = Decimal
 
 
-def budget(*, cancellation=None):
-    return SolveRuntimeBudget(0, 100, 110, 0, 0, cancellation, clock=lambda: 1)
+def budget(*, cancellation=None, candidate_limit=0):
+    return SolveRuntimeBudget(0, 100, 110, candidate_limit, 0, cancellation, clock=lambda: 1)
 
 
-def construction_case(*, weights=("100", "100"), widths=("1000", "900")):
+def construction_case(
+    *,
+    weights=("100", "100"),
+    widths=("1000", "900"),
+    due_dates=None,
+    temperatures=None,
+):
+    temperatures = temperatures or (("700", "800"),) * len(weights)
     orders = tuple(
         make_order(
             index,
             weight=D(weight),
             width=D(width),
+            min_temperature=D(temperature[0]),
+            max_temperature=D(temperature[1]),
             grade=f"G{index}",
             source_period="P0",
             rule_attributes=attributes(
@@ -47,13 +56,19 @@ def construction_case(*, weights=("100", "100"), widths=("1000", "900")):
                 customer_name="ordinary",
             ),
         )
-        for index, (weight, width) in enumerate(zip(weights, widths))
+        for index, (weight, width, temperature) in enumerate(
+            zip(weights, widths, temperatures)
+        )
     )
     spec = numeric_quality_spec()
     request = make_request(rule_set_spec=spec, orders=orders)
+    due_dates = due_dates or ("2026-06-30",) * len(orders)
     timing = DeliveryTimingInput(
         "2026-06-01T00:00:00+08:00",
-        tuple(OrderTimingInput(order.source_order_id, "2026-06-30", D("1")) for order in orders),
+        tuple(
+            OrderTimingInput(order.source_order_id, due_date, D("1"))
+            for order, due_date in zip(orders, due_dates)
+        ),
         {prototype.prototype_id: D("0.1") for prototype in request.virtual_prototypes},
     )
     request = replace(request, delivery_timing=timing)
