@@ -6,6 +6,8 @@ import pytest
 
 from apsgo_scheduler.core._numeric_construction import NumericInitialSolution
 from apsgo_scheduler.core._numeric_evaluation import evaluate_numeric_plan
+from apsgo_scheduler.core._numeric_resources import choose_virtual_bridge
+from apsgo_scheduler.core._numeric_rules import NumericRuleKind
 from apsgo_scheduler.core._numeric_search import (
     NumericCandidateEdit,
     NumericSearchAction,
@@ -136,6 +138,35 @@ def test_non_direct_whole_chain_candidate_uses_private_bridge_and_publishes_only
     assert state.task.nodes.weight.size == starting_capacity + 1
     assert state.plan.node_rows.size == 3
     assert state.accepted_moves[0].affected_rows == (starting_capacity,)
+
+
+def test_static_bridge_scan_matches_materialized_adaptive_temperature_choice():
+    task, program, quality = construction_case(
+        temperatures=(("700", "710"), ("800", "810"))
+    )
+    fast = choose_virtual_bridge(
+        task, program, quality, 0, 1, max_nodes=2, first_sequence=1
+    )
+    fallback_rules = tuple(
+        replace(rule, flags=(False, False))
+        if rule.kind is NumericRuleKind.TEMPERATURE
+        else rule
+        for rule in program.rules
+    )
+    fallback = choose_virtual_bridge(
+        task,
+        replace(program, rules=fallback_rules),
+        quality,
+        0,
+        1,
+        max_nodes=2,
+        first_sequence=1,
+    )
+
+    assert fast is not None and fallback is not None
+    assert task.prototype_ids[int(fast.task.nodes.prototype[fast.rows[0]])] == task.prototype_ids[
+        int(fallback.task.nodes.prototype[fallback.rows[0]])
+    ]
 
 
 def test_missing_bridge_or_rejected_fill_does_not_publish_private_rows_or_sequences():

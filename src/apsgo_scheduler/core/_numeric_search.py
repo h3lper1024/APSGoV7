@@ -10,6 +10,7 @@ from ._numeric_evaluation import (
     NumericPlanEvaluation,
     NumericQualityProgram,
     evaluate_numeric_candidate,
+    preview_numeric_chain_order_quality,
 )
 from ._numeric_resources import (
     NumericResourceExtension,
@@ -740,16 +741,32 @@ def _resource_whole_chain_candidate(state, edit, source, target, max_nodes):
     workspace = NumericResourceExtension(state.task, state.program, state.quality, ())
     sequence = state.virtual_sequence
     if edit.action is NumericSearchAction.WHOLE_CHAIN_APPEND:
-        joined = _join_with_bridge(workspace, target, source, max_nodes, sequence)
+        joined = _join_with_bridge(
+            workspace, target, source, max_nodes, sequence
+        )
     elif edit.action is NumericSearchAction.WHOLE_CHAIN_PREPEND:
-        joined = _join_with_bridge(workspace, source, target, max_nodes, sequence)
+        joined = _join_with_bridge(
+            workspace, source, target, max_nodes, sequence
+        )
     else:
         position = edit.target_position
-        first = _join_with_bridge(workspace, target[:position], source, max_nodes, sequence)
+        first = _join_with_bridge(
+            workspace,
+            target[:position],
+            source,
+            max_nodes,
+            sequence,
+        )
         if first is None:
             return None
         workspace, rows, sequence = first
-        joined = _join_with_bridge(workspace, rows, target[position:], max_nodes, sequence)
+        joined = _join_with_bridge(
+            workspace,
+            rows,
+            target[position:],
+            max_nodes,
+            sequence,
+        )
     if joined is None:
         return None
     workspace, merged, sequence = joined
@@ -1158,7 +1175,11 @@ def _prepare_numeric_split(state, parent_row, donor_index, decision, maximum_bri
     virtual_sequence = state.virtual_sequence
     if prefix and suffix:
         repaired = _join_with_bridge(
-            workspace, prefix, suffix, maximum_bridge_nodes, virtual_sequence
+            workspace,
+            prefix,
+            suffix,
+            maximum_bridge_nodes,
+            virtual_sequence,
         )
         if repaired is None:
             return None
@@ -1379,6 +1400,13 @@ def improve_numeric_chain_order(task, program, quality, state, budget):
             for position in positions:
                 if not budget.consume_candidate_check():
                     return state
+                order = list(range(len(chain_ids)))
+                moved = order.pop(source_index)
+                order.insert(position, moved)
+                if not preview_numeric_chain_order_quality(
+                    task, quality, plan, state.evaluation, order
+                ) < _quality(state.evaluation):
+                    continue
                 edit = NumericCandidateEdit(
                     task.fingerprint,
                     plan.fingerprint,

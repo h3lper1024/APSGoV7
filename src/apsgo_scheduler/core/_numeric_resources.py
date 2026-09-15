@@ -2,8 +2,15 @@
 
 from dataclasses import dataclass
 
+import numpy as np
+
 from ._numeric_evaluation import NumericQualityProgram
-from ._numeric_rules import NumericRuleProgram, evaluate_numeric_edge, evaluate_numeric_rows
+from ._numeric_rules import (
+    NumericRuleKind,
+    NumericRuleProgram,
+    evaluate_numeric_edge,
+    evaluate_numeric_rows,
+)
 from ._numeric_state import (
     NumericDynamicNode,
     NumericSplitGroup,
@@ -11,6 +18,7 @@ from ._numeric_state import (
     extend_numeric_task,
 )
 from ._numeric_units import NumericValueError, checked_product, checked_sum
+from .contracts import RuleScope
 from .model import MaterialRole, VirtualPurpose
 
 _GENERATED_VIRTUAL = tuple(MaterialRole).index(MaterialRole.GENERATED_VIRTUAL)
@@ -176,6 +184,91 @@ def _smoothness(task, rows):
     return total
 
 
+def _static_bridge_supported(program):
+    edge_kinds = {
+        NumericRuleKind.SYNTHETIC_WIDTH,
+        NumericRuleKind.SOFT_HARD,
+        NumericRuleKind.TEMPERATURE,
+        NumericRuleKind.THICKNESS,
+        NumericRuleKind.WIDTH,
+    }
+    for rule in program.rules:
+        if rule.scope is not RuleScope.EDGE or rule.kind not in edge_kinds:
+            continue
+        if rule.kind is NumericRuleKind.TEMPERATURE and not (rule.flags[0] or rule.flags[1]):
+            return False
+        if rule.kind is NumericRuleKind.THICKNESS and any(band.relative for band in rule.bands):
+            return False
+    return True
+
+
+def _prototype_edge_mask(task, program, left_rows, right_rows):
+    """Evaluate edges containing a static generated-virtual prototype in bulk."""
+    nodes = task.nodes
+    left = np.asarray(left_rows, dtype=np.int64)[:, None]
+    right = np.asarray(right_rows, dtype=np.int64)[None, :]
+    allowed = np.ones((left.size, right.size), dtype=np.bool_)
+    for rule in program.rules:
+        if rule.scope is not RuleScope.EDGE:
+            continue
+        if rule.kind is NumericRuleKind.SYNTHETIC_WIDTH:
+            allowed &= nodes.present[left, 0] & nodes.present[right, 0]
+            allowed &= np.maximum(0, nodes.width[right] - nodes.width[left]) <= rule.values[0]
+        elif rule.kind is NumericRuleKind.SOFT_HARD:
+            if not rule.flags[0]:
+                allowed.fill(False)
+        elif rule.kind is NumericRuleKind.TEMPERATURE:
+            continue
+        elif rule.kind is NumericRuleKind.THICKNESS:
+            present = nodes.present[left, 1] & nodes.present[right, 1]
+            first, second = nodes.thickness[left], nodes.thickness[right]
+            basis = np.maximum(first, second) if rule.values[0] else np.minimum(first, second)
+            numerator = np.full(basis.shape, rule.values[1], dtype=np.int64)
+            denominator = np.full(basis.shape, rule.values[2], dtype=np.int64)
+            unmatched = np.ones(basis.shape, dtype=np.bool_)
+            for band in rule.bands:
+                matches = unmatched.copy()
+                if band.has_minimum:
+                    matches &= basis >= band.minimum if band.include_minimum else basis > band.minimum
+                if band.has_maximum:
+                    matches &= basis <= band.maximum if band.include_maximum else basis < band.maximum
+                numerator[matches] = band.tolerance_numerator
+                denominator[matches] = band.tolerance_denominator
+                unmatched[matches] = False
+            difference = np.abs(first - second)
+            allowed &= ~present | (difference * denominator <= numerator)
+        elif rule.kind is NumericRuleKind.WIDTH:
+            present = nodes.present[left, 0] & nodes.present[right, 0]
+            difference = np.abs(nodes.width[right] - nodes.width[left])
+            allowed &= present & (difference <= rule.values[1])
+    return allowed
+
+
+def _choose_static_bridge(task, program, left, right, max_nodes):
+    prototypes = tuple(int(row) for row in task.prototype_rows)
+    from_left = _prototype_edge_mask(task, program, (left,), prototypes)[0]
+    to_right = _prototype_edge_mask(task, program, prototypes, (right,))[:, 0]
+    best = None
+    best_score = None
+    for prototype, row in enumerate(prototypes):
+        if from_left[prototype] and to_right[prototype]:
+            score = _smoothness(task, (left, row, right))
+            if best_score is None or score < best_score:
+                best, best_score = (prototype,), score
+    if best is not None or max_nodes < 2:
+        return best
+    between = _prototype_edge_mask(task, program, prototypes, prototypes)
+    for first_prototype, first_row in enumerate(prototypes):
+        if not from_left[first_prototype]:
+            continue
+        for second_prototype, second_row in enumerate(prototypes):
+            if between[first_prototype, second_prototype] and to_right[second_prototype]:
+                score = _smoothness(task, (left, first_row, second_row, right))
+                if best_score is None or score < best_score:
+                    best, best_score = (first_prototype, second_prototype), score
+    return best
+
+
 def choose_virtual_bridge(
     task,
     program,
@@ -193,45 +286,50 @@ def choose_virtual_bridge(
         raise NumericValueError("max_nodes", "zero, one or two bridge rows required")
     if not max_nodes or not task.prototype_ids:
         return None
-    count = len(task.prototype_ids)
-    temporary = tuple(
-        virtual_node(
-            task,
-            prototype,
-            left,
-            right,
-            purpose=VirtualPurpose.EDGE_BRIDGE,
-            sequence=first_sequence + copy,
-            node_id=f"candidate-virtual:{first_sequence}:{copy}:{prototype}",
+    if _static_bridge_supported(program):
+        best = _choose_static_bridge(task, program, left, right, max_nodes) or ()
+    else:
+        count = len(task.prototype_ids)
+        temporary = tuple(
+            virtual_node(
+                task,
+                prototype,
+                left,
+                right,
+                purpose=VirtualPurpose.EDGE_BRIDGE,
+                sequence=first_sequence + copy,
+                node_id=f"candidate-virtual:{first_sequence}:{copy}:{prototype}",
+            )
+            for copy in range(2 if max_nodes > 1 else 1)
+            for prototype in range(count)
         )
-        for copy in range(2 if max_nodes > 1 else 1)
-        for prototype in range(count)
-    )
-    workspace = extend_resource_workspace(task, program, quality, temporary)
-    first_rows = workspace.rows[:count]
-    best = None
-    best_score = None
-    for prototype, row in enumerate(first_rows):
-        if _allowed(workspace.task, workspace.program, left, row) and _allowed(
-            workspace.task, workspace.program, row, right
-        ):
-            score = _smoothness(workspace.task, (left, row, right))
-            if best_score is None or score < best_score:
-                best, best_score = (prototype,), score
-    if best is None and max_nodes > 1:
-        second_rows = workspace.rows[count:]
-        for first_prototype, first_row in enumerate(first_rows):
-            if not _allowed(workspace.task, workspace.program, left, first_row):
-                continue
-            for second_prototype, second_row in enumerate(second_rows):
-                if not _allowed(workspace.task, workspace.program, first_row, second_row):
-                    continue
-                if not _allowed(workspace.task, workspace.program, second_row, right):
-                    continue
-                score = _smoothness(workspace.task, (left, first_row, second_row, right))
+        workspace = extend_resource_workspace(task, program, quality, temporary)
+        first_rows = workspace.rows[:count]
+        best_score = None
+        for prototype, row in enumerate(first_rows):
+            if _allowed(workspace.task, workspace.program, left, row) and _allowed(
+                workspace.task, workspace.program, row, right
+            ):
+                score = _smoothness(workspace.task, (left, row, right))
                 if best_score is None or score < best_score:
-                    best, best_score = (first_prototype, second_prototype), score
-    if best is None:
+                    best, best_score = (prototype,), score
+        if best is None and max_nodes > 1:
+            second_rows = workspace.rows[count:]
+            for first_prototype, first_row in enumerate(first_rows):
+                if not _allowed(workspace.task, workspace.program, left, first_row):
+                    continue
+                for second_prototype, second_row in enumerate(second_rows):
+                    if not _allowed(workspace.task, workspace.program, first_row, second_row):
+                        continue
+                    if not _allowed(workspace.task, workspace.program, second_row, right):
+                        continue
+                    score = _smoothness(
+                        workspace.task, (left, first_row, second_row, right)
+                    )
+                    if best_score is None or score < best_score:
+                        best, best_score = (first_prototype, second_prototype), score
+        best = () if best is None else best
+    if not best:
         return None
     selected = tuple(
         virtual_node(

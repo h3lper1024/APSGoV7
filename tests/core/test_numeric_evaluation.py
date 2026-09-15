@@ -18,7 +18,9 @@ from apsgo_scheduler.core._numeric_evaluation import (
     NumericObjective,
     NumericPlanEvaluation,
     NumericQualityProgram,
+    evaluate_numeric_candidate,
     evaluate_numeric_plan,
+    preview_numeric_chain_order_quality,
 )
 from apsgo_scheduler.core._numeric_rules import NumericRuleProgram
 from apsgo_scheduler.core._numeric_state import NumericPlan, NumericTask, readonly
@@ -149,6 +151,21 @@ def test_delivery_scores_are_zero_without_backlog_or_lateness():
     assert not result.delivery.newly_late.any()
     assert result.delivery.wait_seconds.tolist() == [0, 0]
     assert result.quality_key[4:6].tolist() == [0, 0]
+
+
+def test_chain_order_preview_matches_complete_candidate_evaluation():
+    _, task, program, quality, plan = evaluation_case()
+    current = evaluate_numeric_plan(task, program, quality, plan)
+    candidate = NumericPlan.build(
+        task, (1, 0), (0, 1, 2), (20, 10), (0, 0), generation=1
+    )
+    complete = evaluate_numeric_candidate(
+        task, program, quality, candidate, task, program, quality, plan, current
+    )
+
+    assert preview_numeric_chain_order_quality(
+        task, quality, plan, current, (1, 0)
+    ) == tuple(int(value) for value in complete.quality_key)
 
 
 def test_numeric_evaluation_rejects_cross_task_identity_and_malformed_arrays():

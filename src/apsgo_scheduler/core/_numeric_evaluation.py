@@ -696,3 +696,72 @@ def evaluate_numeric_candidate(
         _delivery(task, plan, previous_plan, previous_evaluation.delivery),
         previous_evaluation.node_metrics,
     )
+
+
+def preview_numeric_chain_order_quality(task, quality_program, plan, evaluation, chain_order):
+    """Return the exact quality key for a pure chain-order candidate."""
+    if (
+        not isinstance(task, NumericTask)
+        or not isinstance(quality_program, NumericQualityProgram)
+        or not isinstance(plan, NumericPlan)
+        or not isinstance(evaluation, NumericPlanEvaluation)
+        or quality_program.task_fingerprint != task.fingerprint
+        or plan.task_fingerprint != task.fingerprint
+        or evaluation.plan_fingerprint != plan.fingerprint
+    ):
+        raise NumericValueError("chain_order_preview", "matching numeric state required")
+    order = np.asarray(chain_order, dtype=np.int64)
+    count = int(plan.chain_ids.size)
+    if order.shape != (count,) or not np.array_equal(np.sort(order), np.arange(count)):
+        raise NumericValueError("chain_order_preview", "complete chain permutation required")
+
+    rows = np.concatenate(
+        tuple(
+            plan.node_rows[
+                int(plan.chain_offsets[index]) : int(plan.chain_offsets[index + 1])
+            ]
+            for index in order
+        )
+    )
+    ends = np.cumsum(task.nodes.duration_ms[rows], dtype=np.int64)
+    owners = task.nodes.source[rows]
+    real = owners >= 0
+    completion = np.zeros(task.originals.weight.size, dtype=np.int64)
+    np.maximum.at(completion, owners[real], ends[real])
+    old_completion = int(completion[task.originals.old_backlog].max(initial=0))
+    due = np.maximum(0, task.originals.due_ms)
+    waits = (np.maximum(0, completion - due) + 500) // 1000
+    burden = int64(
+        int(np.dot(task.originals.weight, waits)), "delivery_wait_burden"
+    )
+
+    tail_rows = np.asarray(
+        [int(plan.node_rows[int(plan.chain_offsets[index + 1]) - 1]) for index in order[:-1]],
+        dtype=np.int64,
+    )
+    head_rows = np.asarray(
+        [int(plan.node_rows[int(plan.chain_offsets[index])]) for index in order[1:]],
+        dtype=np.int64,
+    )
+    if tail_rows.size and (
+        not task.nodes.present[tail_rows, 0].all()
+        or not task.nodes.present[head_rows, 0].all()
+    ):
+        raise NumericValueError(
+            "inter_chain_width_gap_objective", "inter-chain boundary width is missing"
+        )
+    gap = int64(
+        int(np.abs(task.nodes.width[tail_rows] - task.nodes.width[head_rows]).sum()),
+        "inter_chain_width_gap",
+    )
+    values = [int(value) for value in evaluation.quality_key]
+    replacements = {
+        NumericObjective.OLD_BACKLOG_COMPLETION: score_seconds(
+            old_completion, "old_backlog_last_completion"
+        ),
+        NumericObjective.DELIVERY_WAIT_BURDEN: burden,
+        NumericObjective.INTER_CHAIN_WIDTH_GAP: gap,
+    }
+    for objective, value in replacements.items():
+        values[quality_program.objectives.index(objective)] = value
+    return tuple(values)
