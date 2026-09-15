@@ -52,6 +52,7 @@ class NumericRefinementDiagnostics:
     raw_combinations: dict[str, int] = field(default_factory=dict)
     unique_combinations: dict[str, int] = field(default_factory=dict)
     lane_filtered: dict[str, int] = field(default_factory=dict)
+    duplicate_filtered: dict[str, int] = field(default_factory=dict)
     routed_combinations: dict[str, int] = field(default_factory=dict)
     candidate_checks: dict[str, int] = field(default_factory=dict)
     complete_evaluations: dict[str, int] = field(default_factory=dict)
@@ -75,6 +76,7 @@ class NumericRefinementDiagnostics:
                 "raw_combinations",
                 "unique_combinations",
                 "lane_filtered",
+                "duplicate_filtered",
                 "routed_combinations",
                 "candidate_checks",
                 "complete_evaluations",
@@ -348,10 +350,12 @@ def _round_robin(streams, budget, allowance):
             pending.append(stream)
 
 
-def _direct_slots(state, row, target, positions):
+def _direct_slots(state, row, target, positions, budget=None):
     row = int(row)
     direct, repaired = [], []
     for position in positions:
+        if budget is not None and not budget.allows_search():
+            break
         left = position == 0 or _edge_allowed(
             state.task, state.program, int(target[position - 1]), row
         )
@@ -379,6 +383,7 @@ def _source_recipe_stream(
     critical_lane=False,
     diagnostics=None,
     index=None,
+    budget=None,
 ):
     plan = state.plan
     index = index or NumericRefinementIndex.build(state)
@@ -415,7 +420,11 @@ def _source_recipe_stream(
                 row = chains[chain][start]
                 for target in (*range(chain), *range(chain + 1, len(chains))):
                     slots = _direct_slots(
-                        state, row, chains[target], range(len(chains[target]) + 1)
+                        state,
+                        row,
+                        chains[target],
+                        range(len(chains[target]) + 1),
+                        budget,
                     )
                     for slot in slots:
                         yield (
@@ -568,6 +577,7 @@ def _family_stream(
     index=None,
 ):
     sources = _rotate_after(ordered_sources, cursor[family])
+    seen = diagnostic_seen if diagnostic_seen is not None else set()
     lane = "critical" if critical_lane else "regular"
     key = f"{lane}:{family}"
 
@@ -580,19 +590,24 @@ def _family_stream(
             critical_lane=critical_lane is True,
             diagnostics=diagnostics,
             index=index,
+            budget=budget,
         ):
             if not budget.allows_search():
                 return
             if diagnostics is not None:
                 diagnostics.record("raw_combinations", key)
-                if diagnostic_seen is not None and recipe not in diagnostic_seen:
-                    diagnostic_seen.add(recipe)
-                    diagnostics.record("unique_combinations", key)
             is_critical = index.recipe_is_critical(recipe)
             if critical_lane is not None and is_critical is not critical_lane:
                 if diagnostics is not None:
                     diagnostics.record("lane_filtered", key)
                 continue
+            if recipe in seen:
+                if diagnostics is not None:
+                    diagnostics.record("duplicate_filtered", key)
+                continue
+            seen.add(recipe)
+            if diagnostics is not None:
+                diagnostics.record("unique_combinations", key)
             cursor[family] = source
             if diagnostics is not None:
                 diagnostics.record("routed_combinations", key)
@@ -603,12 +618,14 @@ def _family_stream(
     )
 
 
-def _reclamation_stream(state, diagnostics=None, index=None):
+def _reclamation_stream(state, diagnostics=None, index=None, budget=None):
     index = index or NumericRefinementIndex.build(state)
     chains, chain_ids = index.chains, state.plan.chain_ids
     for chain, rows in enumerate(chains):
         position = 0
         while position < len(rows):
+            if budget is not None and not budget.allows_search():
+                return
             if not _ordinary_bridge(state.task, rows[position]):
                 position += 1
                 continue
@@ -1047,7 +1064,7 @@ def improve_numeric_refinement(
             ]
             for lane in range(2)
         ]
-        cleanup = iter(_reclamation_stream(state, diagnostics, index))
+        cleanup = iter(_reclamation_stream(state, diagnostics, index, budget))
         streams[1].append(cleanup)
         sizes = (_CRITICAL_FAMILY_COUNT, _REGULAR_FAMILY_COUNT)
         pending = [

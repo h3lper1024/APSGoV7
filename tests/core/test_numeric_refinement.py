@@ -7,6 +7,7 @@ from apsgo_scheduler.core._numeric_refinement import (
     NumericRefinementIndex,
     _critical_sources,
     _delivery_sources,
+    _direct_slots,
     _family_stream,
     _recipe_real_sources,
     _round_robin,
@@ -140,6 +141,64 @@ def test_refinement_index_replaces_layout_in_generation_and_lane_filter(monkeypa
 
     assert actual == tuple(recipe for recipe in expected if index.recipe_is_critical(recipe))
     assert all(_recipe_real_sources(state, recipe, index=index) & critical for recipe in actual)
+
+
+def test_refinement_routes_each_recipe_once_and_polls_cancellation():
+    task, program, quality = construction_case(
+        weights=("100",) * 6,
+        widths=("1000", "990", "980", "970", "960", "950"),
+        due_dates=("2026-05-31",) + ("2026-06-30",) * 5,
+    )
+    state = _state(task, program, quality, range(6), (0, 3, 6), (10, 20), (0, 0))
+    base = NumericRefinementIndex.build(state)
+    critical = frozenset(_critical_sources(state, base))
+    index = base.with_critical_sources(state, critical)
+    seen = set()
+    recipes = []
+    for lane in (True, False):
+        recipes.extend(
+            _family_stream(
+                state,
+                "node",
+                {family: None for family in refinement._FAMILIES},
+                _delivery_sources(state),
+                critical,
+                lane,
+                budget(candidate_limit=1000),
+                diagnostic_seen=seen,
+                index=index,
+            )
+        )
+    assert len(recipes) == len(set(recipes))
+
+    one_chain = _state(task, program, quality, range(6), (0, 6), (10,), (0,))
+    one_index = NumericRefinementIndex.build(one_chain)
+    diagnostics = NumericRefinementDiagnostics()
+    cut_recipes = tuple(
+        _family_stream(
+            one_chain,
+            "cut",
+            {family: None for family in refinement._FAMILIES},
+            _delivery_sources(one_chain),
+            frozenset(),
+            False,
+            budget(candidate_limit=1000),
+            diagnostics,
+            set(),
+            one_index,
+        )
+    )
+    assert len(cut_recipes) == len(set(cut_recipes))
+    assert sum(diagnostics.duplicate_filtered.values()) > 0
+
+    class Cancelled:
+        @staticmethod
+        def is_cancelled():
+            return True
+
+    runtime = budget(cancellation=Cancelled(), candidate_limit=100)
+    assert _direct_slots(state, 0, index.chains[1], range(4), runtime) == ()
+    assert runtime.stop_reason is SearchStopReason.USER_CANCELLED
 
 
 def test_refinement_reclaims_only_ordinary_bridge_and_keeps_split_separator():
