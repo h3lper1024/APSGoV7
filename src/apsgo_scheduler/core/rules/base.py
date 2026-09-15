@@ -21,8 +21,8 @@ from ..contracts import (
     require_int,
     require_text,
 )
-from ..model import Chain, Node, SchedulePlan
 from ..delivery_timing import DeliveryTiming
+from ..model import Chain, Node, SchedulePlan
 
 if TYPE_CHECKING:
     from ..resource_facts import EvaluationResourceView
@@ -49,6 +49,10 @@ class NumericProjection(str, Enum):
     EXACT_DECIMAL = "exact_decimal"
     REFERENCE_FLOAT_ROUND_6 = "reference_float_round_6"
     UNDERWEIGHT_GAP_ROUND_2_THEN_SUM = "underweight_gap_round_2_then_sum"
+    INTEGER_EXACT_V1 = "integer_exact_v1"
+    SEVERITY_ROUND_6_HALF_UP_PER_VIOLATION = "severity_round_6_half_up_per_violation"
+    UNDERWEIGHT_GAP_ROUND_2_HALF_UP_PER_CHAIN = "underweight_gap_round_2_half_up_per_chain"
+    DELIVERY_SECOND_HALF_UP = "delivery_second_half_up"
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,6 +226,33 @@ class QualityCriterion:
         ):
             raise ValueError(
                 "underweight_gap_round_2_then_sum requires underweight_total_gap + sum + minimize"
+            )
+        if self.numeric_projection is NumericProjection.SEVERITY_ROUND_6_HALF_UP_PER_VIOLATION and (
+            self.metric_key != "prohibited_violation_severity"
+            or self.aggregation is not QualityAggregation.SUM
+            or self.direction is not QualityDirection.MINIMIZE
+        ):
+            raise ValueError(
+                "severity_round_6_half_up_per_violation requires prohibited severity + sum + minimize"
+            )
+        if self.numeric_projection is NumericProjection.UNDERWEIGHT_GAP_ROUND_2_HALF_UP_PER_CHAIN and (
+            self.metric_key != "underweight_total_gap"
+            or self.aggregation is not QualityAggregation.SUM
+            or self.direction is not QualityDirection.MINIMIZE
+        ):
+            raise ValueError(
+                "underweight_gap_round_2_half_up_per_chain requires underweight gap + sum + minimize"
+            )
+        if self.numeric_projection is NumericProjection.DELIVERY_SECOND_HALF_UP and (
+            self.metric_key not in {
+                "old_backlog_last_completion_hours",
+                "delivery_wait_tardiness_tonne_hours",
+            }
+            or self.aggregation is not QualityAggregation.SUM
+            or self.direction is not QualityDirection.MINIMIZE
+        ):
+            raise ValueError(
+                "delivery_second_half_up requires a delivery score + sum + minimize"
             )
 
 

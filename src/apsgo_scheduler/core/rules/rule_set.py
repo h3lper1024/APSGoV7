@@ -14,20 +14,27 @@ from .base import (
     ControlledSplitRuleSubject,
     EdgeRuleSubject,
     NodeRuleSubject,
+    NumericProjection,
     PlanRuleSubject,
     QualityAggregation,
     QualityCriterion,
     QualityDirection,
-    NumericProjection,
     Rule,
     RuleContribution,
     RuleEvaluationContext,
     RuleScope,
     UnsupportedRuleSubjectError,
 )
-from .concrete import (ControlledOrderSplitRule, DeliveryDuePerformanceRule, WidthTransitionRule,
-                       _VirtualBridgeWidthRule, HighSurfaceRunCountRule, ConsecutiveVirtualMaterialRule,
-                       ContinuousNarrowSteelWeightRule, SameSpecContinuousRealWeightRule)
+from .concrete import (
+    ConsecutiveVirtualMaterialRule,
+    ContinuousNarrowSteelWeightRule,
+    ControlledOrderSplitRule,
+    DeliveryDuePerformanceRule,
+    HighSurfaceRunCountRule,
+    SameSpecContinuousRealWeightRule,
+    WidthTransitionRule,
+    _VirtualBridgeWidthRule,
+)
 from .helpers import create_controlled_split_decision
 
 PROHIBITED_METRIC_KEYS = ("prohibited_violation_count", "prohibited_violation_severity")
@@ -94,12 +101,15 @@ class ProcessRuleSet:
             )
             keys = tuple(item.metric_key for item in criteria)
             suffix = tuple(key for key in ("inter_chain_width_gap", "generated_virtual_weight", "chain_count") if key in keys)
+            delivery_projections = {
+                item.numeric_projection for item in criteria if item.metric_key in delivery_metrics
+            }
             if keys != (*prefix, *suffix) or any(
                 item.direction is not QualityDirection.MINIMIZE for item in criteria
-            ) or any(
-                item.aggregation is not QualityAggregation.SUM
-                or item.numeric_projection is not NumericProjection.EXACT_DECIMAL
-                for item in criteria if item.metric_key in delivery_metrics
+            ) or any(item.aggregation is not QualityAggregation.SUM
+                     for item in criteria if item.metric_key in delivery_metrics) or delivery_projections not in (
+                {NumericProjection.EXACT_DECIMAL},
+                {NumericProjection.DELIVERY_SECOND_HALF_UP},
             ):
                 raise ValueError("delivery optimization requires the approved nine-level quality order")
         producers = set(STRUCTURAL_METRIC_KEYS)

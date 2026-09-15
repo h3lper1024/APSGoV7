@@ -394,12 +394,37 @@ def test_underweight_gap_projection_is_a_frozen_typed_declaration():
         value.numeric_projection = NumericProjection.EXACT_DECIMAL
     with pytest.raises(ValueError):
         replace(value, numeric_projection=projection.value)
-    assert (
-        len(
-            {fingerprint(replace(value, numeric_projection=option)) for option in NumericProjection}
-        )
-        == 3
+    declarations = (
+        replace(value, numeric_projection=NumericProjection.EXACT_DECIMAL),
+        replace(value, numeric_projection=NumericProjection.REFERENCE_FLOAT_ROUND_6),
+        value,
+        QualityCriterion(
+            "count",
+            "underweight_chain_count",
+            QualityDirection.MINIMIZE,
+            QualityAggregation.SUM,
+            NumericProjection.INTEGER_EXACT_V1,
+        ),
+        QualityCriterion(
+            "severity",
+            "prohibited_violation_severity",
+            QualityDirection.MINIMIZE,
+            QualityAggregation.SUM,
+            NumericProjection.SEVERITY_ROUND_6_HALF_UP_PER_VIOLATION,
+        ),
+        replace(
+            value,
+            numeric_projection=NumericProjection.UNDERWEIGHT_GAP_ROUND_2_HALF_UP_PER_CHAIN,
+        ),
+        QualityCriterion(
+            "delivery",
+            "old_backlog_last_completion_hours",
+            QualityDirection.MINIMIZE,
+            QualityAggregation.SUM,
+            NumericProjection.DELIVERY_SECOND_HALF_UP,
+        ),
     )
+    assert len({fingerprint(item) for item in declarations}) == len(NumericProjection) == 7
 
 
 @pytest.mark.parametrize(
