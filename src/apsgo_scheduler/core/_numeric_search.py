@@ -50,6 +50,13 @@ class NumericSearchAction(str, Enum):
     CHAIN_ORDER_RELOCATION = "chain_order_relocation"
     VIRTUAL_WEIGHT_FILL = "virtual_weight_fill"
     CONTROLLED_ORDER_SPLIT = "controlled_order_split"
+    DELIVERY_INTRA_MOVE = "delivery_intra_move"
+    NODE_MOVE = "width_node_move"
+    NODE_EXCHANGE = "width_node_exchange"
+    BLOCK_MOVE = "width_block_move"
+    BLOCK_EXCHANGE = "width_block_exchange"
+    CHAIN_CUT = "width_chain_cut"
+    BRIDGE_RECLAMATION = "width_bridge_reclamation"
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +72,10 @@ class NumericCandidateEdit:
     target_position: int = -1
     source_reversed: bool = False
     target_reversed: bool = False
+    source_start: int = -1
+    source_stop: int = -1
+    target_start: int = -1
+    target_stop: int = -1
 
     def __post_init__(self):
         for name in ("task_fingerprint", "plan_fingerprint"):
@@ -77,6 +88,10 @@ class NumericCandidateEdit:
             "target_chain_id",
             "node_row",
             "target_position",
+            "source_start",
+            "source_stop",
+            "target_start",
+            "target_stop",
         ):
             int64(getattr(self, name), name)
         if self.generation < 0 or self.sequence <= 0:
@@ -85,10 +100,12 @@ class NumericCandidateEdit:
             )
         if not isinstance(self.action, NumericSearchAction):
             raise NumericValueError("candidate", "known numeric search action required")
-        if (
-            self.source_chain_id == self.target_chain_id
-            and self.action is not NumericSearchAction.VIRTUAL_WEIGHT_FILL
-        ):
+        same_chain_actions = {
+            NumericSearchAction.VIRTUAL_WEIGHT_FILL,
+            NumericSearchAction.DELIVERY_INTRA_MOVE,
+            NumericSearchAction.BRIDGE_RECLAMATION,
+        }
+        if self.source_chain_id == self.target_chain_id and self.action not in same_chain_actions:
             raise NumericValueError("candidate", "source and target chains must differ")
         if type(self.source_reversed) is not bool or type(self.target_reversed) is not bool:
             raise NumericValueError("candidate", "reversal flags must be boolean")
@@ -124,6 +141,64 @@ class NumericCandidateEdit:
                 or self.target_reversed
             ):
                 raise NumericValueError("candidate", "invalid virtual-fill description")
+        elif self.action is NumericSearchAction.DELIVERY_INTRA_MOVE:
+            if not (
+                self.node_row == -1
+                and self.target_position >= 0
+                and self.source_start >= 0
+                and self.source_stop == self.source_start + 1
+                and self.target_position < self.source_start
+                and self.target_start == self.target_stop == -1
+                and not self.source_reversed
+                and not self.target_reversed
+            ):
+                raise NumericValueError("candidate", "invalid intra-chain move description")
+        elif self.action in {NumericSearchAction.NODE_MOVE, NumericSearchAction.BLOCK_MOVE}:
+            expected = 1 if self.action is NumericSearchAction.NODE_MOVE else 2
+            if not (
+                self.node_row == -1
+                and self.target_position >= 0
+                and self.source_start >= 0
+                and self.source_stop - self.source_start >= expected
+                and self.target_start == self.target_stop == -1
+                and not self.source_reversed
+                and not self.target_reversed
+            ):
+                raise NumericValueError("candidate", "invalid inter-chain move description")
+        elif self.action in {NumericSearchAction.NODE_EXCHANGE, NumericSearchAction.BLOCK_EXCHANGE}:
+            minimum = 1 if self.action is NumericSearchAction.NODE_EXCHANGE else 2
+            if not (
+                self.node_row == self.target_position == -1
+                and self.source_start >= 0
+                and self.source_stop - self.source_start >= minimum
+                and self.target_start >= 0
+                and self.target_stop > self.target_start
+                and not self.source_reversed
+                and not self.target_reversed
+            ):
+                raise NumericValueError("candidate", "invalid inter-chain exchange description")
+        elif self.action is NumericSearchAction.CHAIN_CUT:
+            if not (
+                self.node_row == self.target_position == -1
+                and self.source_start > 0
+                and self.source_stop == -1
+                and self.target_start >= 0
+                and self.target_stop >= 0
+                and self.target_start != self.target_stop
+                and not self.source_reversed
+                and not self.target_reversed
+            ):
+                raise NumericValueError("candidate", "invalid chain-cut description")
+        elif self.action is NumericSearchAction.BRIDGE_RECLAMATION:
+            if not (
+                self.node_row == self.target_position == -1
+                and self.source_start >= 0
+                and self.source_stop > self.source_start
+                and self.target_start == self.target_stop == -1
+                and not self.source_reversed
+                and not self.target_reversed
+            ):
+                raise NumericValueError("candidate", "invalid bridge-reclamation description")
         elif self.node_row != -1 or self.target_position < 0:
             raise NumericValueError("candidate", "invalid whole-chain description")
 
@@ -254,14 +329,18 @@ class NumericSearchState:
             raise NumericValueError("candidate", "complete next-generation candidate required")
         before = tuple(int(value) for value in self.evaluation.quality_key)
         after = tuple(int(value) for value in evaluation.quality_key)
-        affected = (
-            (edit.source_chain_id,)
-            if edit.action
-            in {
-                NumericSearchAction.CHAIN_ORDER_RELOCATION,
-                NumericSearchAction.VIRTUAL_WEIGHT_FILL,
-            }
-            else (edit.source_chain_id, edit.target_chain_id)
+        affected = tuple(
+            dict.fromkeys(
+                (edit.source_chain_id,)
+                if edit.action
+                in {
+                    NumericSearchAction.CHAIN_ORDER_RELOCATION,
+                    NumericSearchAction.VIRTUAL_WEIGHT_FILL,
+                    NumericSearchAction.DELIVERY_INTRA_MOVE,
+                    NumericSearchAction.BRIDGE_RECLAMATION,
+                }
+                else (edit.source_chain_id, edit.target_chain_id)
+            )
         )
         move = NumericAcceptedMove(
             edit.sequence,
