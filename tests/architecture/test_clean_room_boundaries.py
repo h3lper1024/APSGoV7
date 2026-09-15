@@ -85,6 +85,7 @@ def check_source(source, path, package):
                 top = target.partition(".")[0]
                 numeric_dependency = (
                     (module == "apsgo_scheduler.core._bridge_numeric" and top in {"numpy", "numba"})
+                    or (module == "apsgo_scheduler.core._delivery_parallel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._search_numeric" and top == "numpy")
                 )
                 assert top in sys.stdlib_module_names or top == "apsgo_scheduler" or (
@@ -291,6 +292,15 @@ def test_search_layout_allows_only_numpy_in_exact_private_module():
             check_source(source, PACKAGE / "core" / "_search_numeric.py", PACKAGE)
     with pytest.raises(AssertionError):
         check_source("import numpy", PACKAGE / "core" / "_search_numeric_extra.py", PACKAGE)
+
+
+def test_delivery_parallel_dependency_exception_is_exact():
+    for source in ("import numpy", "import numba"):
+        check_source(source, PACKAGE / "core" / "_delivery_parallel.py", PACKAGE)
+        with pytest.raises(AssertionError, match="External production dependency"):
+            check_source(source, PACKAGE / "core" / "_delivery_parallel_extra.py", PACKAGE)
+    with pytest.raises(AssertionError, match="External production dependency"):
+        check_source("import scipy", PACKAGE / "core" / "_delivery_parallel.py", PACKAGE)
 
 
 def test_candidate_recipe_arity_is_not_a_benchmark_constant():

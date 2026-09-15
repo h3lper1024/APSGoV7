@@ -206,7 +206,7 @@ def _evaluate_candidate_plan(plan, state, rule_set, rule_context, previous):
     )
 
 
-def _screen_candidate_plan(plan, state, rule_set, context, previous):
+def _screen_candidate_plan(plan, state, rule_set, context, previous, delivery_bounds=None):
     """An exact rejection proof, never authority to accept or to suppress input errors."""
     if (previous is None or not previous.matches(state, rule_set, context)
             or previous.delivery is None or type(rule_set) is not ProcessRuleSet
@@ -240,6 +240,8 @@ def _screen_candidate_plan(plan, state, rule_set, context, previous):
     # from early rejection; they still reach the original precise error path.
     if largest_duration + max(0, largest_weight) + 2 * len(str(len(seen))) + 10 >= _timing_context().Emax:
         return _CandidateScreen("unsupported", reason="decimal_exponent_boundary")
+    if delivery_bounds is not None and not delivery_bounds.matches(plan, state, context.delivery_timing):
+        raise ValueError("delivery bounds do not match the current candidate")
     resources = []
     for chain in plan.chains:
         entry = previous.entries.get(chain.chain_id)
@@ -248,7 +250,7 @@ def _screen_candidate_plan(plan, state, rule_set, context, previous):
     runs, delivery = RuleRuns(previous.runs), _DeliveryReuse(previous.delivery)
     result, _ = _evaluate_plan(plan, rule_set, context, previous.entries,
                                _combine_resource_views(resources), runs, delivery,
-                               state.current_evaluation.quality_key)
+                               state.current_evaluation.quality_key, delivery_bounds=delivery_bounds)
     stats = [("run_key_hits", runs.key_hits), ("run_weight_hits", runs.weight_hits),
              ("resource_chain_hits", sum(previous.entries.get(c.chain_id) is not None
                                           and previous.entries[c.chain_id].chain is c for c in plan.chains))]
@@ -397,7 +399,7 @@ def evaluate_plan(
 
 
 def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=None, runs=None, delivery=None,
-                   screen_limit=None):
+                   screen_limit=None, delivery_bounds=None):
     # None is the uncached path; an empty mapping captures a cold candidate.
     _validate_inputs(plan, SchedulePlan, rule_set, context)
     if resources is None:
@@ -466,6 +468,9 @@ def _evaluate_plan(plan, rule_set, context, previous_entries=None, resources=Non
             return _CandidateScreen("reject", prefix, "worse_prefix"), None
         if prefix < screen_limit[:prefix_length]:
             return _CandidateScreen("confirm", prefix, "better_prefix"), None
+        if len(pending) == 1 and delivery_bounds is not None and delivery_bounds.rejects(
+                rule_set.quality_spec[prefix_length:], screen_limit[prefix_length:]):
+            return _CandidateScreen("reject", prefix, "numeric_delivery_bound"), None
         for index, rule in pending:
             plan_results[index] = rule_set._evaluate(subject, context, PlanRuleSubject, RuleScope.PLAN,
                                                     rules=(rule,), _delivery_cache=delivery)

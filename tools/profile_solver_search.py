@@ -116,6 +116,8 @@ def _snapshot(state, context):
             "batch_known_positions": cache._batch_known_position_count,
         },
         "candidate_screen": dict(context.candidate_screen_counts),
+        "parallel_candidates": {key: Decimal(str(value)) if isinstance(value, float) else value
+                                for key, value in context.parallel_candidate_counts.items()},
     })
 
 
@@ -123,11 +125,16 @@ class FirstSearchComplete(BaseException):
     """Diagnostic escape before split/replay/audits; never a production result."""
 
 
-def measure(request, *, scope="first", profile=None, result_observer=None, screen_mode="enabled"):
+def measure(request, *, scope="first", profile=None, result_observer=None, screen_mode="enabled",
+            candidate_threads=0, candidate_batch_size=32):
     if scope not in {"first", "full"}:
         raise ValueError("scope must be first or full")
     if screen_mode not in {"enabled", "disabled", "shadow"}:
         raise ValueError("unknown screen mode")
+    if type(candidate_threads) is not int or candidate_threads not in (0, 1, 2, 4, 8):
+        raise ValueError("candidate_threads must be 0/1/2/4/8")
+    if type(candidate_batch_size) is not int or not 1 <= candidate_batch_size <= 32:
+        raise ValueError("candidate_batch_size must be 1..32")
     report, functions, observed = {}, [], []
     original_search = solver.run_local_search
     original_refinement = solver.run_width_optimization
@@ -154,6 +161,8 @@ def measure(request, *, scope="first", profile=None, result_observer=None, scree
     def first_search(state, context):
         context._screen_enabled = screen_mode != "disabled"
         context._screen_shadow = screen_mode == "shadow"
+        context._candidate_threads = candidate_threads
+        context._candidate_batch_size = candidate_batch_size
         # Snapshot construction is outside the measured first-search interval.
         initial = _snapshot(state, context)
         observed.append((state, context))
@@ -213,6 +222,8 @@ def main(argv=None):
     parser.add_argument("--scope", choices=("check", "first", "full"), default="first")
     parser.add_argument("--profile", action="store_true", help="Profile first local search only")
     parser.add_argument("--screen-mode", choices=("enabled", "disabled", "shadow"), default="enabled")
+    parser.add_argument("--candidate-threads", type=int, choices=(0, 1, 2, 4, 8), default=0)
+    parser.add_argument("--candidate-batch-size", type=int, choices=range(1, 33), default=32)
     parser.add_argument("--total-time-limit-seconds", type=Decimal)
     args = parser.parse_args(argv)
     prepared_bytes = args.prepared_request.read_bytes()
@@ -239,13 +250,16 @@ def main(argv=None):
         "profile_enabled": args.profile,
         "requested_scope": args.scope,
         "screen_mode": args.screen_mode,
+        "candidate_threads": args.candidate_threads,
+        "candidate_batch_size": args.candidate_batch_size,
     }
     _write_json(args.output_dir / "input_identity.json", identity)
     if args.scope == "check":
         return 0
     profile = cProfile.Profile() if args.profile else None
     try:
-        report = measure(request, scope=args.scope, profile=profile, screen_mode=args.screen_mode)
+        report = measure(request, scope=args.scope, profile=profile, screen_mode=args.screen_mode,
+                         candidate_threads=args.candidate_threads, candidate_batch_size=args.candidate_batch_size)
         _write_json(args.output_dir / "measurement.json", report)
     except Exception as error:
         _write_json(args.output_dir / "error.json", {

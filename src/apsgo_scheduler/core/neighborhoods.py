@@ -118,6 +118,9 @@ class SearchContext:
     _screen_shadow: bool = field(default=False, init=False, repr=False)
     _shadow_reuse: object = field(default=None, init=False, repr=False)
     candidate_screen_counts: dict = field(default_factory=dict, init=False)
+    _candidate_threads: int = field(default=0, init=False, repr=False)
+    _candidate_batch_size: int = field(default=32, init=False, repr=False)
+    parallel_candidate_counts: dict = field(default_factory=dict, init=False)
 
     def __post_init__(self):
         if not isinstance(self.factory, VirtualFactory) or not isinstance(
@@ -475,6 +478,7 @@ def try_complete_candidate(
     chain_order_only: bool = False,
     width_optimization_only: bool = False,
     removed_bridge_ids: tuple[str, ...] = (),
+    _delivery_bounds=None,
 ) -> bool:
     """Evaluate one structurally complete candidate; no business-wide hard filters."""
     _validate_search(state, context)
@@ -623,7 +627,8 @@ def try_complete_candidate(
         # Independent reference entries: never seed this with the new incremental cache.
         shadow_evaluation, shadow_entries = _evaluate_plan(plan, cache.rule_set, cache.context, previous_entries)
         context.candidate_screen_counts["shadow_evaluations"] = context.candidate_screen_counts.get("shadow_evaluations", 0) + 1
-    screen = (_screen_candidate_plan(plan, state, cache.rule_set, cache.context, context._evaluation_reuse)
+    screen = (_screen_candidate_plan(plan, state, cache.rule_set, cache.context, context._evaluation_reuse,
+                                     _delivery_bounds)
               if context._screen_enabled else None)
     if screen is not None:
         key = f"{screen.outcome}:{screen.reason}"
@@ -1123,13 +1128,38 @@ def improve_chain_order(state: SearchState, context: SearchContext) -> SearchSta
         chains = state.current_plan.chains
         accepted = False
         sources = delivery_chain_indices(chains, cache.context.delivery_timing) if has_delivery_objective(cache.rule_set) else range(len(chains))
+        batch = None
+        if context._candidate_threads:
+            from time import perf_counter
+            from ._delivery_parallel import ChainOrderBatch
+            started = perf_counter()
+            batch = ChainOrderBatch.prepare(context._evaluation_reuse, state, cache)
+            stats = context.parallel_candidate_counts
+            stats["catalog_seconds"] = stats.get("catalog_seconds", 0.0) + perf_counter() - started
         for source_index in sources:
             moved = chains[source_index]
             if not budget.allows_search():
                 return state
-            for position in _chain_order_positions(chains, source_index):
+            positions = _chain_order_positions(chains, source_index)
+            hints = ()
+            hint_index = 0
+            for position_index, position in enumerate(positions):
+                if batch is not None and hint_index == len(hints) and budget.allows_search():
+                    count = min(context._candidate_batch_size,
+                                budget.candidate_check_limit - budget.candidate_check_count)
+                    if count:
+                        candidates = tuple(_relocate_chain(chains, source_index, p)
+                                           for p in positions[position_index:position_index + count])
+                        hints = batch.compute(candidates, context._candidate_threads, stats)
+                        hint_index = 0
                 if not budget.consume_candidate_check():
+                    if batch is not None:
+                        stats["discarded"] = stats.get("discarded", 0) + len(hints) - hint_index
                     return state
+                hint = hints[hint_index] if hints else None
+                if hints:
+                    hint_index += 1
+                    stats["consumed"] = stats.get("consumed", 0) + 1
                 _, actual_source, actual_position = context.restore_recipe(
                     state, ("chain_order_relocation", source_index, position), "chain_order")
                 candidate = _relocate_chain(chains, actual_source, actual_position)
@@ -1141,10 +1171,15 @@ def improve_chain_order(state: SearchState, context: SearchContext) -> SearchSta
                     virtual_sequence=state.virtual_sequence,
                     action_name="chain_order_relocation",
                     chain_order_only=True,
+                    _delivery_bounds=hint,
                 ):
                     accepted = True
+                    if batch is not None:
+                        stats["discarded"] = stats.get("discarded", 0) + len(hints) - hint_index
                     break
                 if budget.must_stop:
+                    if batch is not None:
+                        stats["discarded"] = stats.get("discarded", 0) + len(hints) - hint_index
                     return state
             if accepted:
                 break
