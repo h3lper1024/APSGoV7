@@ -12,7 +12,7 @@ from numba import njit
 from ._numeric_rules import _GENERATED_VIRTUAL, _ACTUAL_TRANSITION
 from .contracts import RuleScope
 
-OK, INVALID, NUMERIC_ERROR, CANCELLED, CAPACITY = range(5)
+OK, INVALID, NUMERIC_ERROR, CANCELLED, CAPACITY, STALE = range(6)
 MAX = (1 << 63) - 1
 MIN = -(1 << 63)
 SEVERITY = 1000000
@@ -28,6 +28,9 @@ KernelResult = namedtuple("KernelResult", (
     "violations metrics counts event_counts"
 ))
 ReuseColumns = namedtuple("ReuseColumns", "rows offsets ids periods facts scores hits event_counts")
+BatchResult = namedtuple("BatchResult", (
+    "status quality facts scores hits totals ends completion late waits counts event_counts"
+))
 
 
 def _freeze(array):
@@ -560,6 +563,47 @@ def evaluate_kernel(t, r, rows, offsets, periods, objective_order, detail=False,
         out.quality[j] = canonical[objective_order[j]]
     if out.status[0] == OK:
         out.status[1:4] = -1
+    return out
+
+
+@njit
+def evaluate_batch_kernel(t, r, rows, chain_offsets, candidate_offsets, ids, periods,
+                          objective_order, generations, current_generation, reuse,
+                          cancelled=False):
+    """Bounded serial outer loop; every row calls the authoritative single kernel."""
+    size, chains = generations.size, periods.size
+    originals = t.original_weight.size
+    out = BatchResult(
+        np.zeros((size, 5), np.int64), np.zeros((size, 9), np.int64),
+        np.zeros((chains, 5), np.int64), np.zeros((chains + size, 4), np.int64),
+        np.zeros((chains + size, r.meta.shape[0]), np.int64), np.zeros((size, 7), np.int64),
+        np.zeros(rows.size, np.int64), np.zeros((size, originals), np.int64),
+        np.zeros((size, originals), np.bool_), np.zeros((size, originals), np.int64),
+        np.zeros((size, 4), np.int64), np.zeros((chains, 2), np.int64),
+    )
+    for i in range(size):
+        if generations[i] != current_generation:
+            out.status[i, 0] = STALE
+            continue
+        first, stop = candidate_offsets[i], candidate_offsets[i + 1]
+        start_row, stop_row = chain_offsets[first], chain_offsets[stop]
+        result = evaluate_kernel(
+            t, r, rows[start_row:stop_row], chain_offsets[first:stop + 1] - start_row,
+            periods[first:stop], objective_order, False, 0, 0, cancelled,
+            ids[first:stop], reuse,
+        )
+        out.status[i] = result.status
+        out.quality[i] = result.quality
+        out.facts[first:stop] = result.facts
+        out.scores[first + i:stop + i + 1] = result.scores
+        out.hits[first + i:stop + i + 1] = result.hits
+        out.totals[i] = result.totals
+        out.ends[start_row:stop_row] = result.ends
+        out.completion[i] = result.completion
+        out.late[i] = result.late
+        out.waits[i] = result.waits
+        out.counts[i] = result.counts
+        out.event_counts[first:stop] = result.event_counts
     return out
 
 

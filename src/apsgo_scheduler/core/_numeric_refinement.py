@@ -12,6 +12,10 @@ import numpy as np
 from ._numeric_evaluation import (
     summarize_numeric_candidate,
     materialize_numeric_evaluation,
+    _check_kernel_status,
+)
+from ._numeric_batch import (
+    MAX_BATCH_CANDIDATES, pack_numeric_candidates, evaluate_numeric_batch, numeric_batch_result,
 )
 from ._numeric_resources import NumericResourceExtension
 from ._numeric_rules import NumericRuleKind
@@ -67,6 +71,14 @@ class NumericRefinementDiagnostics:
     batch_stale: dict[str, int] = field(default_factory=dict)
     batch_cancelled: dict[str, int] = field(default_factory=dict)
     batch_stopped: dict[str, int] = field(default_factory=dict)
+    numeric_precomputed: dict[str, int] = field(default_factory=dict)
+    numeric_consumed: dict[str, int] = field(default_factory=dict)
+    numeric_discarded: dict[str, int] = field(default_factory=dict)
+    numeric_batch_calls: int = 0
+    numeric_batch_prepare_seconds: float = 0.0
+    numeric_batch_evaluate_seconds: float = 0.0
+    maximum_numeric_batch_bytes: int = 0
+    maximum_numeric_batch_seconds: float = 0.0
     layout_call_count: int = 0
     layout_seconds: float = 0.0
     maximum_generator_advance_seconds: float = 0.0
@@ -99,12 +111,20 @@ class NumericRefinementDiagnostics:
                 "batch_stale",
                 "batch_cancelled",
                 "batch_stopped",
+                "numeric_precomputed",
+                "numeric_consumed",
+                "numeric_discarded",
             )
         } | {
             "layout_call_count": self.layout_call_count,
             "layout_seconds": self.layout_seconds,
             "maximum_generator_advance_seconds": self.maximum_generator_advance_seconds,
             "maximum_batch_size": self.maximum_batch_size,
+            "numeric_batch_calls": self.numeric_batch_calls,
+            "numeric_batch_prepare_seconds": self.numeric_batch_prepare_seconds,
+            "numeric_batch_evaluate_seconds": self.numeric_batch_evaluate_seconds,
+            "maximum_numeric_batch_bytes": self.maximum_numeric_batch_bytes,
+            "maximum_numeric_batch_seconds": self.maximum_numeric_batch_seconds,
         }
 
 
@@ -866,6 +886,7 @@ def _try_overlay_candidate(
     reject_prohibited_kinds=(),
     diagnostics=None,
     diagnostic_key=None,
+    _summary=None,
 ):
     if edit.sequence != budget.candidate_check_count:
         raise NumericValueError("candidate", "candidate sequence does not match consumed budget")
@@ -873,7 +894,7 @@ def _try_overlay_candidate(
         candidate_task, overlay.chains, overlay.chain_periods
     ):
         return False
-    preview = summarize_numeric_candidate(
+    preview = _summary if _summary is not None else summarize_numeric_candidate(
         candidate_task,
         candidate_program,
         candidate_quality,
@@ -884,6 +905,9 @@ def _try_overlay_candidate(
         state.plan,
         state.evaluation,
     )
+    _check_kernel_status(preview)
+    if _summary is not None and diagnostics is not None:
+        diagnostics.record("numeric_consumed", diagnostic_key)
     state.complete_candidate_evaluation_count += 1
     if any(
         preview.hits[:, rule.index].any()
@@ -925,16 +949,22 @@ def _try_overlay_candidate(
     return True
 
 
-def _try_repaired_parts(
+@dataclass(frozen=True, slots=True)
+class PreparedRefinementCandidate:
+    task: object
+    program: object
+    quality: object
+    overlay: NumericPlanOverlay
+    affected_rows: tuple
+    virtual_sequence: int | None = None
+
+
+def _prepare_repaired_parts(
     state,
-    budget,
     indices,
     parts,
     removed_rows,
-    edit,
     maximum_virtual_bridge_nodes,
-    diagnostics=None,
-    diagnostic_key=None,
     index=None,
 ):
     index = index or NumericRefinementIndex.build(state)
@@ -951,16 +981,16 @@ def _try_repaired_parts(
                 workspace, rows, piece, maximum_virtual_bridge_nodes, sequence
             )
             if joined is None:
-                return False
+                return None
             workspace, rows, sequence = joined
         if not _has_real(workspace.task, rows):
-            return False
+            return None
         changed.append(rows)
     maximum = _maximum_chain_weight(state)
     if maximum is not None and any(
         _chain_weight(workspace.task, rows) > maximum for rows in changed
     ):
-        return False
+        return None
     for chain_index, rows in zip(indices, changed):
         chains[chain_index] = rows
         periods[chain_index] = _assigned_period(workspace.task, rows)
@@ -972,29 +1002,20 @@ def _try_repaired_parts(
             (*removed_rows, *range(state.task.nodes.weight.size, workspace.task.nodes.weight.size))
         )
     )
-    return _try_overlay_candidate(
-        state,
-        budget,
-        edit,
+    return PreparedRefinementCandidate(
         workspace.task,
         workspace.program,
         workspace.quality,
         overlay,
         affected_rows,
-        virtual_sequence=sequence,
-        reject_prohibited_kinds=tuple(NumericRuleKind),
-        diagnostics=diagnostics,
-        diagnostic_key=diagnostic_key,
+        sequence,
     )
 
 
-def _try_segment_recipe(
+def _prepare_segment_recipe(
     state,
-    budget,
     recipe,
     maximum_virtual_bridge_nodes,
-    diagnostics=None,
-    diagnostic_key=None,
     index=None,
 ):
     action, source_id, target_id, start, stop, other_start, other_stop = recipe
@@ -1014,7 +1035,8 @@ def _try_segment_recipe(
         }
         exchanged = target[other_start:other_stop] if exchange else ()
         if not _has_real(state.task, moved) or (exchanged and not _has_real(state.task, exchanged)):
-            return False
+            yield None
+            return
         parts = (
             (source[:start], exchanged, source[stop:]),
             (target[:other_start], moved, target[other_stop if exchange else other_start :]),
@@ -1023,34 +1045,24 @@ def _try_segment_recipe(
     if any(
         not _has_real(state.task, tuple(row for piece in group for row in piece)) for group in parts
     ):
-        return False
+        yield None
+        return
     cleaned, removed = zip(*(_trim_inner_bridges(state.task, group) for group in parts))
     cleaned_rows = tuple(row for group in removed for row in group)
     variants = [(tuple(cleaned), cleaned_rows)] if cleaned_rows else []
     variants.append((parts, ()))
-    for position, (variant, removed_rows) in enumerate(variants):
-        if position and not budget.consume_candidate_check():
-            return False
-        edit = _edit_for(state, recipe, budget.candidate_check_count)
-        if _try_repaired_parts(
+    for variant, removed_rows in variants:
+        yield _prepare_repaired_parts(
             state,
-            budget,
             indices,
             variant,
             removed_rows,
-            edit,
             maximum_virtual_bridge_nodes,
-            diagnostics,
-            diagnostic_key,
             index,
-        ):
-            return True
-    return False
+        )
 
 
-def _try_chain_cut(
-    state, budget, recipe, diagnostics=None, diagnostic_key=None, index=None
-):
+def _prepare_chain_cut(state, recipe, index=None):
     _, source_id, new_id, cut, _, prefix_position, suffix_position = recipe
     index = index or NumericRefinementIndex.build(state)
     chains = list(index.chains)
@@ -1060,7 +1072,7 @@ def _try_chain_cut(
     prefix = tuple(int(value) for value in chains[source_index][:cut])
     suffix = tuple(int(value) for value in chains[source_index][cut:])
     if not _has_real(state.task, prefix) or not _has_real(state.task, suffix):
-        return False
+        return None
     remaining = iter(
         (chain, identity, period)
         for index, (chain, identity, period) in enumerate(zip(chains, chain_ids, periods))
@@ -1078,7 +1090,7 @@ def _try_chain_cut(
         candidate_ids.append(values[1])
         candidate_periods.append(values[2])
     if any(left > right for left, right in zip(candidate_periods, candidate_periods[1:])):
-        return False
+        return None
     overlay = _candidate_overlay(
         state.task,
         state.plan,
@@ -1087,23 +1099,16 @@ def _try_chain_cut(
         candidate_periods,
         group_periods=False,
     )
-    edit = _edit_for(state, recipe, budget.candidate_check_count)
-    return _try_overlay_candidate(
-        state,
-        budget,
-        edit,
+    return PreparedRefinementCandidate(
         state.task,
         state.program,
         state.quality,
         overlay,
         (*prefix, *suffix),
-        reject_prohibited_kinds=tuple(NumericRuleKind),
-        diagnostics=diagnostics,
-        diagnostic_key=diagnostic_key,
     )
 
 
-def _try_order(state, budget, recipe, diagnostics=None, diagnostic_key=None, index=None):
+def _prepare_order(state, recipe, index=None):
     _, source_id, target_id, _, _, position, _ = recipe
     index = index or NumericRefinementIndex.build(state)
     chains = list(index.chains)
@@ -1111,7 +1116,7 @@ def _try_order(state, budget, recipe, diagnostics=None, diagnostic_key=None, ind
     periods = [int(value) for value in state.plan.chain_periods]
     source = index.chain_index(source_id)
     if position >= len(chains) or chain_ids[position] != target_id:
-        return False
+        return None
     moved = chains.pop(source)
     moved_id = chain_ids.pop(source)
     moved_period = periods.pop(source)
@@ -1121,23 +1126,16 @@ def _try_order(state, budget, recipe, diagnostics=None, diagnostic_key=None, ind
     overlay = _candidate_overlay(
         state.task, state.plan, chains, chain_ids, periods, group_periods=False
     )
-    edit = _edit_for(state, recipe, budget.candidate_check_count)
-    return _try_overlay_candidate(
-        state,
-        budget,
-        edit,
+    return PreparedRefinementCandidate(
         state.task,
         state.program,
         state.quality,
         overlay,
-        moved,
-        reject_prohibited_kinds=tuple(NumericRuleKind),
-        diagnostics=diagnostics,
-        diagnostic_key=diagnostic_key,
+        tuple(map(int, moved)),
     )
 
 
-def _try_reclaim(state, budget, recipe, diagnostics=None, diagnostic_key=None, index=None):
+def _prepare_reclaim(state, recipe, index=None):
     _, chain_id, _, start, stop, _, _ = recipe
     numeric_index = index or NumericRefinementIndex.build(state)
     chains = list(numeric_index.chains)
@@ -1147,10 +1145,10 @@ def _try_reclaim(state, budget, recipe, diagnostics=None, diagnostic_key=None, i
     original = chains[chain_index]
     removed = tuple(int(value) for value in original[start:stop])
     if not removed or not all(_ordinary_bridge(state.task, row) for row in removed):
-        return False
+        return None
     kept = tuple(int(value) for value in np.concatenate((original[:start], original[stop:])))
     if not _has_real(state.task, kept):
-        return False
+        return None
     if (
         start
         and stop < len(original)
@@ -1158,34 +1156,19 @@ def _try_reclaim(state, budget, recipe, diagnostics=None, diagnostic_key=None, i
             state.task, state.program, int(original[start - 1]), int(original[stop])
         )
     ):
-        return False
+        return None
     chains[chain_index] = kept
     overlay = _candidate_overlay(state.task, state.plan, chains, chain_ids, periods)
-    edit = _edit_for(state, recipe, budget.candidate_check_count)
-    return _try_overlay_candidate(
-        state,
-        budget,
-        edit,
+    return PreparedRefinementCandidate(
         state.task,
         state.program,
         state.quality,
         overlay,
         removed,
-        reject_prohibited_kinds=tuple(NumericRuleKind),
-        diagnostics=diagnostics,
-        diagnostic_key=diagnostic_key,
     )
 
 
-def _try_recipe(
-    state,
-    budget,
-    recipe,
-    maximum_virtual_bridge_nodes,
-    diagnostics=None,
-    diagnostic_key=None,
-    index=None,
-):
+def _prepare_recipe(state, recipe, maximum_virtual_bridge_nodes, index=None):
     action = recipe[0]
     if action in {
         NumericSearchAction.DELIVERY_INTRA_MOVE,
@@ -1194,22 +1177,131 @@ def _try_recipe(
         NumericSearchAction.BLOCK_MOVE,
         NumericSearchAction.BLOCK_EXCHANGE,
     }:
-        return _try_segment_recipe(
+        yield from _prepare_segment_recipe(
             state,
-            budget,
             recipe,
             maximum_virtual_bridge_nodes,
-            diagnostics,
-            diagnostic_key,
             index,
         )
-    if action is NumericSearchAction.CHAIN_CUT:
-        return _try_chain_cut(state, budget, recipe, diagnostics, diagnostic_key, index)
-    if action is NumericSearchAction.CHAIN_ORDER_RELOCATION:
-        return _try_order(state, budget, recipe, diagnostics, diagnostic_key, index)
-    if action is NumericSearchAction.BRIDGE_RECLAMATION:
-        return _try_reclaim(state, budget, recipe, diagnostics, diagnostic_key, index)
-    raise NumericValueError("refinement", "known numeric refinement action required")
+    elif action is NumericSearchAction.CHAIN_CUT:
+        yield _prepare_chain_cut(state, recipe, index)
+    elif action is NumericSearchAction.CHAIN_ORDER_RELOCATION:
+        yield _prepare_order(state, recipe, index)
+    elif action is NumericSearchAction.BRIDGE_RECLAMATION:
+        yield _prepare_reclaim(state, recipe, index)
+    else:
+        raise NumericValueError("refinement", "known numeric refinement action required")
+
+
+def _try_recipe(state, budget, recipe, maximum_virtual_bridge_nodes,
+                diagnostics=None, diagnostic_key=None, index=None, prepared=None):
+    attempts = iter(prepared) if prepared is not None else (
+        (candidate, None) for candidate in _safe_prepare_recipe(
+            state, recipe, maximum_virtual_bridge_nodes, index
+        )
+    )
+    position = 0
+    while True:
+        # Pull the next attempt only after the previous variant was rejected.
+        # The second repair still consumes its own logical check, not a new proposal.
+        try:
+            candidate, summary = next(attempts)
+        except StopIteration:
+            return False
+        if position and not budget.consume_candidate_check():
+            return False
+        position += 1
+        if isinstance(candidate, NumericValueError):
+            raise candidate
+        if candidate is None:
+            continue
+        edit = _edit_for(state, recipe, budget.candidate_check_count)
+        if _try_overlay_candidate(
+            state, budget, edit, candidate.task, candidate.program, candidate.quality,
+            candidate.overlay, candidate.affected_rows, virtual_sequence=candidate.virtual_sequence,
+            reject_prohibited_kinds=tuple(NumericRuleKind), diagnostics=diagnostics,
+            diagnostic_key=diagnostic_key, _summary=summary,
+        ):
+            return True
+
+
+def _safe_prepare_recipe(state, recipe, maximum_virtual_bridge_nodes, index):
+    # A speculative error belongs to its logical candidate, not an earlier one.
+    try:
+        yield from _prepare_recipe(state, recipe, maximum_virtual_bridge_nodes, index)
+    except NumericValueError as error:
+        yield error
+
+
+def _prepare_recipe_batch(state, budget, recipes, maximum_virtual_bridge_nodes,
+                          index, diagnostics, key):
+    prepared = [[] for _ in recipes]
+    pending = []
+    sequence = budget.candidate_check_count
+    started = perf_counter()
+    for position, recipe in enumerate(recipes):
+        attempts = _safe_prepare_recipe(state, recipe, maximum_virtual_bridge_nodes, index)
+        while budget.allows_search():
+            try:
+                candidate = next(attempts)
+            except StopIteration:
+                break
+            sequence += 1
+            slot = len(prepared[position])
+            prepared[position].append((candidate, None))
+            if sequence <= budget.candidate_check_limit and isinstance(candidate, PreparedRefinementCandidate) and split_target_periods_match(
+                candidate.task, candidate.overlay.chains, candidate.overlay.chain_periods
+            ):
+                pending.append((position, slot, sequence, recipe[0], candidate))
+    if diagnostics is not None:
+        diagnostics.numeric_batch_prepare_seconds += perf_counter() - started
+    offset = 0
+    while offset < len(pending) and budget.allows_search():
+        size = min(MAX_BATCH_CANDIDATES, len(pending) - offset)
+        while True:
+            started = perf_counter()
+            chunk = pending[offset:offset + size]
+            try:
+                flat = pack_numeric_candidates(
+                    state.task, state.program, state.quality, state.plan, state.evaluation,
+                    [(c.task, c.program, c.quality, c.overlay) for *_, c in chunk],
+                    [sequence for _, _, sequence, _, _ in chunk],
+                    [tuple(NumericSearchAction).index(action) for _, _, _, action, _ in chunk],
+                )
+            except NumericValueError as error:
+                if error.path != "candidate_batch.capacity":
+                    raise
+                if size == 1:
+                    # An exceptional large candidate uses the same single kernel
+                    # when consumed; it never allocates an unbounded batch buffer.
+                    flat = None
+                    break
+                size = max(1, size // 2)
+            else:
+                break
+            finally:
+                if diagnostics is not None:
+                    diagnostics.numeric_batch_prepare_seconds += perf_counter() - started
+        if flat is not None:
+            if not budget.allows_search():
+                break
+            started = perf_counter()
+            output = evaluate_numeric_batch(flat, state.task, state.program, state.quality, state.plan)
+            elapsed = perf_counter() - started
+            for i, (position, slot, _, _, candidate) in enumerate(chunk):
+                prepared[position][slot] = (candidate, numeric_batch_result(flat, output, i))
+            if diagnostics is not None:
+                diagnostics.record("numeric_precomputed", key, size)
+                diagnostics.numeric_batch_calls += 1
+                diagnostics.numeric_batch_evaluate_seconds += elapsed
+                diagnostics.maximum_numeric_batch_bytes = max(
+                    diagnostics.maximum_numeric_batch_bytes, flat.estimated_bytes
+                )
+                diagnostics.maximum_numeric_batch_seconds = max(
+                    diagnostics.maximum_numeric_batch_seconds, elapsed
+                )
+        offset += size
+    return prepared
 
 
 def _scan_family(
@@ -1257,6 +1349,21 @@ def _scan_family(
             )
         if not batch:
             return False, exhausted
+        before_computed = diagnostics.numeric_precomputed.get(diagnostic_key, 0) if diagnostics else 0
+        before_consumed = diagnostics.numeric_consumed.get(diagnostic_key, 0) if diagnostics else 0
+        prepared = _prepare_recipe_batch(
+            state, budget, [item[1] if cursor is not None else item for item in batch],
+            maximum_virtual_bridge_nodes, index, diagnostics, diagnostic_key,
+        ) if _batch_size > 1 else [None] * len(batch)
+
+        def record_discarded():
+            if diagnostics is not None:
+                diagnostics.record(
+                    "numeric_discarded", diagnostic_key,
+                    diagnostics.numeric_precomputed.get(diagnostic_key, 0) - before_computed
+                    - diagnostics.numeric_consumed.get(diagnostic_key, 0) + before_consumed,
+                )
+
         for position, item in enumerate(batch):
             owner, recipe = item if cursor is not None else (None, item)
             if not budget.consume_candidate_check():
@@ -1265,6 +1372,7 @@ def _scan_family(
                     diagnostics.record("batch_stopped", diagnostic_key, stopped)
                     if budget.stop_reason is SearchStopReason.USER_CANCELLED:
                         diagnostics.record("batch_cancelled", diagnostic_key, stopped)
+                record_discarded()
                 return False, False
             remaining -= 1
             if cursor is not None:
@@ -1281,6 +1389,7 @@ def _scan_family(
                 diagnostics,
                 diagnostic_key,
                 index,
+                prepared[position],
             )
             if diagnostics is not None:
                 diagnostics.record(
@@ -1299,7 +1408,9 @@ def _scan_family(
             if accepted:
                 if diagnostics is not None:
                     diagnostics.record("accepted", diagnostic_key)
+                record_discarded()
                 return True, False
+        record_discarded()
         if exhausted:
             return False, True
     return False, False

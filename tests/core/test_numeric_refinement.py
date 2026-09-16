@@ -105,6 +105,7 @@ def test_refinement_keeps_four_proposals_per_source_and_sixty_four_per_family(
         lambda state, current, recipe, maximum_virtual_bridge_nodes, *args: False,
     )
     runtime = budget(candidate_limit=100)
+    monkeypatch.setattr(refinement, "_prepare_recipe_batch", lambda s, b, r, *a: [None] * len(r))
     accepted, exhausted = _scan_family(None, runtime, iter(range(100)))
     assert (accepted, exhausted) == (False, False)
     assert runtime.candidate_check_count == 64
@@ -115,6 +116,7 @@ def test_refinement_diagnostics_separate_generated_and_consumed_work(monkeypatch
     runtime = budget(candidate_limit=2)
     state = type("State", (), {"complete_candidate_evaluation_count": 0})()
     monkeypatch.setattr(refinement, "_try_recipe", lambda *args: False)
+    monkeypatch.setattr(refinement, "_prepare_recipe_batch", lambda s, b, r, *a: [None] * len(r))
 
     accepted, exhausted = _scan_family(
         state,
@@ -143,6 +145,7 @@ def test_serial_batch_consumes_in_order_and_discards_stale_descriptions(monkeypa
         return True
 
     monkeypatch.setattr(refinement, "_try_recipe", accept_first)
+    monkeypatch.setattr(refinement, "_prepare_recipe_batch", lambda s, b, r, *a: [None] * len(r))
     accepted, exhausted = _scan_family(
         state,
         runtime,
@@ -179,6 +182,7 @@ def test_serial_batch_cancellation_does_not_consume_prefetched_descriptions(monk
         return False
 
     monkeypatch.setattr(refinement, "_try_recipe", cancel_after_first)
+    monkeypatch.setattr(refinement, "_prepare_recipe_batch", lambda s, b, r, *a: [None] * len(r))
     accepted, exhausted = _scan_family(
         state,
         runtime,
@@ -593,6 +597,12 @@ def test_serial_batches_preserve_first_improvement_trace_and_result():
     assert single_diagnostics.maximum_batch_size == 1
     assert batched_diagnostics.maximum_batch_size == 8
     assert sum(batched_diagnostics.batch_stale.values()) > 0
+    assert batched_diagnostics.numeric_batch_calls > 0
+    assert sum(batched_diagnostics.numeric_discarded.values()) > 0
+    assert sum(batched_diagnostics.numeric_precomputed.values()) == (
+        sum(batched_diagnostics.numeric_consumed.values())
+        + sum(batched_diagnostics.numeric_discarded.values())
+    )
 
 
 def test_refinement_reclaims_only_ordinary_bridge_and_keeps_split_separator():
@@ -662,10 +672,11 @@ def test_rejected_refinement_overlay_does_not_materialize_formal_plan(monkeypatc
                 evaluation.NumericViolation, evaluation.NumericMetric):
         monkeypatch.setattr(cls, "__post_init__", reject_detail_object)
 
-    assert not refinement._try_order(
+    assert not refinement._try_recipe(
         state,
         runtime,
         recipe,
+        2,
         diagnostics,
         "regular:order",
         NumericRefinementIndex.build(state),

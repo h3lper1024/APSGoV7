@@ -375,7 +375,7 @@ def _kernel_inputs(plan):
 
 
 def _check_kernel_status(result):
-    from ._numeric_kernel import OK, CAPACITY, INVALID, NUMERIC_ERROR, CANCELLED
+    from ._numeric_kernel import OK, CAPACITY, INVALID, NUMERIC_ERROR, CANCELLED, STALE
     code, rule, chain, position = map(int, result.status[:4])
     if code in (OK, CAPACITY):
         return
@@ -383,6 +383,7 @@ def _check_kernel_status(result):
         INVALID: "invalid numeric layout or missing inter-chain boundary width",
         NUMERIC_ERROR: "integer is outside signed int64 or invalid ratio",
         CANCELLED: "numeric evaluation cancelled",
+        STALE: "stale numeric candidate generation",
     }.get(code, "unknown numeric kernel status")
     raise NumericValueError(f"kernel.rules[{rule}].chains[{chain}].positions[{position}]", reason)
 
