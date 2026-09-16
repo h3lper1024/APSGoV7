@@ -131,3 +131,45 @@ python tools/verify_numeric_kernel_migration.py \
 受控释放机制小例已验证：为原生生成器传入私有布尔终止标记，每个 `yield` 后立即检查；Python 生成器边界的 `finally` 设置标记，仅恢复一次使其直接返回，不计算下一项。1000 次提前关闭后，存活数组/净原生分配/净内存管理块均为 0。**此处仅小例验证，生产六类生成器尚未修复。**计划新增 7.3 先落实全部生成器的确定性释放并复测，之后才进入新 8.1；不以强制遍历剩余空间规避泄漏，不更改候选顺序/额度/接受。
 
 工具新增限制与请求派生必要测试共享 **2 项通过，0.62 秒，退出 0**，实际命令为项目解释器 `-m pytest -q -p no:cacheprovider tests/app/test_unified_numeric_baseline.py::test_refinement_profiler_requires_an_explicit_bounded_window tests/app/test_numeric_solver_measurement.py`。7.1 累计 4078 项的生产代码未改，不再次运行累计回归；本项精确树复验同 2 项，身份与时间记入提交正文。保护文件与历史证据保持，阶段 7 尚待生命周期修复收口。
+
+## 7.3 原生生成器提前终止释放
+
+实施前 `e1af523`。六类生成器通过统一生命周期包装器传入私有终止标记，每个暂停点恢复后先立即退出；没有公开原生 `close()` 依赖，不耗尽余下空间。`intra`、`node_moves`、`node_exchanges`、`blocks`、`chain_candidates`、`reclaim` 的原生枚举和原有轮转保持。异常描述后原本直接退出的分支继续直接退出。`blocks` 的整数区间终点与布尔终止标记使用不同变量。
+
+### 小例与必要回归
+
+- 全部六类及五种整类协调器覆盖完整耗尽、显式关闭、丢弃、取消、异常退出；实际接受后作废与额度结束后所有扫描数组释放。
+- 独立原生见证证明提前关闭后不会执行下一段扫描工作；错误描述和深扫续算退出均能释放参数数组。
+- 复用上节实际 `scan.intra()` 的 1000 组试验，`NUMBA_NRT_STATS=1`，预热后分别比较 `rtsys.get_allocation_stats()` 的分配减释放；正常耗尽及首项后丢弃的存活数组、净原生分配、净内存管理块均为 **0**。不是只观察 Python 对象数。
+- 原专项 96 项通过，80.85 秒；集中必要组 250 项通过，136.00 秒，补充的接受作废/错误续算 2 项通过，76.25 秒。集中组命令如下，导出树合并执行同 252 项，时间及树身份记入本项提交正文。
+- 一次命令误填不存在的 `test_unified_numeric_candidate.py`，退出 4、没有执行测试；已更正为真实公共接线与发布测试，不作为测试通过。
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m pytest -p no:cacheprovider tests/core/test_numeric_refinement_scan.py tests/core/test_numeric_refinement.py tests/core/test_numeric_refinement_common.py tests/core/test_numeric_batch.py tests/core/test_numeric_candidate_publication.py tests/architecture -q
+```
+
+### 真实同序窗口
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_unified_numeric_search_prefix.py --source-root /Users/miles/dev/dev-py/APSGOV7 --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json --through-split --refinement-checks 20000 --output-dir diagnostics/unified_numeric_solver/stage73_window_01
+```
+
+退出 0。`search_prefix.json` 与 `stage61_reference_01` 字节相等，SHA-256 `da2f5a753580bfcab57c258cf31a940e2d11aa7d417e89d0823d662b1d1e5f1d`；原前缀 134226 后新增 20000 次检查，5560 次完整评价、18 次接受及全部有序摘要保持。窗口诊断包含首次编译，并与必要回归部分并发，不作为性能样本。
+
+### 完整同标准对照
+
+本项另运行一次 400000 次完整求解，仅验证生命周期修复后的完整结果；不重新执行 7.2 的八次性能组。
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/profile_numeric_solver.py --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json --candidate-check-limit 400000 --repeat 1 --output-dir diagnostics/unified_numeric_solver/stage73_full_01
+```
+
+退出 0，`stage73_comparison_01/comparison.json` 完整对照通过；只忽略实测阶段时间，准备请求/交期报告字节相等。400000 次检查、78775 次完整评价、486 次接受、两类拆分各 1 次、22 链/360 吨虚拟、零禁止/欠重及双审计保持。九级公开结果仍为 `(0, 0, 0, 0, 541.2236111111111111111111111, 1181514.034911111111111111111, 11606, 360, 22)`。
+
+本次生产源码摘要 `ca24bc8d6f5a5f62ecf7878f3943a43e106fbe959d044d26c7de91b2df16c56a`。单次首次运行经过 248.236088 秒、CPU 247.561426 秒、进程峰值驻留 1754677248 字节；包含首次编译且开始时与末尾必要测试部分并发，只作正确性运行的附带诊断，不替代 7.2 热中位数、不宣称内存总量或整体耗时已改善。已证明的是上节特定提前弃用泄漏归零。
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_numeric_kernel_migration.py --reference-run diagnostics/unified_numeric_solver/stage0_baseline_01/run_01 --compare-run diagnostics/unified_numeric_solver/stage73_full_01/run_01 --output-dir diagnostics/unified_numeric_solver/stage73_comparison_01
+```
+
+阶段 7 正确性与问题修复收口，下一项新 8.1 为有界工作区复用、公共批次和重复准备治理，不是并行已实现。正式配置/数据库及四份用户文件摘要保持；共享残留检查仍为已记录的 8 项缺失及汇总、退出 1，未将其记为通过，干净导出另验。历史交期质量问题不随释放修复关闭。

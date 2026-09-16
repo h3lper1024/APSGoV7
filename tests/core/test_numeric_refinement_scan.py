@@ -1,5 +1,7 @@
 """Native descriptors keep the frozen structural ownership and traversal order."""
 from itertools import islice
+import gc
+import weakref
 
 import numpy as np
 import pytest
@@ -114,3 +116,113 @@ def test_ignored_negative_due_does_not_overflow_a_priority_subtraction():
         state.task.nodes.split_group, state.task.split_groups.target_period,
         state.evaluation.delivery.original_completion_ms)
     assert result[0] == scan.OK
+
+
+def retained_scan_stream(kind):
+    state = make_state()
+    columns = task_columns(state.task)
+    x = scan.build_scan(state, columns)
+    reference = weakref.ref(x.interval_ranks)
+    if kind == "intra":
+        stream = scan.intra(x, 14, False)
+    elif kind == "node_moves":
+        stream = scan.node_moves(x, columns, rule_tables(state.program.rules), 14, False)
+    elif kind == "node_exchanges":
+        stream = scan.node_exchanges(x, int(x.sources[0]), False)
+    elif kind == "blocks":
+        stream = scan.blocks(x, 14, False)
+    elif kind in ("cut", "order"):
+        stream = scan.chain_candidates(x, scan.CUT if kind == "cut" else scan.ORDER, 0)
+    elif kind == "reclaim":
+        # All rows are ordinary bridge material for this enumeration-only case.
+        stream = scan.reclaim(x, np.full(columns.role.size, scan._VIRTUAL, np.int64),
+            np.full(columns.role.size, scan._BRIDGE, np.int64),
+            np.full(columns.role.size, -1, np.int64))
+    else:
+        stream = scan.family_stream(x, columns, rule_tables(state.program.rules),
+            kind.removeprefix("family_"), None, False, budget())
+    return stream, reference
+
+
+@pytest.mark.parametrize("kind", ("intra", "node_moves", "node_exchanges", "blocks",
+    "cut", "order", "reclaim", "family_intra", "family_node", "family_block",
+    "family_cut", "family_order"))
+@pytest.mark.parametrize("finish", ("close", "drop", "exhaust", "cancel", "error"))
+def test_native_scan_releases_borrowed_arrays_on_every_exit(kind, finish):
+    stream, reference = retained_scan_stream(kind)
+    assert next(stream) is not None
+    assert reference() is not None
+    if finish == "close":
+        stream.close()
+    elif finish == "exhaust":
+        list(stream)
+    elif finish == "cancel":
+        class Cancelled:
+            def allows_search(self):
+                return False
+        assert list(scan.bounded(stream, Cancelled())) == []
+    elif finish == "error":
+        with pytest.raises(RuntimeError, match="test interrupted"):
+            stream.throw(RuntimeError("test interrupted"))
+    del stream
+    gc.collect()
+    assert reference() is None
+
+
+def test_managed_native_scan_closes_before_any_remaining_scan_work():
+    @scan._managed_scan
+    def probe(marker, _closing):
+        for value in range(10):
+            yield value
+            if _closing[0]:
+                return
+            marker[0] += 1
+    marker = np.zeros(1, np.int64)
+    stream = probe(marker)
+    assert next(stream) == 0
+    stream.close()
+    assert marker[0] == 0
+    assert probe.native.nopython_signatures
+    assert list(probe(marker)) == list(range(10))
+    assert marker[0] == 10
+
+
+def test_refinement_discards_scan_arrays_after_acceptance_and_budget_stop(monkeypatch):
+    references = []
+    original = scan.build_scan
+    def capture(*args):
+        result = original(*args)
+        references.append(weakref.ref(result.interval_ranks))
+        return result
+    monkeypatch.setattr(scan, "build_scan", capture)
+    state = make_state()
+    old.improve_numeric_refinement(state, budget(candidate_limit=100))
+    assert state.accepted_move_count > 0
+    gc.collect()
+    assert len(references) > 1
+    assert all(reference() is None for reference in references)
+
+
+def test_native_error_and_continuation_exit_release_scan_arguments():
+    @scan._managed_scan
+    def failing(argument, _closing):
+        yield scan.description(scan.ERROR if argument[0] else scan.CONTINUE)
+        if _closing[0]:
+            return
+        raise AssertionError("cleanup must not resume computation")
+    def stream_with_reference(error):
+        argument = np.array((error,), np.int64)
+        return failing(argument), weakref.ref(argument)
+    for error in (0, 1):
+        stream, reference = stream_with_reference(error)
+        if error:
+            with pytest.raises(scan.NumericValueError, match="scan overflow"):
+                list(scan.bounded(stream, budget()))
+        else:
+            class Cancelled:
+                def allows_search(self):
+                    return False
+            assert list(scan.bounded(stream, Cancelled())) == []
+        del stream
+        gc.collect()
+        assert reference() is None

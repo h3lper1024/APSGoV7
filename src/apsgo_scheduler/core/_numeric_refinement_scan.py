@@ -4,6 +4,7 @@ Compiled generators retain native loop cursors. A negative action is a bounded
 continuation, not a proposal: the caller checks cancellation and resumes it.
 """
 from collections import namedtuple, deque
+from functools import wraps
 
 import numpy as np
 from numba import njit
@@ -26,6 +27,29 @@ _VIRTUAL = tuple(MaterialRole).index(MaterialRole.GENERATED_VIRTUAL)
 _BRIDGE = tuple(VirtualPurpose).index(VirtualPurpose.EDGE_BRIDGE)
 CONTINUE, ERROR = -1, -2
 _DESCRIPTOR_SIZE = len(DESCRIPTOR_FIELDS)
+
+
+def _managed_scan(function):
+    """Finish native frames on early close without enumerating another item.
+
+    The native generator has no close method. Each suspension point therefore
+    checks a private stop flag before doing any more work when resumed here.
+    """
+    native = njit(function)
+
+    @wraps(function)
+    def managed(*args, **kwargs):
+        stop = np.zeros(1, np.bool_)
+        stream = native(*args, **kwargs, _closing=stop)
+        try:
+            yield from stream
+        finally:
+            stop[0] = True
+            if next(stream, None) is not None:
+                raise RuntimeError("native scan cleanup must return before further work")
+
+    managed.native = native
+    return managed
 
 
 @njit
@@ -192,8 +216,8 @@ def build_scan(state, columns):
         readonly(np.argsort(due_key, kind="stable"), np.int64), readonly(sources, np.int64))
 
 
-@njit
-def intra(x, source, lane):
+@_managed_scan
+def intra(x, source, lane, _closing):
     steps = 0
     for i in range(x.piece_offsets[source + 1] - 1, x.piece_offsets[source] - 1, -1):
         row = x.piece_rows[i]
@@ -201,14 +225,18 @@ def intra(x, source, lane):
         steps += 1
         if steps % 256 == 0:
             yield description(CONTINUE)
+            if _closing[0]:
+                return
         if has_critical(x, chain, start, start + 1) != lane:
             continue
         for target in range(start):
             yield description(INTRA, x.ids[chain], x.ids[chain], start, start + 1, target)
+            if _closing[0]:
+                return
 
 
-@njit
-def node_moves(x, t, rules, source, lane):
+@_managed_scan
+def node_moves(x, t, rules, source, lane, _closing):
     steps, status = 0, np.array((OK, -1, -1, -1), np.int64)
     for i in range(x.piece_offsets[source + 1] - 1, x.piece_offsets[source] - 1, -1):
         row = x.piece_rows[i]
@@ -230,14 +258,18 @@ def node_moves(x, t, rules, source, lane):
                     return
                 if steps % 256 == 0:
                     yield description(CONTINUE)
+                    if _closing[0]:
+                        return
             for accepted in (True, False):
                 for slot in range(direct.size):
                     if direct[slot] == accepted:
                         yield description(NODE_MOVE, x.ids[chain], x.ids[target], start, start + 1, slot)
+                        if _closing[0]:
+                            return
 
 
-@njit
-def node_exchanges(x, source, lane):
+@_managed_scan
+def node_exchanges(x, source, lane, _closing):
     steps = 0
     for i in range(x.piece_offsets[source + 1] - 1, x.piece_offsets[source] - 1, -1):
         row = x.piece_rows[i]
@@ -250,14 +282,18 @@ def node_exchanges(x, source, lane):
                 steps += 1
                 if steps % 256 == 0:
                     yield description(CONTINUE)
+                    if _closing[0]:
+                        return
                 if target == chain or x.ranks[x.offsets[chain] + start] >= x.ranks[x.offsets[target] + slot]:
                     continue
                 if (source_critical or has_critical(x, target, slot, slot + 1)) == lane:
                     yield description(NODE_SWAP, x.ids[chain], x.ids[target], start, start + 1, slot, slot + 1)
+                    if _closing[0]:
+                        return
 
 
-@njit
-def blocks(x, source, lane):
+@_managed_scan
+def blocks(x, source, lane, _closing):
     steps = 0
     for i in range(x.piece_offsets[source + 1] - 1, x.piece_offsets[source] - 1, -1):
         row = x.piece_rows[i]
@@ -268,6 +304,8 @@ def blocks(x, source, lane):
                 steps += 1
                 if steps % 256 == 0:
                     yield description(CONTINUE)
+                    if _closing[0]:
+                        return
                 stop = start + length
                 source_interval = interval(x, chain, start, stop)
                 if x.interval_slots[source_interval] != anchor:
@@ -286,6 +324,8 @@ def blocks(x, source, lane):
                     while move_slot <= target_size or exchange_size < maximum:
                         if move_slot <= target_size:
                             yield description(BLOCK_MOVE, x.ids[chain], x.ids[target], start, stop, move_slot)
+                            if _closing[0]:
+                                return
                             move_slot += 1
                         found = False
                         while exchange_size < maximum and not found:
@@ -298,6 +338,8 @@ def blocks(x, source, lane):
                             steps += 1
                             if steps % 256 == 0:
                                 yield description(CONTINUE)
+                                if _closing[0]:
+                                    return
                             if (source_critical or has_critical(x, target, slot, end)) != lane:
                                 continue
                             if current_size > 1 and (x.interval_ranks[source_interval], chain, start, stop) > (
@@ -305,10 +347,12 @@ def blocks(x, source, lane):
                                 continue
                             found = True
                             yield description(BLOCK_SWAP, x.ids[chain], x.ids[target], start, stop, slot, end)
+                            if _closing[0]:
+                                return
 
 
-@njit
-def chain_candidates(x, family, chain):
+@_managed_scan
+def chain_candidates(x, family, chain, _closing):
     if family == CUT:
         # Leave an unrepresentable identity for candidate validation at the
         # original charge boundary; empty scans must not raise speculatively.
@@ -318,10 +362,14 @@ def chain_candidates(x, family, chain):
                 for suffix in range(x.ids.size + 1):
                     if prefix != suffix:
                         yield description(CUT, x.ids[chain], new_id, cut, -1, prefix, suffix)
+                        if _closing[0]:
+                            return
     else:
         for position in range(x.ids.size):
             if position != chain and x.periods[position] == x.periods[chain]:
                 yield description(ORDER, x.ids[chain], x.ids[position], -1, -1, position)
+                if _closing[0]:
+                    return
 
 
 @njit
@@ -337,8 +385,8 @@ def source_chains(x, source, lane):
     return result[:size]
 
 
-@njit
-def reclaim(x, role, purpose, group):
+@_managed_scan
+def reclaim(x, role, purpose, group, _closing):
     steps = 0
     for chain in range(x.ids.size):
         base, last = x.offsets[chain], x.offsets[chain + 1]
@@ -348,6 +396,8 @@ def reclaim(x, role, purpose, group):
             steps += 1
             if steps % 256 == 0:
                 yield description(CONTINUE)
+                if _closing[0]:
+                    return
             if role[row] != _VIRTUAL or purpose[row] != _BRIDGE or group[row] >= 0:
                 position += 1
                 continue
@@ -360,10 +410,16 @@ def reclaim(x, role, purpose, group):
                 steps += 1
                 if steps % 256 == 0:
                     yield description(CONTINUE)
+                    if _closing[0]:
+                        return
             yield description(RECLAIM, x.ids[chain], x.ids[chain], start - base, position - base)
+            if _closing[0]:
+                return
             if position - start > 1:
                 for item in range(start, position):
                     yield description(RECLAIM, x.ids[chain], x.ids[chain], item - base, item + 1 - base)
+                    if _closing[0]:
+                        return
 
 
 def bounded(stream, budget):
