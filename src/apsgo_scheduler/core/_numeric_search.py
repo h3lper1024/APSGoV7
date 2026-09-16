@@ -26,6 +26,7 @@ from ._numeric_resources import (
     materialize_private_resources,
 )
 from . import _numeric_candidate_kernel as common_candidate
+from ._numeric_candidate_kernel import NumericDeferredCandidateFailure, capture_candidate_result
 from ._numeric_chain_ops import chain_rows
 from ._numeric_kernel import (
     task_columns, rule_tables, flat_chain_view, evaluate_chain_kernel,
@@ -615,21 +616,6 @@ def _quality(evaluation):
     return tuple(int(value) for value in evaluation.quality_key)
 
 
-@dataclass(frozen=True, slots=True)
-class NumericDeferredCandidateFailure:
-    view: object
-    error: NumericValueError
-
-
-def capture_candidate_result(workspace, program, quality, descriptors, index, policy, **options):
-    """Speculative errors are inert until their original ordered consumption."""
-    try:
-        return common_candidate.compute_candidate_attempt(
-            workspace, program, quality, descriptors, index, policy, **options)
-    except NumericValueError as error:
-        return NumericDeferredCandidateFailure(workspace.view(), error)
-
-
 def _common_candidate_edit(state, descriptor, sequence):
     action = tuple(NumericSearchAction)[int(descriptor[common_candidate.ACTION])]
     values = dict(task_fingerprint=state.task.fingerprint, plan_fingerprint=state.plan.fingerprint,
@@ -1043,10 +1029,7 @@ def _prepare_current_description(state, budget, workspace, description, policy, 
 
 
 def _grow_candidate_workspace(workspace):
-    workspace.grow_for_retry(changed_capacity=max(1, workspace.changed_rows.size * 2),
-        chain_capacity=max(1, workspace.ids.size * 2), node_capacity=max(1, workspace.templates.size * 2),
-        group_capacity=max(1, workspace.split_groups.parent_row.size * 2),
-        event_capacity=max(1, workspace.event_node_ends.size * 2))
+    workspace.grow()
 
 
 def _try_first_description(state, budget, workspace, description, policy):

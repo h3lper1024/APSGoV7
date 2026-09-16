@@ -5,12 +5,17 @@ from dataclasses import dataclass
 import numpy as np
 
 from ._numeric_evaluation import (
-    _objective_order, _validate_evaluation_inputs, _validated_reuse,
+    _objective_order, _validate_evaluation_inputs, _validated_reuse, NumericEvaluationContext,
+)
+from ._numeric_candidate_kernel import (
+    capture_candidate_result, NumericDeferredCandidateFailure, VARIANT,
 )
 from ._numeric_kernel import (
     KernelResult, TaskColumns, evaluate_batch_kernel, rule_tables, task_columns,
 )
-from ._numeric_state import readonly
+from ._numeric_state import (
+    readonly, NumericCandidateWorkspace, NumericCandidateDescriptors, DESCRIPTOR_FIELDS, OK, CAPACITY,
+)
 from ._numeric_units import NumericValueError
 
 MAX_BATCH_CANDIDATES = 64
@@ -21,6 +26,106 @@ _RESOURCE_FIELDS = (
     "resource", "prototype", "purpose", "split_group", "piece_index", "piece_count",
     "accepted_sequence",
 )
+
+
+def allocate_candidate_workspace(task, plan):
+    return NumericCandidateWorkspace.allocate(task, plan,
+        changed_capacity=max(64, 2 * plan.node_rows.size + 16),
+        chain_capacity=plan.chain_ids.size + 1, node_capacity=8,
+        group_capacity=0, event_capacity=8)
+
+
+class NumericCandidateBatchWorkspace:
+    """Generation-local, bounded reusable slots for complete numeric attempts.
+
+    A slot remains borrowed until the whole batch is consumed or abandoned. The
+    next reset invalidates old views before any buffer is reused. No global pool
+    can retain unrelated tasks or feed a different accepted generation.
+
+    max_bytes bounds the estimated multi-candidate envelope. If even one attempt
+    exceeds it, the batch becomes single-candidate; it cannot cap the irreducible
+    memory of that original candidate or alter its result to fit the batch.
+    """
+    def __init__(self, task, program, quality, plan, evaluation, *,
+                 maximum_candidates=8, max_bytes=MAX_BATCH_BYTES):
+        if (type(maximum_candidates) is not int or not 1 <= maximum_candidates <= MAX_BATCH_CANDIDATES
+                or type(max_bytes) is not int or max_bytes <= 0):
+            raise NumericValueError("candidate_batch.capacity", "bounded positive batch capacity required")
+        self.context = NumericEvaluationContext(task, program, quality, plan, evaluation)
+        self.workspaces = [allocate_candidate_workspace(task, plan)]
+        self.used = 0
+        # Include the result/scratch envelope, not just private input buffers.
+        result_bytes = (plan.chain_ids.size + 1) * (320 + len(program.rules) * 32)
+        result_bytes += task.originals.weight.size * 64 + 1024
+        self.maximum_candidates = max(1, min(maximum_candidates,
+            max_bytes // (2 * (self.workspaces[0].allocated_bytes + result_bytes))))
+        self.allocation_count = 1
+
+    def require_current(self, task, program, quality, plan, evaluation):
+        c = self.context
+        if (task is not c.task or program is not c.program or quality is not c.quality
+                or plan is not c.plan or evaluation is not c.previous_evaluation):
+            raise NumericValueError("candidate_batch", "stale generation inputs")
+
+    def acquire(self):
+        if self.used == 2 * self.maximum_candidates:
+            raise NumericValueError("candidate_batch.capacity", "previous batch must be released")
+        if self.used == len(self.workspaces):
+            self.workspaces.append(allocate_candidate_workspace(self.context.task, self.context.plan))
+            self.allocation_count += 1
+        result = self.workspaces[self.used]
+        self.used += 1
+        return result
+
+    def release_last(self, workspace):
+        if not self.used or workspace is not self.workspaces[self.used - 1]:
+            raise NumericValueError("candidate_batch", "only the unretained last attempt can be released")
+        workspace.reset()
+        self.used -= 1
+
+    def release(self):
+        for workspace in self.workspaces[:self.used]:
+            workspace.reset()
+        self.used = 0
+
+    @property
+    def allocated_bytes(self):
+        return sum(workspace.allocated_bytes for workspace in self.workspaces)
+
+    def attempts(self, descriptor, policy, variants, *, virtual_sequence,
+                 split_sequence, allows_continue, capture=capture_candidate_result):
+        """The caller declares variants in original order; no quota is used here."""
+        descriptions, invalid = None, None
+        try:
+            if (not isinstance(descriptor, np.ndarray) or descriptor.dtype != np.int64
+                    or descriptor.shape != (len(DESCRIPTOR_FIELDS),)):
+                raise NumericValueError("descriptors", "integer descriptor row required")
+            values = np.repeat(descriptor.reshape(1, -1), len(variants), axis=0)
+            values[:, VARIANT] = variants
+            values.setflags(write=False)
+            descriptions = NumericCandidateDescriptors(self.context.task, self.context.plan, values)
+        except NumericValueError as error:
+            invalid = error
+        for index, variant in enumerate(variants):
+            workspace = self.acquire()
+            if invalid is not None:
+                yield workspace, NumericDeferredCandidateFailure(workspace.view(), invalid)
+                return
+            while True:
+                result = capture(workspace, self.context.program, self.context.quality,
+                    descriptions, index, policy, virtual_sequence=virtual_sequence,
+                    split_sequence=split_sequence, previous_evaluation=self.context.previous_evaluation,
+                    allows_continue=allows_continue, evaluation_context=self.context)
+                if isinstance(result, NumericDeferredCandidateFailure) or result.status != CAPACITY:
+                    break
+                workspace.grow()
+            if isinstance(result, NumericDeferredCandidateFailure):
+                yield workspace, result
+                return
+            if variant and not result.cleaned_variant_exists and result.status == OK:
+                self.release_last(workspace)
+                continue
+            yield workspace, result
 
 
 @dataclass(frozen=True, slots=True)

@@ -82,8 +82,18 @@ def main():
             # No production restore interface, file configuration or policy rewrite.
             budget.candidate_check_limit = ceiling
             started, cpu = perf_counter(), process_time()
+            from apsgo_scheduler.core._numeric_state import NumericCandidateWorkspace
+            allocate = NumericCandidateWorkspace.allocate.__func__
+            allocated_count, allocated_bytes = 0, 0
+            def measured_allocate(cls, *args, **options):
+                nonlocal allocated_count, allocated_bytes
+                workspace = allocate(cls, *args, **options)
+                allocated_count += 1
+                allocated_bytes += workspace.allocated_bytes
+                return workspace
             try:
-                result = improve(state, budget, **kwargs, _batch_size=batch_size)
+                with patch.object(NumericCandidateWorkspace, "allocate", classmethod(measured_allocate)):
+                    result = improve(state, budget, **kwargs, _batch_size=batch_size)
             finally:
                 budget.candidate_check_limit = original_limit
             record.update(
@@ -91,6 +101,8 @@ def main():
                 exit_check=budget.candidate_check_count, exit_plan=state.plan.fingerprint,
                 quality=list(map(int, state.evaluation.quality_key)),
                 diagnostics=kwargs["diagnostics"].snapshot(),
+                workspace_allocations=allocated_count,
+                workspace_allocated_bytes_total=allocated_bytes,
             )
             if budget.candidate_check_count - entry != args.window_checks:
                 raise AssertionError("window did not consume the requested logical checks")

@@ -7,6 +7,7 @@ import pytest
 from apsgo_scheduler.core import _numeric_refinement as refinement
 from apsgo_scheduler.core import _numeric_refinement_scan as scan
 from apsgo_scheduler.core import _numeric_search as search
+from apsgo_scheduler.core import _numeric_batch as batch
 from apsgo_scheduler.core._numeric_state import NumericCandidateWorkspace, readonly
 from tests.core.test_numeric_construction import budget
 from tests.core.test_numeric_refinement_scan import make_state, recipe
@@ -54,11 +55,11 @@ def test_capacity_retry_uses_same_description_and_logical_quota(monkeypatch):
     normal, tiny = make_state(), make_state()
     first, second = budget(candidate_limit=10), budget(candidate_limit=10)
     refinement._scan_family(normal, first, iter((value,)))
-    def allocate(state):
-        return NumericCandidateWorkspace.allocate(state.task, state.plan,
-            changed_capacity=0, chain_capacity=state.plan.chain_ids.size + 1,
+    def allocate(task, plan):
+        return NumericCandidateWorkspace.allocate(task, plan,
+            changed_capacity=0, chain_capacity=plan.chain_ids.size + 1,
             node_capacity=0, group_capacity=0, event_capacity=0)
-    monkeypatch.setattr(refinement, "_descriptor_workspace", allocate)
+    monkeypatch.setattr(batch, "allocate_candidate_workspace", allocate)
     refinement._scan_family(tiny, second, iter((value,)))
     compare_states(tiny, normal)
     assert first.candidate_check_count == second.candidate_check_count

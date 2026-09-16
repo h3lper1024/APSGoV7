@@ -1043,6 +1043,13 @@ class NumericCandidateWorkspace:
                       self.split_groups.parent_row.size, self.event_node_ends.size)
         return CAPACITY if any(n > cap for n, cap in zip(requested, capacities)) else OK
 
+    def grow(self):
+        """Common retry growth; preserve the same attempt and logical quota."""
+        self.grow_for_retry(changed_capacity=max(1, self.changed_rows.size * 2),
+            chain_capacity=max(1, self.ids.size * 2), node_capacity=max(1, self.templates.size * 2),
+            group_capacity=max(1, self.split_groups.parent_row.size * 2),
+            event_capacity=max(1, self.event_node_ends.size * 2))
+
     def grow_for_retry(self, *, changed_capacity, chain_capacity, node_capacity,
                        group_capacity, event_capacity):
         """Replace private buffers and retry from the same base, never publish."""

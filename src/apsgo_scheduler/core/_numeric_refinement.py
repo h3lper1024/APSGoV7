@@ -20,6 +20,7 @@ from ._numeric_evaluation import (
 )
 from ._numeric_batch import (
     MAX_BATCH_CANDIDATES, pack_numeric_candidates, evaluate_numeric_batch, numeric_batch_result,
+    NumericCandidateBatchWorkspace,
 )
 from ._numeric_resources import NumericResourceExtension
 from ._numeric_rules import NumericRuleKind
@@ -41,11 +42,9 @@ from ._numeric_search import (
     capture_candidate_result,
     consume_candidate_result,
     NumericDeferredCandidateFailure,
-    _grow_candidate_workspace,
 )
 from ._numeric_state import (
     NumericPlanOverlay, readonly, split_target_periods_match,
-    NumericCandidateWorkspace, NumericCandidateDescriptors, CAPACITY,
 )
 from ._numeric_units import NumericValueError, checked_product
 from .budget import SolveRuntimeBudget
@@ -1327,153 +1326,143 @@ def _scan_family(
     cursor=None,
     family=None,
     _batch_size=_SERIAL_BATCH_SIZE,
+    _workspace=None,
 ):
     if type(_batch_size) is not int or not 1 <= _batch_size <= _PROPOSALS_PER_FAMILY:
         raise NumericValueError("candidate_batch_size", "one to 64 descriptions required")
     if (cursor is None) != (family is None):
         raise NumericValueError("candidate_batch_cursor", "cursor and family required together")
-    remaining = _PROPOSALS_PER_FAMILY
-    while remaining:
-        if not budget.allows_search():
-            return False, False
-        available = budget.candidate_check_limit - budget.candidate_check_count
-        limit = min(_batch_size, remaining, available + 1)
-        batch, exhausted = [], False
-        for _ in range(limit):
+    pool = _workspace
+    if pool is None and state is not None:
+        pool = NumericCandidateBatchWorkspace(state.task, state.program, state.quality,
+            state.plan, state.evaluation, maximum_candidates=_batch_size)
+    if pool is not None:
+        pool.require_current(state.task, state.program, state.quality, state.plan, state.evaluation)
+    try:
+        remaining = _PROPOSALS_PER_FAMILY
+        while remaining:
             if not budget.allows_search():
-                break
-            try:
-                started = perf_counter()
-                batch.append(next(recipes))
-                if diagnostics is not None:
-                    diagnostics.maximum_generator_advance_seconds = max(
-                        diagnostics.maximum_generator_advance_seconds,
-                        perf_counter() - started,
-                    )
-            except StopIteration:
-                exhausted = not budget.must_stop
-                break
-        if diagnostics is not None:
-            diagnostics.record("batch_prepared", diagnostic_key, len(batch))
-            diagnostics.maximum_batch_size = max(
-                diagnostics.maximum_batch_size, len(batch)
-            )
-        if not batch:
-            return False, exhausted
-        before_computed = diagnostics.numeric_precomputed.get(diagnostic_key, 0) if diagnostics else 0
-        before_consumed = diagnostics.numeric_consumed.get(diagnostic_key, 0) if diagnostics else 0
-        prepared = _prepare_descriptor_batch(
-            state, budget, [item[1] if cursor is not None else item for item in batch],
-            maximum_virtual_bridge_nodes, diagnostics, diagnostic_key,
-        ) if _batch_size > 1 else [None] * len(batch)
-
-        def record_discarded():
-            if diagnostics is not None:
-                diagnostics.record(
-                    "numeric_discarded", diagnostic_key,
-                    diagnostics.numeric_precomputed.get(diagnostic_key, 0) - before_computed
-                    - diagnostics.numeric_consumed.get(diagnostic_key, 0) + before_consumed,
-                )
-
-        for position, item in enumerate(batch):
-            owner, recipe = item if cursor is not None else (None, item)
-            if not budget.consume_candidate_check():
-                stopped = len(batch) - position
-                if diagnostics is not None:
-                    diagnostics.record("batch_stopped", diagnostic_key, stopped)
-                    if budget.stop_reason is SearchStopReason.USER_CANCELLED:
-                        diagnostics.record("batch_cancelled", diagnostic_key, stopped)
-                record_discarded()
                 return False, False
-            remaining -= 1
-            if cursor is not None:
-                cursor[family] = owner
+            available = budget.candidate_check_limit - budget.candidate_check_count
+            limit = min(_batch_size, pool.maximum_candidates if pool is not None else _batch_size, remaining, available + 1)
+            batch, exhausted = [], False
+            for _ in range(limit):
+                if not budget.allows_search():
+                    break
+                try:
+                    started = perf_counter()
+                    batch.append(next(recipes))
+                    if diagnostics is not None:
+                        diagnostics.maximum_generator_advance_seconds = max(
+                            diagnostics.maximum_generator_advance_seconds,
+                            perf_counter() - started,
+                        )
+                except StopIteration:
+                    exhausted = not budget.must_stop
+                    break
             if diagnostics is not None:
-                diagnostics.record("candidate_checks", diagnostic_key)
-                diagnostics.record("batch_consumed", diagnostic_key)
-            evaluations = state.complete_candidate_evaluation_count if state is not None else 0
-            accepted = _try_descriptor(
-                state,
-                budget,
-                recipe,
-                maximum_virtual_bridge_nodes,
-                diagnostics,
-                diagnostic_key,
-                prepared[position],
-            )
-            if diagnostics is not None:
-                diagnostics.record(
-                    "complete_evaluations",
-                    diagnostic_key,
-                    state.complete_candidate_evaluation_count - evaluations,
+                diagnostics.record("batch_prepared", diagnostic_key, len(batch))
+                diagnostics.maximum_batch_size = max(
+                    diagnostics.maximum_batch_size, len(batch)
                 )
-                diagnostics.record(
-                    "batch_accepted" if accepted else "batch_rejected",
-                    diagnostic_key,
-                )
-                if accepted:
-                    diagnostics.record(
-                        "batch_stale", diagnostic_key, len(batch) - position - 1
-                    )
-            if accepted:
+            if not batch:
+                return False, exhausted
+            before_computed = diagnostics.numeric_precomputed.get(diagnostic_key, 0) if diagnostics else 0
+            before_consumed = diagnostics.numeric_consumed.get(diagnostic_key, 0) if diagnostics else 0
+            prepared = _prepare_descriptor_batch(
+                state, budget, [item[1] if cursor is not None else item for item in batch],
+                maximum_virtual_bridge_nodes, diagnostics, diagnostic_key, pool,
+            ) if _batch_size > 1 else [None] * len(batch)
+
+            def record_discarded():
+                if pool is not None:
+                    pool.release()
                 if diagnostics is not None:
-                    diagnostics.record("accepted", diagnostic_key)
-                record_discarded()
-                return True, False
-        record_discarded()
-        if exhausted:
-            return False, True
-    return False, False
+                    diagnostics.record(
+                        "numeric_discarded", diagnostic_key,
+                        diagnostics.numeric_precomputed.get(diagnostic_key, 0) - before_computed
+                        - diagnostics.numeric_consumed.get(diagnostic_key, 0) + before_consumed,
+                    )
+
+            for position, item in enumerate(batch):
+                owner, recipe = item if cursor is not None else (None, item)
+                if not budget.consume_candidate_check():
+                    stopped = len(batch) - position
+                    if diagnostics is not None:
+                        diagnostics.record("batch_stopped", diagnostic_key, stopped)
+                        if budget.stop_reason is SearchStopReason.USER_CANCELLED:
+                            diagnostics.record("batch_cancelled", diagnostic_key, stopped)
+                    record_discarded()
+                    return False, False
+                remaining -= 1
+                if cursor is not None:
+                    cursor[family] = owner
+                if diagnostics is not None:
+                    diagnostics.record("candidate_checks", diagnostic_key)
+                    diagnostics.record("batch_consumed", diagnostic_key)
+                evaluations = state.complete_candidate_evaluation_count if state is not None else 0
+                accepted = _try_descriptor(
+                    state,
+                    budget,
+                    recipe,
+                    maximum_virtual_bridge_nodes,
+                    diagnostics,
+                    diagnostic_key,
+                    prepared[position],
+                    pool,
+                )
+                if diagnostics is not None:
+                    diagnostics.record(
+                        "complete_evaluations",
+                        diagnostic_key,
+                        state.complete_candidate_evaluation_count - evaluations,
+                    )
+                    diagnostics.record(
+                        "batch_accepted" if accepted else "batch_rejected",
+                        diagnostic_key,
+                    )
+                    if accepted:
+                        diagnostics.record(
+                            "batch_stale", diagnostic_key, len(batch) - position - 1
+                        )
+                if accepted:
+                    if diagnostics is not None:
+                        diagnostics.record("accepted", diagnostic_key)
+                    record_discarded()
+                    return True, False
+            record_discarded()
+            if exhausted:
+                return False, True
+        return False, False
+    finally:
+        if pool is not None:
+            pool.release()
 
 
-def _descriptor_workspace(state):
-    plan = state.plan
-    return NumericCandidateWorkspace.allocate(state.task, plan,
-        changed_capacity=max(64, 2 * plan.node_rows.size + 16),
-        chain_capacity=plan.chain_ids.size + 1, node_capacity=8,
-        group_capacity=0, event_capacity=8)
-
-
-def _descriptor_attempts(state, budget, descriptor, maximum_virtual_bridge_nodes):
-    """Each yielded attempt has its own private view until consumed or discarded."""
+def _descriptor_attempts(state, budget, descriptor, maximum_virtual_bridge_nodes, pool=None):
+    """Stage policy and variant order are explicit; buffers belong to the common batch."""
+    if pool is None:
+        pool = NumericCandidateBatchWorkspace(state.task, state.program, state.quality,
+            state.plan, state.evaluation, maximum_candidates=1)
+    pool.require_current(state.task, state.program, state.quality, state.plan, state.evaluation)
     segments = int(descriptor[common_candidate.ACTION]) in (
         common_candidate.INTRA, common_candidate.NODE_MOVE, common_candidate.NODE_SWAP,
         common_candidate.BLOCK_MOVE, common_candidate.BLOCK_SWAP)
     maximum = _maximum_chain_weight(state) if segments else None
     policy = common_candidate.CandidateCheckPolicy(maximum_virtual_bridge_nodes,
         -1 if maximum is None else maximum, tuple(NumericRuleKind))
-    for variant in ((1, 0) if segments else (0,)):
-        workspace = _descriptor_workspace(state)
-        values = descriptor.reshape(1, -1).copy()
-        values[0, common_candidate.VARIANT] = variant
-        descriptions = NumericCandidateDescriptors(state.task, state.plan, readonly(values, np.int64))
-        while True:
-            result = capture_candidate_result(workspace, state.program, state.quality,
-                descriptions, 0, policy, virtual_sequence=state.virtual_sequence,
-                split_sequence=state.split_sequence, previous_evaluation=state.evaluation,
-                allows_continue=budget.allows_search)
-            if isinstance(result, NumericDeferredCandidateFailure) or result.status != CAPACITY:
-                break
-            _grow_candidate_workspace(workspace)
-        if isinstance(result, NumericDeferredCandidateFailure):
-            yield workspace, result
-            return
-        if variant and not result.cleaned_variant_exists and result.status == common_candidate.OK:
-            continue
-        yield workspace, result
+    yield from pool.attempts(descriptor, policy, (1, 0) if segments else (0,),
+        virtual_sequence=state.virtual_sequence, split_sequence=state.split_sequence,
+        allows_continue=budget.allows_search, capture=capture_candidate_result)
 
 
-def _prepare_descriptor_batch(state, budget, descriptors, maximum_virtual_bridge_nodes, diagnostics, key):
-    """Bounded serial staging through the same single-candidate computation.
-
-    Flat native batch dispatch belongs to stage 8; this bridge never packs formal
-    tasks/plans or returns to the previous object-based preparation path.
-    """
+def _prepare_descriptor_batch(state, budget, descriptors, maximum_virtual_bridge_nodes, diagnostics, key, pool=None):
+    """Stage the ordered numeric descriptions in reusable generation-local slots."""
     started = perf_counter()
     prepared, count, private_bytes = [], 0, 0
     for descriptor in descriptors:
         attempts = []
-        for workspace, result in _descriptor_attempts(state, budget, descriptor, maximum_virtual_bridge_nodes):
+        for workspace, result in _descriptor_attempts(state, budget, descriptor, maximum_virtual_bridge_nodes, pool):
             attempts.append((workspace, result))
             private_bytes += workspace.allocated_bytes
             if not isinstance(result, NumericDeferredCandidateFailure) and result.summary is not None:
@@ -1487,7 +1476,8 @@ def _prepare_descriptor_batch(state, budget, descriptors, maximum_virtual_bridge
     if diagnostics is not None:
         elapsed = perf_counter() - started
         diagnostics.numeric_batch_prepare_seconds += elapsed
-        diagnostics.maximum_numeric_batch_bytes = max(diagnostics.maximum_numeric_batch_bytes, private_bytes)
+        diagnostics.maximum_numeric_batch_bytes = max(diagnostics.maximum_numeric_batch_bytes,
+            private_bytes if pool is None else pool.allocated_bytes)
         diagnostics.maximum_numeric_batch_seconds = max(diagnostics.maximum_numeric_batch_seconds, elapsed)
         if count:
             diagnostics.numeric_batch_calls += 1
@@ -1496,9 +1486,9 @@ def _prepare_descriptor_batch(state, budget, descriptors, maximum_virtual_bridge
 
 
 def _try_descriptor(state, budget, descriptor, maximum_virtual_bridge_nodes,
-                    diagnostics=None, diagnostic_key=None, prepared=None):
+                    diagnostics=None, diagnostic_key=None, prepared=None, pool=None):
     attempts = iter(prepared) if prepared is not None else _descriptor_attempts(
-        state, budget, descriptor, maximum_virtual_bridge_nodes)
+        state, budget, descriptor, maximum_virtual_bridge_nodes, pool)
     for position, (workspace, result) in enumerate(attempts):
         if position and not budget.consume_candidate_check():
             return False
@@ -1546,6 +1536,8 @@ def improve_numeric_refinement(
     next_family, next_lane = [0, 0], 0
     first_cleanup = True
     while budget.allows_search():
+        pool = NumericCandidateBatchWorkspace(state.task, state.program, state.quality,
+            state.plan, state.evaluation, maximum_candidates=_batch_size)
         columns, rules = task_columns(state.task), rule_tables(state.program.rules)
         scan = numeric_scan.build_scan(state, columns)
         streams = [
@@ -1575,6 +1567,7 @@ def improve_numeric_refinement(
                 diagnostics=diagnostics,
                 diagnostic_key="regular:reclaim",
                 _batch_size=_batch_size,
+                _workspace=pool,
             )
         while not accepted and any(pending) and budget.allows_search():
             lane = next_lane if pending[next_lane] else 1 - next_lane
@@ -1591,6 +1584,7 @@ def improve_numeric_refinement(
                 cursor=cursor,
                 family=family_name if cursor is not None else None,
                 _batch_size=_batch_size,
+                _workspace=pool,
             )
             next_family[lane] = (family + 1) % sizes[lane]
             next_lane = 1 - lane

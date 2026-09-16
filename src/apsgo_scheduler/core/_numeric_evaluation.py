@@ -451,16 +451,51 @@ def summarize_numeric_candidate(task, program, quality, plan, previous_task,
     return _native_result(task, program, quality, plan, reuse=reuse)
 
 
+@dataclass(frozen=True, slots=True, eq=False)
+class NumericEvaluationContext:
+    """Immutable generation inputs; candidate-specific checks still run per view."""
+    task: object
+    program: object
+    quality: object
+    plan: object
+    previous_evaluation: object
+    columns: object = field(init=False)
+    rules: object = field(init=False)
+    objectives: object = field(init=False)
+    reuse: object = field(init=False)
+
+    def __post_init__(self):
+        from ._numeric_kernel import task_columns, rule_tables
+        _validate_evaluation_inputs(self.task, self.program, self.quality, self.plan)
+        reuse = None if self.previous_evaluation is None else _validated_reuse(
+            self.task, self.program, self.quality, self.task, self.program,
+            self.quality, self.plan, self.previous_evaluation)
+        object.__setattr__(self, "columns", task_columns(self.task))
+        object.__setattr__(self, "rules", rule_tables(self.program.rules))
+        object.__setattr__(self, "objectives", _objective_order(self.quality.objectives))
+        object.__setattr__(self, "reuse", reuse)
+
+    def require_current(self, workspace, program, quality, previous_evaluation):
+        if (workspace.task is not self.task or workspace.plan is not self.plan
+                or program is not self.program or quality is not self.quality
+                or previous_evaluation is not self.previous_evaluation):
+            raise NumericValueError("evaluation_context", "stale generation inputs")
+
+
 def evaluate_numeric_view(workspace, program, quality, *, view=None,
-                          previous_evaluation=None, detail=False):
+                          previous_evaluation=None, detail=False, context=None):
     """Common private summary/detail boundary; does not materialize a formal plan."""
     from ._numeric_kernel import (
-        task_columns, private_task_columns, rule_tables, evaluate_view_kernel, CAPACITY,
+        private_task_columns, evaluate_view_kernel, CAPACITY,
     )
     if not isinstance(workspace, NumericCandidateWorkspace):
         raise NumericValueError("evaluation_view", "numeric candidate workspace required")
     task, plan = workspace.task, workspace.plan
-    _validate_evaluation_inputs(task, program, quality, plan)
+    if context is None:
+        context = NumericEvaluationContext(task, program, quality, plan, previous_evaluation)
+    if not isinstance(context, NumericEvaluationContext):
+        raise NumericValueError("evaluation_context", "validated generation inputs required")
+    context.require_current(workspace, program, quality, previous_evaluation)
     if task.start_ms is None:
         raise NumericValueError("delivery", "task has no production start and duration input")
     view = workspace.view() if view is None else view
@@ -472,14 +507,12 @@ def evaluate_numeric_view(workspace, program, quality, *, view=None,
     # Editing primitives see capacity; evaluation must see only initialized rows.
     active = NumericChainView(view.base_rows, view.changed_rows[:workspace.changed_count],
         view.starts, view.stops, view.private, view.ids, view.periods, view.count, view.epoch)
-    columns = private_task_columns(task_columns(task), workspace.nodes, workspace.derived,
+    columns = private_task_columns(context.columns, workspace.nodes, workspace.derived,
                                    workspace.node_count)
-    reuse = None if previous_evaluation is None else _validated_reuse(
-        task, program, quality, task, program, quality, plan, previous_evaluation)
     violations, metrics = (16, 32) if detail else (0, 0)
     while True:
-        result = evaluate_view_kernel(columns, rule_tables(program.rules), active,
-            _objective_order(quality.objectives), detail, violations, metrics, False, reuse)
+        result = evaluate_view_kernel(columns, context.rules, active,
+            context.objectives, detail, violations, metrics, False, context.reuse)
         _check_kernel_status(result)
         if result.status[0] != CAPACITY:
             for array in result:

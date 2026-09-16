@@ -9,7 +9,7 @@ from apsgo_scheduler.core import _numeric_refinement as refinement
 from apsgo_scheduler.core import _numeric_refinement_scan as scan
 from apsgo_scheduler.core._numeric_search import NumericDeferredCandidateFailure
 from apsgo_scheduler.core._numeric_batch import (
-    evaluate_numeric_batch, numeric_batch_result, pack_numeric_candidates,
+    evaluate_numeric_batch, numeric_batch_result, pack_numeric_candidates, NumericCandidateBatchWorkspace,
 )
 from apsgo_scheduler.core._numeric_evaluation import summarize_numeric_candidate
 from apsgo_scheduler.core._numeric_kernel import CANCELLED, STALE, evaluate_batch_kernel
@@ -20,6 +20,83 @@ from apsgo_scheduler.core.contracts import SearchStopReason
 from apsgo_scheduler.core.model import VirtualPurpose
 from tests.core.test_numeric_construction import construction_case, budget
 from tests.core.test_numeric_refinement import _state
+
+
+def test_generation_slots_reuse_arrays_and_invalidate_old_views():
+    state = sample()
+    pool = NumericCandidateBatchWorkspace(state.task, state.program, state.quality,
+        state.plan, state.evaluation)
+    value = scan.description(scan.ORDER, 10, 20, -1, -1, 1, -1)
+    previous, expected, count = None, None, None
+    for _ in range(10):
+        prepared = refinement._prepare_descriptor_batch(state, budget(), [value] * 8,
+            2, None, "test", pool)
+        assert len(prepared) == 8
+        slots = [item[0][0] for item in prepared]
+        assert len({id(slot.changed_rows) for slot in slots}) == 8
+        if previous is not None:
+            assert previous == tuple(id(slot.changed_rows) for slot in slots)
+            assert pool.allocation_count == count
+        previous, count = tuple(id(slot.changed_rows) for slot in slots), pool.allocation_count
+        summary = prepared[0][0][1].summary
+        if expected is None:
+            expected = summary
+        for name in expected._fields:
+            np.testing.assert_array_equal(getattr(summary, name), getattr(expected, name))
+        workspace, result = prepared[0][0]
+        pool.release()
+        with pytest.raises(NumericValueError, match="expired"):
+            workspace.require_view(result.view)
+    assert pool.used == 0 and pool.allocation_count == 8
+
+
+def test_generation_context_validates_reuse_once_and_rejects_stale_inputs(monkeypatch):
+    from apsgo_scheduler.core import _numeric_evaluation as evaluation
+    state = sample()
+    pool = NumericCandidateBatchWorkspace(state.task, state.program, state.quality,
+        state.plan, state.evaluation)
+    def forbidden(*args, **kwargs):
+        raise AssertionError("unchanged base cache was revalidated per candidate")
+    monkeypatch.setattr(evaluation, "_validated_reuse", forbidden)
+    value = scan.description(scan.ORDER, 10, 20, -1, -1, 1, -1)
+    prepared = refinement._prepare_descriptor_batch(state, budget(), [value] * 8,
+        2, None, "test", pool)
+    assert all(items[0][1].summary is not None for items in prepared)
+    pool.release()
+    with pytest.raises(NumericValueError, match="stale"):
+        pool.require_current(state.task, state.program, state.quality,
+            replace(state.plan, generation=state.plan.generation + 1), state.evaluation)
+
+
+def test_batch_memory_limit_shrinks_without_changing_consumption_or_result():
+    before, after = sample(), sample()
+    value = scan.description(scan.ORDER, 10, 20, -1, -1, 1, -1)
+    first, second = budget(candidate_limit=10), budget(candidate_limit=10)
+    pool = NumericCandidateBatchWorkspace(after.task, after.program, after.quality,
+        after.plan, after.evaluation, max_bytes=1)
+    assert pool.maximum_candidates == 1
+    expected = refinement._scan_family(before, first, iter([value] * 8))
+    actual = refinement._scan_family(after, second, iter([value] * 8), _workspace=pool)
+    assert actual == expected
+    assert second.candidate_check_count == first.candidate_check_count
+    assert after.plan.fingerprint == before.plan.fingerprint
+    assert pool.used == 0
+
+
+def test_invalid_unconsumed_descriptor_is_deferred_and_batch_is_released(monkeypatch):
+    state = sample()
+    value = scan.description(scan.ORDER, 10, 20, -1, -1, 1, -1)
+    invalid = value.copy()
+    invalid[scan.OWNER] = state.task.originals.weight.size
+    pool = NumericCandidateBatchWorkspace(state.task, state.program, state.quality,
+        state.plan, state.evaluation)
+    monkeypatch.setattr(refinement, "consume_candidate_result", lambda *args: True)
+    accepted, _ = refinement._scan_family(state, budget(candidate_limit=10), iter((value, invalid)), _workspace=pool)
+    assert accepted and pool.used == 0
+    monkeypatch.undo()
+    with pytest.raises(NumericValueError, match="original index"):
+        refinement._scan_family(state, budget(candidate_limit=10), iter((invalid,)), _workspace=pool)
+    assert pool.used == 0
 
 
 def sample():

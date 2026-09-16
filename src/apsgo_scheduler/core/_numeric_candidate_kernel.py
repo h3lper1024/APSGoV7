@@ -74,6 +74,20 @@ class NumericCandidateAttempt:
     policy: CandidateCheckPolicy
 
 
+@dataclass(frozen=True, slots=True)
+class NumericDeferredCandidateFailure:
+    view: object
+    error: NumericValueError
+
+
+def capture_candidate_result(workspace, program, quality, descriptors, index, policy, **options):
+    """Speculative errors are inert until their original ordered consumption."""
+    try:
+        return compute_candidate_attempt(workspace, program, quality, descriptors, index, policy, **options)
+    except NumericValueError as error:
+        return NumericDeferredCandidateFailure(workspace.view(), error)
+
+
 @njit
 def _chain_index(view, identity):
     for i in range(view.count):
@@ -680,7 +694,8 @@ def prepare_candidate_attempt(workspace, program, quality, descriptors, index, p
 
 def compute_candidate_attempt(workspace, program, quality, descriptors, index, policy, *,
                               virtual_sequence=0, split_sequence=0, split_decision=None,
-                              previous_evaluation=None, allows_continue=None, preparation=None):
+                              previous_evaluation=None, allows_continue=None, preparation=None,
+                              evaluation_context=None):
     """Unique complete attempt; optionally resume at the original split quota boundary."""
     if preparation is None:
         preparation = prepare_candidate_attempt(workspace, program, quality, descriptors, index, policy,
@@ -705,7 +720,8 @@ def compute_candidate_attempt(workspace, program, quality, descriptors, index, p
         return replace(preparation, prepared=False)
     if allows_continue is not None and not allows_continue():
         return replace(preparation, status=CANCELLED, prepared=False)
-    summary = evaluate_numeric_view(workspace, program, quality, previous_evaluation=previous_evaluation)
+    summary = evaluate_numeric_view(workspace, program, quality, previous_evaluation=previous_evaluation,
+                                    context=evaluation_context)
     admissible = not any(summary.hits[:, rule.index].any() for rule in program.rules
                          if rule.kind in policy.reject_prohibited_kinds)
     return replace(preparation, admissible=admissible, summary=summary)

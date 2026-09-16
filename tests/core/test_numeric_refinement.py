@@ -114,7 +114,8 @@ def test_refinement_keeps_four_proposals_per_source_and_sixty_four_per_family(
 def test_refinement_diagnostics_separate_generated_and_consumed_work(monkeypatch):
     diagnostics = NumericRefinementDiagnostics()
     runtime = budget(candidate_limit=2)
-    state = type("State", (), {"complete_candidate_evaluation_count": 0})()
+    state = _state(*construction_case(weights=("100",), widths=("1000",)),
+        (0,), (0, 1), (10,), (0,))
     monkeypatch.setattr(refinement, "_try_descriptor", lambda *args: False)
     monkeypatch.setattr(refinement, "_prepare_descriptor_batch", lambda s, b, r, *a: [None] * len(r))
 
@@ -136,7 +137,8 @@ def test_refinement_diagnostics_separate_generated_and_consumed_work(monkeypatch
 def test_serial_batch_consumes_in_order_and_discards_stale_descriptions(monkeypatch):
     diagnostics = NumericRefinementDiagnostics()
     runtime = budget(candidate_limit=100)
-    state = type("State", (), {"complete_candidate_evaluation_count": 0})()
+    state = _state(*construction_case(weights=("100",), widths=("1000",)),
+        (0,), (0, 1), (10,), (0,))
     cursor = {"node": None}
     consumed = []
 
@@ -175,7 +177,8 @@ def test_serial_batch_cancellation_does_not_consume_prefetched_descriptions(monk
     )()
     diagnostics = NumericRefinementDiagnostics()
     runtime = budget(candidate_limit=100, cancellation=cancellation)
-    state = type("State", (), {"complete_candidate_evaluation_count": 0})()
+    state = _state(*construction_case(weights=("100",), widths=("1000",)),
+        (0,), (0, 1), (10,), (0,))
 
     def cancel_after_first(*_args):
         flag.cancelled = True
