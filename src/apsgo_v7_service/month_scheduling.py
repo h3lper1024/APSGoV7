@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, fields, replace
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 from decimal import Decimal, DecimalException
 from enum import Enum
 from uuid import UUID
@@ -17,6 +19,7 @@ from apsgo_scheduler.core.contracts import (
     DiagnosticSeverity,
     RuleScope,
     SolverPolicy,
+    INTEGER_NUMERIC_SEMANTICS_KEY,
     fingerprint,
     freeze_tuple,
     require_int,
@@ -24,10 +27,13 @@ from apsgo_scheduler.core.contracts import (
 )
 from apsgo_scheduler.core.model import MaterialRole, SchedulePlan
 from apsgo_scheduler.core.rules.base import RuleViolation
+from apsgo_scheduler.core.delivery_timing import OrderTimingInput, production_hours
 
 from .scheduling import BoundSchedulingResult, SchedulingTaskInput
 
 MONTH_SOLVE_CONTRACT_VERSION = "v7-month-solve-v1"
+MONTH_DELIVERY_CONTRACT_VERSION = "v7-month-solve-v2"
+_TIMING_FIELDS = frozenset(("due_date", "furnace_speed_mpm", "process_speed_mpm"))
 
 _ROOT_FIELDS = frozenset(("contract_version", "request_id", "expected_active_version_id", "periods", "orders"))
 _PERIOD_FIELDS = frozenset(("period_id", "sequence"))
@@ -232,9 +238,9 @@ def _material_role(customer_grade, hot_roll_grade, execution_standard) -> Materi
     return MaterialRole.ACTUAL_TRANSITION if transition else MaterialRole.NORMAL_REAL
 
 
-def _order(value, index: int) -> OrderInput:
+def _order(value, index: int, *, delivery=False) -> OrderInput:
     path = f"orders[{index}]"
-    item = _exact_object(value, path, _ORDER_FIELDS)
+    item = _exact_object(value, path, _ORDER_FIELDS | _TIMING_FIELDS if delivery else _ORDER_FIELDS)
     source_order_id = _text(item["source_order_id"], f"{path}.source_order_id")
     is_virtual = item["is_virtual"]
     if type(is_virtual) is not bool:
@@ -303,6 +309,39 @@ def _ensure_unique(items: Sequence, field_name: str, path: str) -> None:
         seen.add(value)
 
 
+def _schedule_start(value):
+    text = _text(value, "schedule_start_at")
+    try:
+        parsed = datetime.fromisoformat(text)
+        if "T" not in text or parsed.tzinfo is None or parsed.utcoffset() is None or parsed.microsecond % 1000:
+            raise ValueError("timezone required")
+        return parsed.astimezone(ZoneInfo("Asia/Shanghai")).isoformat(timespec="milliseconds")
+    except (ValueError, OverflowError):
+        _raise_contract("invalid_schedule_start", "schedule_start_at", "计划生产开始时间必须是带时区的有效日期时间。")
+
+
+def _order_timing(raw, order, index):
+    path = f"orders[{index}]"
+    due = _text(raw["due_date"], f"{path}.due_date")
+    try:
+        parsed_due = date.fromisoformat(due)
+        if parsed_due.isoformat() != due:
+            raise ValueError("noncanonical date")
+        parsed_due + timedelta(days=1)
+    except (ValueError, OverflowError):
+        _raise_contract("invalid_due_date", f"{path}.due_date", "交货日期必须为有效的 YYYY-MM-DD。", order.source_order_id)
+    speeds = tuple(_decimal(raw[name], f"{path}.{name}", optional=True)
+                   for name in ("furnace_speed_mpm", "process_speed_mpm"))
+    speed = next((value for value in speeds if value is not None and value > 0), None)
+    if speed is None:
+        _raise_contract("missing_production_speed", f"{path}.furnace_speed_mpm", "炉区速度和备用工艺速度至少有一个有效正值。", order.source_order_id)
+    for name in ("width", "thickness"):
+        _positive_decimal(raw[name], f"{path}.{name}")
+    return OrderTimingInput(order.source_order_id, due, production_hours(
+        order.weight, order.width, order.thickness, speed
+    ))
+
+
 def loads_month_solve_request(
     payload: str | bytes | bytearray,
     policy: SolverPolicy,
@@ -311,8 +350,10 @@ def loads_month_solve_request(
 
     if not isinstance(policy, SolverPolicy):
         raise ValueError("policy must be SolverPolicy")
-    raw = _exact_object(_load_json(payload), "", _ROOT_FIELDS)
-    if raw["contract_version"] != MONTH_SOLVE_CONTRACT_VERSION:
+    raw = _load_json(payload)
+    delivery = isinstance(raw, Mapping) and raw.get("contract_version") == MONTH_DELIVERY_CONTRACT_VERSION
+    raw = _exact_object(raw, "", _ROOT_FIELDS | {"schedule_start_at"} if delivery else _ROOT_FIELDS)
+    if raw["contract_version"] not in (MONTH_SOLVE_CONTRACT_VERSION, MONTH_DELIVERY_CONTRACT_VERSION):
         _raise_contract(
             "unsupported_contract_version",
             "contract_version",
@@ -327,7 +368,8 @@ def loads_month_solve_request(
         raw["expected_active_version_id"], "expected_active_version_id"
     )
     periods = tuple(_period(item, index) for index, item in enumerate(_array(raw["periods"], "periods")))
-    orders = tuple(_order(item, index) for index, item in enumerate(_array(raw["orders"], "orders")))
+    order_rows = _array(raw["orders"], "orders")
+    orders = tuple(_order(item, index, delivery=delivery) for index, item in enumerate(order_rows))
     _ensure_unique(periods, "period_id", "periods")
     _ensure_unique(periods, "sequence", "periods")
     _ensure_unique(orders, "source_order_id", "orders")
@@ -347,14 +389,16 @@ def loads_month_solve_request(
                 order.source_order_id,
             )
     task_input = SchedulingTaskInput(
-        contract_version=MONTH_SOLVE_CONTRACT_VERSION,
+        contract_version=raw["contract_version"],
         request_id=request_id,
         product_line_code="GQGA4",
         process_code="default",
         scenario="month",
         orders=orders,
         periods=tuple(sorted(periods, key=lambda item: item.sequence)),
-        policy=policy,
+        policy=replace(policy, numeric_semantics_key=INTEGER_NUMERIC_SEMANTICS_KEY) if delivery else policy,
+        schedule_start_at=_schedule_start(raw["schedule_start_at"]) if delivery else None,
+        order_timing=tuple(_order_timing(row, order, index) for index, (row, order) in enumerate(zip(order_rows, orders))) if delivery else (),
     )
     return MonthSolveRequest(
         expected_active_version_id=expected_version,
@@ -559,7 +603,7 @@ def month_solve_response_data(
         rows = list(build_month_solve_rows(release.plan, release.evaluation.violations))
     publishable = release is not None and result.core_audit.passed and result.audit_report.passed
     return {
-        "contract_version": MONTH_SOLVE_CONTRACT_VERSION,
+        "contract_version": request.task_input.contract_version,
         "request_id": result.request_id,
         "status": result.status.value,
         "stop_reason": result.stop_reason.value,
@@ -582,11 +626,18 @@ def month_solve_response_data(
         "run_manifest": _manifest_data(result.run_manifest),
         "violations": violations,
         "rows": rows,
+        **({"schedule_start_at": request.task_input.schedule_start_at,
+            "delivery_report": bound.delivery_report}
+           if request.task_input.schedule_start_at is not None else {}),
     }
 
 
-def dumps_month_solve_response(request: MonthSolveRequest, bound: BoundSchedulingResult) -> str:
-    return dumps_exact_json(month_solve_response_data(request, bound))
+def dumps_month_solve_response(request: MonthSolveRequest, bound: BoundSchedulingResult, *, date_configuration_path=None) -> str:
+    data = month_solve_response_data(request, bound)
+    if bound.delivery_report is not None and data["publishable"] and date_configuration_path is not None:
+        from .month_plan_auxiliary import latest_dates_from_delivery
+        data["latest_dates"] = latest_dates_from_delivery(bound, date_configuration_path)
+    return dumps_exact_json(data)
 
 
 def dumps_month_solve_error(

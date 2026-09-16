@@ -1,6 +1,10 @@
 """Fixed rule metadata and initial virtual-material seed for the monthly line."""
 
 from decimal import Decimal
+from dataclasses import replace
+
+from apsgo_scheduler.app.delivery_request import with_delivery_objective
+from apsgo_scheduler.app.rule_set_loader import fingerprint_rule_set_spec
 
 from apsgo_scheduler.api.request import VirtualPrototypeInput
 from apsgo_scheduler.api.rule_management import EditableRuleInput
@@ -326,6 +330,33 @@ _INITIAL_RULE_SET_JSON = r"""{
 }"""
 
 GQGA4_RULE_SET_TEMPLATE = load_compiled_rule_set_json(_INITIAL_RULE_SET_JSON)
+
+
+def _delivery_template():
+    spec = with_delivery_objective(
+        GQGA4_RULE_SET_TEMPLATE, include_backlog_clearance=True, second_precision=True
+    )
+    projections = {
+        "prohibited_violation_severity": "severity_round_6_half_up_per_violation",
+        "underweight_total_gap": "underweight_gap_round_2_half_up_per_chain",
+        "old_backlog_last_completion_hours": "delivery_second_half_up",
+        "delivery_wait_tardiness_tonne_hours": "delivery_second_half_up",
+    }
+    spec = replace(spec, version="1", quality_spec=tuple(
+        replace(item, numeric_projection=projections.get(item.metric_key, "integer_exact_v1"))
+        for item in spec.quality_spec
+    ))
+    return replace(spec, fingerprint=fingerprint_rule_set_spec(spec))
+
+
+GQGA4_DELIVERY_RULE_SET_TEMPLATE = _delivery_template()
+
+
+def _template_for(rules):
+    # Historical seven-level versions remain verifiable without rewriting their bytes.
+    return (GQGA4_DELIVERY_RULE_SET_TEMPLATE
+            if any(item.rule_id == "delivery_due_performance" for item in rules)
+            else GQGA4_RULE_SET_TEMPLATE)
 GQGA4_INITIAL_RULES = tuple(
     EditableRuleInput(item.rule_id, item.enabled, item.parameters)
     for item in GQGA4_RULE_SET_TEMPLATE.rules
@@ -349,11 +380,11 @@ GQGA4_INITIAL_VIRTUAL_PROTOTYPES = tuple(
 
 
 def normalize_gqga4_rule_snapshot(rules, virtual_prototypes):
-    return normalize_rule_set_snapshot(GQGA4_RULE_SET_TEMPLATE, rules, virtual_prototypes)
+    return normalize_rule_set_snapshot(_template_for(rules), rules, virtual_prototypes)
 
 
 def compile_gqga4_rule_set(rules, version_no: int) -> CompiledRuleSetSnapshot:
-    return compile_rule_set(GQGA4_RULE_SET_TEMPLATE, rules, version_no)
+    return compile_rule_set(_template_for(rules), rules, version_no)
 
 
 __all__ = [

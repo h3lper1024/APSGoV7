@@ -644,7 +644,7 @@ def _local_iso(value: datetime) -> str:
     return value.isoformat(timespec="seconds")
 
 
-def _latest_dates(anchor_process: str, anchor_at: datetime, config: MonthPlanDateConfiguration) -> dict:
+def _latest_dates(anchor_process: str, anchor_at: datetime, config: MonthPlanDateConfiguration, *, timespec="seconds") -> dict:
     anchor_index = _PROCESS_ORDER.index(anchor_process)
     latest = {name: None for name in _PROCESS_ORDER}
     latest[anchor_process] = anchor_at
@@ -654,7 +654,7 @@ def _latest_dates(anchor_process: str, anchor_at: datetime, config: MonthPlanDat
         cursor -= timedelta(days=float(config.lead_days[process]))
         latest[process] = cursor
     return {
-        name: None if value is None else _local_iso(value)
+        name: None if value is None else value.isoformat(timespec=timespec)
         for name, value in latest.items()
     }
 
@@ -720,6 +720,38 @@ def calculate_latest_dates(
         "lead_days_snapshot": config.lead_days,
         "rows": rows,
         "warnings": warnings,
+    }
+
+
+def latest_dates_from_delivery(bound, configuration_path):
+    """Project audited solver times; never run a second coating production clock."""
+    report = bound.delivery_report
+    if report is None or report["kind"] != "audited_release" or bound.result.release is None:
+        raise ValueError("latest dates require an audited delivery release")
+    config = load_month_plan_date_configuration(configuration_path)
+    if config.product_line_process.get("GQGA4") != "galvanizing":
+        raise MonthPlanDateConfigurationError("GQGA4 当前工序必须为 galvanizing")
+    start = report["delivery_summary"]["schedule_start_at"]
+    rows = []
+    for item in report["delivery_nodes"]:
+        rows.append({
+            "node_id": item["node_id"],
+            "duration_hours": item["completion_hours"] - item["start_hours"],
+            "cumulative_hours": item["completion_hours"],
+            "current_process_start_at": item["start_at"],
+            "current_process_latest_at": item["completion_at"],
+            "latest_dates": _latest_dates("coating", datetime.fromisoformat(item["completion_at"]), config, timespec="milliseconds"),
+        })
+    return {
+        "contract_version": MONTH_LATEST_DATES_CONTRACT_VERSION,
+        "request_id": bound.result.request_id,
+        "status": "success", "product_line_code": "GQGA4",
+        "current_process": "galvanizing", "anchor_process": "coating",
+        "time_zone": "Asia/Shanghai", "calc_date": start[:10],
+        "schedule_start_at": start,
+        "solve_reference": {"solve_request_id": bound.result.request_id,
+                            "bound_result_fingerprint": bound.bound_result_fingerprint},
+        "lead_days_snapshot": config.lead_days, "rows": rows, "warnings": [],
     }
 
 

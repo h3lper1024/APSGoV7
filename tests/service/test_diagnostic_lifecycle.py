@@ -289,7 +289,7 @@ def test_response_serialization_failure_keeps_http_error_and_bound_candidate(
     application, directory = diagnostic_app
     previous_handlers = _handlers()
 
-    def fail_mapping(*args):
+    def fail_mapping(*args, **kwargs):
         cpu_clock.update(elapsed=108.0, cpu=14.0)
         raise MonthSchedulingMappingError("private response serialization detail")
 

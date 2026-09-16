@@ -291,8 +291,8 @@ def _mapped_month_error(
             "scheduling_input_invalid",
         )
     if isinstance(error, RuleManagementServiceError):
-        if error.code == "active_version_conflict":
-            status, message = 409, "活动规则版本已变化，请重新加载后再求解。"
+        if error.code in {"active_version_conflict", "delivery_configuration_mismatch"}:
+            status, message = 409, str(error)
         elif error.code in {"rule_set_not_initialized", "grade_dictionary_unavailable"}:
             status, message = 503, "GQGA4 月计划规则或软硬钢字典尚不可用。"
         else:
@@ -760,7 +760,7 @@ def create_app(
                             cancellation=cancellation,
                         )
                         # Public mapping failures remain HTTP errors, not diagnostic failures.
-                        content = dumps_month_solve_response(parsed, bound)
+                        content = dumps_month_solve_response(parsed, bound, date_configuration_path=dates_path)
                         status_code = (
                             422
                             if bound.result.status is SolveStatus.FAILED

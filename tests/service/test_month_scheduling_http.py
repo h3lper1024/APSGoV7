@@ -284,7 +284,7 @@ def test_result_mapping_failure_uses_its_public_code_without_private_detail(
     client,
     monkeypatch,
 ):
-    def fail_mapping(*args):
+    def fail_mapping(*args, **kwargs):
         raise http_module.MonthSchedulingMappingError("private mapping detail")
 
     monkeypatch.setattr(http_module, "dumps_month_solve_response", fail_mapping)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
+from decimal import Decimal
 
 from apsgo_scheduler.api.request import (
     OrderInput,
@@ -15,6 +16,8 @@ from apsgo_scheduler.api.request import (
 )
 from apsgo_scheduler.api.result import SchedulingResult
 from apsgo_scheduler.app.service import solve_request
+from apsgo_scheduler.app.delivery_report import build_delivery_report
+from apsgo_scheduler.core.delivery_timing import DeliveryTimingInput, OrderTimingInput, production_hours
 from apsgo_scheduler.core.contracts import (
     SolverPolicy,
     fingerprint,
@@ -30,6 +33,7 @@ from .grade_dictionary import (
     prepare_orders_with_grade_dictionary,
 )
 from .rule_management import get_active_gqga4_scheduling_snapshot
+from .rule_management import RuleManagementServiceError
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +48,8 @@ class SchedulingTaskInput:
     orders: tuple[OrderInput, ...]
     periods: tuple[PeriodInput, ...]
     policy: SolverPolicy
+    schedule_start_at: str | None = field(default=None, metadata={"omit_none": True})
+    order_timing: tuple[OrderTimingInput, ...] = ()
 
     def __post_init__(self):
         for name in (
@@ -58,6 +64,9 @@ class SchedulingTaskInput:
         object.__setattr__(self, "periods", freeze_tuple(self.periods, PeriodInput, "periods"))
         if not isinstance(self.policy, SolverPolicy):
             raise ValueError("policy must be SolverPolicy")
+        object.__setattr__(self, "order_timing", freeze_tuple(self.order_timing, OrderTimingInput, "order_timing"))
+        if (self.schedule_start_at is None) != (not self.order_timing):
+            raise ValueError("schedule start and order timing must be provided together")
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,6 +137,7 @@ class BoundSchedulingResult:
     request_fingerprint: str
     binding_fingerprint: str
     result: SchedulingResult
+    delivery_report: dict | None = field(default=None, metadata={"omit_none": True})
     bound_result_fingerprint: str = field(init=False)
 
     def __post_init__(self):
@@ -231,6 +241,19 @@ def bind_gqga4_scheduling_task(
         active.grade_dictionary,
     )
     active_rules = active.active_rules
+    delivery_enabled = any(rule.rule_id == "delivery_due_performance" and rule.enabled
+                           for rule in active_rules.rule_set_spec.rules)
+    if delivery_enabled != (task_input.schedule_start_at is not None):
+        raise RuleManagementServiceError(
+            "delivery_configuration_mismatch",
+            "交期求解需要已启用的九级交期规则和包含开始时间的新版请求，请升级规则或刷新客户端。",
+        )
+    timing = None if not delivery_enabled else DeliveryTimingInput(
+        task_input.schedule_start_at,
+        task_input.order_timing,
+        {item.prototype_id: production_hours(Decimal(1), item.width, item.thickness, Decimal(100))
+         for item in active_rules.virtual_prototypes},
+    )
     bound_request = SchedulingRequest(
         contract_version=task_input.contract_version,
         request_id=task_input.request_id,
@@ -242,6 +265,7 @@ def bind_gqga4_scheduling_task(
         rule_set_spec=active_rules.rule_set_spec,
         virtual_prototypes=active_rules.virtual_prototypes,
         policy=task_input.policy,
+        delivery_timing=timing,
     )
     return BoundSchedulingTask(
         active_rule_set_version_id=active_rules.active_version_id,
@@ -292,6 +316,8 @@ def solve_gqga4_scheduling_task(
         request_fingerprint=task.request_fingerprint,
         binding_fingerprint=task.binding_fingerprint,
         result=result,
+        delivery_report=(build_delivery_report(task.request, result)
+                         if task.request.delivery_timing is not None and result.release is not None else None),
     )
 
 
