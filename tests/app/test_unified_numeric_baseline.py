@@ -43,7 +43,10 @@ def test_trace_preserves_acceptance_quota_and_restores_hooks():
     assert actual.accepted_moves == reference.accepted_moves
     assert actual_budget.candidate_check_count == reference_budget.candidate_check_count == 2
     assert first.snapshot() == second.snapshot()
-    assert first.streams["edits"].count == 2
+    # Formal edit objects are now created only on acceptance. Logical consumed
+    # attempts still include the rejected first candidate, without materializing it.
+    assert first.streams["edits"].count == 1
+    assert first.streams["consumed_attempts"].count == 2
     assert first.streams["accepted"].count == 1
     assert first.streams["quota"].count == 2
 

@@ -86,7 +86,7 @@ class WholeFlowTrace:
     def __init__(self):
         self.stage = "preparation"
         self.streams = {key: OrderedDigest() for key in (
-            "quota", "edits", "refinement_proposals", "evaluated_attempts", "accepted"
+            "quota", "edits", "refinement_proposals", "evaluated_attempts", "accepted", "consumed_attempts"
         )}
         self.phases = []
         self.construction = {}
@@ -135,9 +135,27 @@ class WholeFlowTrace:
 
             def proposal(original):
                 def wrapped(state, budget, recipe, *args, **kwargs):
+                    # Normalize descriptor metadata only, never reconstruct a
+                    # rejected candidate just to reproduce an old diagnostic.
+                    record = recipe
+                    if isinstance(recipe, np.ndarray):
+                        record = (tuple(search.NumericSearchAction)[int(recipe[0])],
+                                  *(int(recipe[i]) for i in (1, 2, 5, 6, 7, 8)))
                     self.streams["refinement_proposals"].add((state.plan.generation,
-                        budget.candidate_check_count, recipe))
+                        budget.candidate_check_count, record))
                     return original(state, budget, recipe, *args, **kwargs)
+                return wrapped
+
+            def consume(original):
+                def wrapped(state, budget, workspace, result):
+                    before = state.complete_candidate_evaluation_count
+                    accepted = original(state, budget, workspace, result)
+                    self.streams["consumed_attempts"].add((self.stage, budget.candidate_check_count,
+                        before, state.complete_candidate_evaluation_count, accepted, state.plan.fingerprint))
+                    if state.complete_candidate_evaluation_count != before:
+                        self.streams["evaluated_attempts"].add((self.stage, budget.candidate_check_count,
+                            accepted, state.complete_candidate_evaluation_count, state.plan.fingerprint))
+                    return accepted
                 return wrapped
 
             def commit(original):
@@ -193,6 +211,9 @@ class WholeFlowTrace:
             bind(search, "_try_prepared_candidate", attempt)
             bind(refinement, "_try_overlay_candidate", attempt)
             bind(refinement, "_try_recipe", proposal)
+            bind(refinement, "_try_descriptor", proposal)
+            for owner in (search, refinement):
+                bind(owner, "consume_candidate_result", consume)
             # Both imported aliases must be hooked: first search and unique split replay.
             for owner in (search, refinement):
                 bind(owner, "_run_numeric_local_search", phase("local_search"))

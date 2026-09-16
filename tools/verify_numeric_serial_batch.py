@@ -15,9 +15,9 @@ for directory in (ROOT, ROOT / "src"):
 
 import numpy as np
 from apsgo_scheduler.core import _numeric_refinement as refinement
-from apsgo_scheduler.core._numeric_batch import pack_numeric_candidates, evaluate_numeric_batch
-from apsgo_scheduler.core._numeric_evaluation import summarize_numeric_candidate
-from apsgo_scheduler.core._numeric_state import NumericPlanOverlay
+from apsgo_scheduler.core._numeric_evaluation import evaluate_numeric_view
+from apsgo_scheduler.core._numeric_chain_ops import chain_rows
+from apsgo_scheduler.core._numeric_search import NumericDeferredCandidateFailure
 from apsgo_scheduler.core.contracts import fingerprint
 from tools.profile_numeric_solver import derive_numeric_request, _run_once
 from tools.profile_solver_search import load_request
@@ -40,28 +40,28 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=False)
     request = derive_numeric_request(load_request(args.prepared_request))
     request = replace(request, policy=replace(request.policy, candidate_check_limit=400000))
-    improve, attempt = refinement.improve_numeric_refinement, refinement._try_overlay_candidate
+    improve, attempt = refinement.improve_numeric_refinement, refinement.consume_candidate_result
     windows, trace = [], []
     for batch_size in (1, 8):
         record, samples = {}, []
 
-        def inspect(state, budget, edit, task, rules, quality, overlay, *a, **kw):
-            supplied = kw.get("_summary")
-            if supplied is not None:
-                expected = summarize_numeric_candidate(
-                    task, rules, quality, overlay, state.task, state.program,
-                    state.quality, state.plan, state.evaluation,
-                )
-                for name in expected._fields:
-                    np.testing.assert_array_equal(getattr(supplied, name), getattr(expected, name), err_msg=name)
+        def inspect(state, budget, workspace, result):
+            if isinstance(result, NumericDeferredCandidateFailure) or result.summary is None:
+                return attempt(state, budget, workspace, result)
+            supplied = result.summary
+            expected = evaluate_numeric_view(workspace, state.program, state.quality,
+                previous_evaluation=state.evaluation)
+            for name in expected._fields:
+                np.testing.assert_array_equal(getattr(supplied, name), getattr(expected, name), err_msg=name)
             sample = {
                 "logical_check": budget.candidate_check_count,
-                "edit": fingerprint(edit), "generation": state.plan.generation,
-                "candidate": fingerprint(tuple(tuple(map(int, c)) for c in overlay.chains)),
-                "task": task.fingerprint, "virtual_sequence_before": state.virtual_sequence,
+                "descriptor": result.descriptor.tolist(), "generation": state.plan.generation,
+                "candidate": fingerprint(tuple(tuple(map(int, chain_rows(result.view, i)))
+                                               for i in range(result.view.count))),
+                "task": state.task.fingerprint, "virtual_sequence_before": state.virtual_sequence,
                 "split_sequence_before": state.split_sequence,
             }
-            accepted = attempt(state, budget, edit, task, rules, quality, overlay, *a, **kw)
+            accepted = attempt(state, budget, workspace, result)
             sample.update(accepted=accepted, plan_after=state.plan.fingerprint,
                           virtual_sequence_after=state.virtual_sequence, split_sequence_after=state.split_sequence)
             samples.append(sample)
@@ -73,22 +73,10 @@ def main():
             entry = budget.candidate_check_count
             original_limit = budget.candidate_check_limit
             ceiling = min(original_limit, entry + args.window_checks)
-            warm_started = perf_counter()
-            if batch_size > 1:
-                overlay = NumericPlanOverlay.build(
-                    state.task, state.plan,
-                    [refinement._chain_rows(state.plan, i) for i in range(state.plan.chain_ids.size)],
-                    state.plan.chain_ids, state.plan.chain_periods,
-                )
-                flat = pack_numeric_candidates(
-                    state.task, state.program, state.quality, state.plan, state.evaluation,
-                    [(state.task, state.program, state.quality, overlay)], [entry + 1], [0],
-                )
-                evaluate_numeric_batch(flat, state.task, state.program, state.quality, state.plan)
             record.update(
                 batch_size=batch_size, entry_check=entry, entry_plan=state.plan.fingerprint,
                 original_limit=original_limit, diagnostic_window_ceiling=ceiling,
-                warmup_seconds=perf_counter() - warm_started,
+                warmup_seconds=0.0,
             )
             # Diagnostic ceiling is additive to the real prefix, never a zero reset.
             # No production restore interface, file configuration or policy rewrite.
@@ -109,7 +97,7 @@ def main():
             return result
 
         with patch.object(refinement, "improve_numeric_refinement", window), patch.object(
-            refinement, "_try_overlay_candidate", inspect
+            refinement, "consume_candidate_result", inspect
         ):
             _run_once(request, args.output_dir / f"batch_{batch_size}")
         record_json(args.output_dir / f"trace_{batch_size}.json", samples)
@@ -117,11 +105,13 @@ def main():
         windows.append(record)
         trace.append(samples)
         print(f"batch={batch_size}, prefix={record['entry_check']}, window={args.window_checks}, "
-              f"evaluations={len(samples)}, native_batches={record['diagnostics']['numeric_batch_calls']}", flush=True)
+              f"evaluations={len(samples)}, coordinated_batches={record['diagnostics']['numeric_batch_calls']}", flush=True)
     if trace[0] != trace[1] or windows[0]["entry_plan"] != windows[1]["entry_plan"]:
         raise AssertionError("logical trace or real refinement entrance differs")
     if windows[1]["diagnostics"]["numeric_batch_calls"] <= 0:
-        raise AssertionError("native batch path was not exercised")
+        raise AssertionError("bounded preparation path was not exercised")
+    if not trace[0]:
+        raise AssertionError("no shared candidate summaries were observed")
     comparison = compare_runs(args.output_dir / "batch_1", args.output_dir / "batch_8")
     _write_json(args.output_dir / "comparison.json", {
         "source": _code_identity(ROOT), "input_sha256": _sha256(args.prepared_request),
