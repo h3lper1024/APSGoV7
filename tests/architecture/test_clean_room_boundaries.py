@@ -138,7 +138,8 @@ def check_source(source, path, package):
                     (module == "apsgo_scheduler.core._bridge_numeric" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._numeric_kernel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._numeric_chain_ops" and top in {"numpy", "numba"})
-                    or (module == "apsgo_scheduler.core._numeric_candidate_kernel" and top in {"numpy", "numba"})
+                        or (module == "apsgo_scheduler.core._numeric_candidate_kernel" and top in {"numpy", "numba"})
+                        or (module == "apsgo_scheduler.core._numeric_search" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._numeric_resources" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._delivery_parallel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._search_numeric" and top == "numpy")
@@ -458,6 +459,16 @@ def test_numeric_construction_dependency_exception_is_exact():
         check_source("import numpy", PACKAGE / "core" / "_numeric_construction_extra.py", PACKAGE)
     with pytest.raises(AssertionError, match="Benchmark numeric literal"):
         check_source("N = 3", PACKAGE / "core" / "_numeric_construction.py", PACKAGE)
+
+
+def test_numeric_first_search_dependency_exception_is_exact():
+    for source in ("import numpy", "from numba import njit"):
+        check_source(source, PACKAGE / "core" / "_numeric_search.py", PACKAGE)
+    for source in ("import scipy", "import pandas", "import tests", "N = 3"):
+        with pytest.raises(AssertionError):
+            check_source(source, PACKAGE / "core" / "_numeric_search.py", PACKAGE)
+    with pytest.raises(AssertionError):
+        check_source("import numpy", PACKAGE / "core" / "_numeric_search_extra.py", PACKAGE)
 
 
 def test_candidate_recipe_arity_is_not_a_benchmark_constant():
