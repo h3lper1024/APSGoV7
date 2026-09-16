@@ -54,6 +54,11 @@ def check_source(source, path, package):
     tree = ast.parse(source, filename=str(path))
     module = module_name(path, package)
     approved_shape_numbers = set()
+    if module == "apsgo_scheduler.core._numeric_construction":
+        shape = ast.parse("_GRAPH_CHECKED, _GRAPH_ALLOWED, _GRAPH_DIRECTION = range(3)").body[0]
+        for node in tree.body:
+            if ast.dump(node) == ast.dump(shape):
+                approved_shape_numbers.update(item for item in ast.walk(node) if isinstance(item, ast.Constant))
     if module == "apsgo_scheduler.core._candidate_edit":
         shape = ast.parse('guard != "width_optimization" or len(indices) != 3', mode="eval").body
         for definition in tree.body:
@@ -128,7 +133,7 @@ def check_source(source, path, package):
                     or (module == "apsgo_scheduler.core._search_numeric" and top == "numpy")
                         or (module == "apsgo_scheduler.core._numeric_state" and top == "numpy")
                         or (module == "apsgo_scheduler.core._numeric_evaluation" and top == "numpy")
-                        or (module == "apsgo_scheduler.core._numeric_construction" and top == "numpy")
+                        or (module == "apsgo_scheduler.core._numeric_construction" and top in {"numpy", "numba"})
                         or (module == "apsgo_scheduler.core._numeric_audit" and top == "numpy")
                         or (module == "apsgo_scheduler.core._numeric_refinement" and top == "numpy")
                         or (module == "apsgo_scheduler.core._numeric_batch" and top == "numpy")
@@ -434,11 +439,14 @@ def test_complete_numeric_kernel_dependency_and_benchmark_exception_is_exact():
 
 def test_numeric_construction_dependency_exception_is_exact():
     check_source("import numpy", PACKAGE / "core" / "_numeric_construction.py", PACKAGE)
-    for source in ("import numba", "import scipy", "import pandas"):
+    check_source("from numba import njit", PACKAGE / "core" / "_numeric_construction.py", PACKAGE)
+    for source in ("import scipy", "import pandas"):
         with pytest.raises(AssertionError, match="External production dependency"):
             check_source(source, PACKAGE / "core" / "_numeric_construction.py", PACKAGE)
     with pytest.raises(AssertionError, match="External production dependency"):
         check_source("import numpy", PACKAGE / "core" / "_numeric_construction_extra.py", PACKAGE)
+    with pytest.raises(AssertionError, match="Benchmark numeric literal"):
+        check_source("N = 3", PACKAGE / "core" / "_numeric_construction.py", PACKAGE)
 
 
 def test_candidate_recipe_arity_is_not_a_benchmark_constant():
