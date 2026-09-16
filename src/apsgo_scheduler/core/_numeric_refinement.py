@@ -458,7 +458,7 @@ def _source_recipe_stream(
     ordered_sources=None,
     owner_sources=None,
     chain_recipe_streams=None,
-    critical_lane=False,
+    critical_lane=None,
     diagnostics=None,
     index=None,
     budget=None,
@@ -472,8 +472,13 @@ def _source_recipe_stream(
     owner_sources = owner_sources or ordered_sources
     ranked_chains = _chain_order(state, index)
 
+    def belongs_to_lane(is_critical):
+        return critical_lane is None or is_critical is critical_lane
+
     if family == "intra":
         for chain, start in positions:
+            if not belongs_to_lane(index._range_has_critical(chain, start, start + 1)):
+                continue
             for target in range(start):
                 yield (
                     NumericSearchAction.DELIVERY_INTRA_MOVE,
@@ -493,6 +498,8 @@ def _source_recipe_stream(
 
         def moves():
             for chain, start in positions:
+                if not belongs_to_lane(index._range_has_critical(chain, start, start + 1)):
+                    continue
                 if len(chains[chain]) < 2:
                     continue
                 row = chains[chain][start]
@@ -517,6 +524,7 @@ def _source_recipe_stream(
 
         def exchanges():
             for chain, start in positions:
+                source_critical = index._range_has_critical(chain, start, start + 1)
                 for target, slot in (
                     position
                     for owner in ordered_sources
@@ -524,6 +532,10 @@ def _source_recipe_stream(
                     if position[0] != chain
                     and int(position_ranks[chain][start])
                     < int(position_ranks[position[0]][position[1]])
+                    and belongs_to_lane(
+                        source_critical
+                        or index._range_has_critical(position[0], position[1], position[1] + 1)
+                    )
                 ):
                     yield (
                         NumericSearchAction.NODE_EXCHANGE,
@@ -560,11 +572,18 @@ def _source_recipe_stream(
                 for start in starts:
                     if owner_position(chain, start, start + length) != (chain, anchor):
                         continue
+                    source_critical = index._range_has_critical(
+                        chain, start, start + length
+                    )
+                    if critical_lane is False and source_critical:
+                        continue
                     for target in ranked_chains:
                         if target == chain:
                             continue
 
                         def moves():
+                            if not belongs_to_lane(source_critical):
+                                return
                             for slot in range(len(chains[target]) + 1):
                                 yield (
                                     NumericSearchAction.BLOCK_MOVE,
@@ -584,6 +603,13 @@ def _source_recipe_stream(
                             )
                             for size in range(1, maximum):
                                 for slot in range(len(chains[target]) - size + 1):
+                                    if not belongs_to_lane(
+                                        source_critical
+                                        or index._range_has_critical(
+                                            target, slot, slot + size
+                                        )
+                                    ):
+                                        continue
                                     if size > 1 and (
                                         owner(chain, start, start + length),
                                         chain,
@@ -626,6 +652,13 @@ def _source_recipe_stream(
             }
         else:
             owned_chains = tuple(dict.fromkeys(chain for chain, _ in positions))
+        owned_chains = tuple(
+            chain
+            for chain in owned_chains
+            if belongs_to_lane(
+                index._range_has_critical(chain, 0, int(index.chain_lengths[chain]))
+            )
+        )
         for chain in owned_chains:
             yield from chain_recipe_streams[chain]
 
@@ -681,11 +714,6 @@ def _family_stream(
                 return
             if diagnostics is not None:
                 diagnostics.record("raw_combinations", key)
-            is_critical = index.recipe_is_critical(recipe)
-            if critical_lane is not None and is_critical is not critical_lane:
-                if diagnostics is not None:
-                    diagnostics.record("lane_filtered", key)
-                continue
             if diagnostics is not None:
                 diagnostics.record("unique_combinations", key)
             cursor[family] = source

@@ -131,7 +131,7 @@ def test_refinement_diagnostics_separate_generated_and_consumed_work(monkeypatch
     assert diagnostics.maximum_generator_advance_seconds >= 0
 
 
-def test_refinement_index_replaces_layout_in_generation_and_lane_filter(monkeypatch):
+def test_refinement_generates_critical_lane_without_post_filter(monkeypatch):
     task, program, quality = construction_case(
         weights=("100",) * 6,
         widths=("1000", "990", "980", "970", "960", "950"),
@@ -142,7 +142,13 @@ def test_refinement_index_replaces_layout_in_generation_and_lane_filter(monkeypa
     critical = frozenset(_critical_sources(state, base))
     index = base.with_critical_sources(state, critical)
     expected = tuple(_source_recipe_stream(state, 0, "node", index=index))
+    expected = tuple(recipe for recipe in expected if index.recipe_is_critical(recipe))
     assert not hasattr(refinement, "_layout")
+    monkeypatch.setattr(
+        NumericRefinementIndex,
+        "recipe_is_critical",
+        lambda *args: pytest.fail("lane ownership must be decided during generation"),
+    )
 
     actual = tuple(
         _family_stream(
@@ -157,7 +163,7 @@ def test_refinement_index_replaces_layout_in_generation_and_lane_filter(monkeypa
         )
     )
 
-    assert actual == tuple(recipe for recipe in expected if index.recipe_is_critical(recipe))
+    assert actual == expected
     assert all(_recipe_real_sources(state, recipe, index=index) & critical for recipe in actual)
 
 
