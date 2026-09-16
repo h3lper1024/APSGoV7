@@ -149,7 +149,7 @@ def check_source(source, path, package):
                         or (module == "apsgo_scheduler.core._numeric_audit" and top == "numpy")
                         or (module == "apsgo_scheduler.core._numeric_refinement" and top == "numpy")
                         or (module == "apsgo_scheduler.core._numeric_refinement_scan" and top in {"numpy", "numba"})
-                        or (module == "apsgo_scheduler.core._numeric_batch" and top == "numpy")
+                            or (module == "apsgo_scheduler.core._numeric_batch" and top in {"numpy", "numba"})
                         or (module == "apsgo_scheduler.core._numeric_resources" and top == "numpy")
                     )
                 assert top in sys.stdlib_module_names or top == "apsgo_scheduler" or (
@@ -432,11 +432,14 @@ def test_numeric_evaluation_dependency_exception_is_exact():
 
 def test_numeric_batch_dependency_exception_is_exact():
     check_source("import numpy", PACKAGE / "core" / "_numeric_batch.py", PACKAGE)
-    for source in ("import numba", "import scipy", "import pandas", "import tests"):
+    check_source("from numba.typed import List", PACKAGE / "core" / "_numeric_batch.py", PACKAGE)
+    for source in ("import scipy", "import pandas", "import tests"):
         with pytest.raises(AssertionError):
             check_source(source, PACKAGE / "core" / "_numeric_batch.py", PACKAGE)
     with pytest.raises(AssertionError):
         check_source("import numpy", PACKAGE / "core" / "_numeric_batch_extra.py", PACKAGE)
+    with pytest.raises(AssertionError):
+        check_source("import numba", PACKAGE / "core" / "_numeric_batch_extra.py", PACKAGE)
 
 
 def test_complete_numeric_kernel_dependency_and_benchmark_exception_is_exact():

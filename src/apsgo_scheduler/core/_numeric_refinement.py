@@ -1445,22 +1445,37 @@ def _descriptor_attempts(state, budget, descriptor, maximum_virtual_bridge_nodes
         pool = NumericCandidateBatchWorkspace(state.task, state.program, state.quality,
             state.plan, state.evaluation, maximum_candidates=1)
     pool.require_current(state.task, state.program, state.quality, state.plan, state.evaluation)
+    policy, variants = _descriptor_settings(state, descriptor, maximum_virtual_bridge_nodes)
+    yield from pool.attempts(descriptor, policy, variants,
+        virtual_sequence=state.virtual_sequence, split_sequence=state.split_sequence,
+        allows_continue=budget.allows_search, capture=capture_candidate_result)
+
+
+def _descriptor_settings(state, descriptor, maximum_virtual_bridge_nodes):
     segments = int(descriptor[common_candidate.ACTION]) in (
         common_candidate.INTRA, common_candidate.NODE_MOVE, common_candidate.NODE_SWAP,
         common_candidate.BLOCK_MOVE, common_candidate.BLOCK_SWAP)
     maximum = _maximum_chain_weight(state) if segments else None
     policy = common_candidate.CandidateCheckPolicy(maximum_virtual_bridge_nodes,
         -1 if maximum is None else maximum, tuple(NumericRuleKind))
-    yield from pool.attempts(descriptor, policy, (1, 0) if segments else (0,),
-        virtual_sequence=state.virtual_sequence, split_sequence=state.split_sequence,
-        allows_continue=budget.allows_search, capture=capture_candidate_result)
+    return policy, (1, 0) if segments else (0,)
 
 
 def _prepare_descriptor_batch(state, budget, descriptors, maximum_virtual_bridge_nodes, diagnostics, key, pool=None):
     """Stage the ordered numeric descriptions in reusable generation-local slots."""
     started = perf_counter()
     prepared, count, private_bytes = [], 0, 0
-    for descriptor in descriptors:
+    remaining_descriptors = descriptors
+    if descriptors and pool is not None and pool.native_executor is not None:
+        pool.require_current(state.task, state.program, state.quality, state.plan, state.evaluation)
+        entries = [(descriptor, *_descriptor_settings(state, descriptor, maximum_virtual_bridge_nodes))
+                   for descriptor in descriptors]
+        prepared = pool.prepare_many(entries, virtual_sequence=state.virtual_sequence,
+            split_sequence=state.split_sequence, allows_continue=budget.allows_search)
+        count = sum(not isinstance(result, NumericDeferredCandidateFailure) and result.summary is not None
+                    for attempts in prepared for _, result in attempts)
+        remaining_descriptors = ()
+    for descriptor in remaining_descriptors:
         attempts = []
         for workspace, result in _descriptor_attempts(state, budget, descriptor, maximum_virtual_bridge_nodes, pool):
             attempts.append((workspace, result))

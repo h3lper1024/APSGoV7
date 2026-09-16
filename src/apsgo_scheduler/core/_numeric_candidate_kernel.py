@@ -8,7 +8,7 @@ from dataclasses import dataclass, replace
 from collections import namedtuple
 
 import numpy as np
-from numba import njit
+from numba import njit, prange
 
 from ._numeric_chain_ops import chain_rows, write_parts, reorder_chains, replace_span
 from ._numeric_evaluation import evaluate_numeric_view, NumericEvaluationContext, _check_kernel_status
@@ -883,6 +883,52 @@ def native_candidate_summary(frame):
     return result
 
 
+def finish_native_candidate(workspace, frame, descriptor, program, quality, policy, split_sequence):
+    """One result/error boundary shared by single and native-batch execution."""
+    _sync_native_frame(workspace, frame, policy)
+    c = frame.control
+    if c[_NC_ERROR] == _ERROR_ACTIVE_CHAINS:
+        raise NumericValueError("evaluation_view", "active chains and task periods must match")
+    if c[_NC_ERROR] == _ERROR_TIMING:
+        raise NumericValueError("delivery", "task has no production start and duration input")
+    summary = native_candidate_summary(frame) if c[_NC_EVALUATED] else None
+    return NumericCandidateAttempt(int(c[_NC_STATUS]), bool(c[_NC_PREPARED]),
+        bool(c[_NC_ADMISSIBLE]), workspace.view(), summary,
+        readonly(frame.affected[:c[_NC_AFFECTED]], np.int64), int(c[_NC_SEQUENCE]),
+        split_sequence, bool(c[_NC_CLEANED]), descriptor, program, quality, policy)
+
+
+@njit
+def _advance_native_group(inputs, frames, descriptions, policies, starts, active, group):
+    """At most one bounded step per group; dependent repair variants stay ordered."""
+    first, stop = starts[group], starts[group + 1]
+    for i in range(first, stop):
+        if not active[i]:
+            continue
+        c = frames[i].control
+        if c[_NC_PHASE] == _NC_DONE:
+            if c[_NC_STATUS] == CAPACITY:
+                return
+            if c[_NC_ERROR] or c[_NC_EVALUATED] and frames[i].output.status[0] != OK:
+                active[i + 1:stop] = False
+                return
+            continue
+        native_candidate_complete_step(inputs[0], frames[i], descriptions[i], policies[i])
+        return
+
+
+@njit(nogil=True)
+def native_candidate_batch_serial_step(inputs, frames, descriptions, policies, starts, active):
+    for group in range(starts.size - 1):
+        _advance_native_group(inputs, frames, descriptions, policies, starts, active, group)
+
+
+@njit(nogil=True, parallel=True)
+def native_candidate_batch_parallel_step(inputs, frames, descriptions, policies, starts, active):
+    for group in prange(starts.size - 1):
+        _advance_native_group(inputs, frames, descriptions, policies, starts, active, group)
+
+
 def prepare_candidate_attempt(workspace, program, quality, descriptors, index, policy, *,
                               virtual_sequence=0, split_sequence=0, split_decision=None,
                               allows_continue=None, evaluation_context=None, _complete=False):
@@ -998,16 +1044,8 @@ def compute_candidate_attempt(workspace, program, quality, descriptors, index, p
             if allows_continue is not None and not allows_continue():
                 return replace(preparation, status=CANCELLED, prepared=False, native_state=None)
             native_candidate_complete_step(data, frame, preparation.descriptor, native_policy)
-        _sync_native_frame(workspace, frame, policy)
-        c = frame.control
-        if c[_NC_ERROR] == _ERROR_ACTIVE_CHAINS:
-            raise NumericValueError("evaluation_view", "active chains and task periods must match")
-        if c[_NC_ERROR] == _ERROR_TIMING:
-            raise NumericValueError("delivery", "task has no production start and duration input")
-        if not c[_NC_PREPARED]:
-            return replace(preparation, status=int(c[_NC_STATUS]), prepared=False, native_state=None)
-        return replace(preparation, summary=native_candidate_summary(frame),
-            admissible=bool(c[_NC_ADMISSIBLE]), native_state=None)
+        return finish_native_candidate(workspace, frame, preparation.descriptor,
+            program, quality, policy, preparation.split_sequence)
     base_groups = PrivateSplitColumns(*(getattr(workspace.task.split_groups, name)
                                          for name in PrivateSplitColumns._fields))
     if not _split_periods_match(workspace.view(), _base_nodes(workspace.task), workspace.nodes,

@@ -107,3 +107,44 @@ cmp diagnostics/unified_numeric_solver/stage61_reference_01/search_prefix.json d
 退出均为 0，JSON 字节一致，SHA-256 仍为 `da2f5a753580bfcab57c258cf31a940e2d11aa7d417e89d0823d662b1d1e5f1d`。154226 次检查/6688 完整评价/460 接受；两类拆单各 1、唯一重放 1、入口/出口身份和窗口九级均不变。运行逐源码摘要在 `identity.json`。其既有 `mode` 名称含 `cold`，**本次实际已由上述测试预热**；附带 31.365581 秒墙钟/31.237831 秒 CPU 只能作为诊断，不与上一单元首次计时作提速比值，不称一分钟全量通过。
 
 保护的用户文件、配置/库、原输入与历史交期问题不变。下一项新 8.2.3，使用同一个原生入口对独立候选进行线程筛查，不能用最后评分阶段的单独并行代替整候选。
+
+## 8.2.3 整候选同内核线程筛查
+
+实施前 `2e8e331`，保持 macOS arm64 / Conda `aps_3.10.18`。默认仍采用逐条协调的公共完整候选入口，新增内部实验选择不属于服务配置，不修改 YAML、SQLite 或公开接口。
+
+### 实现与必要验证
+
+独立描述外层使用实际 `prange` 原生线程循环；每个描述的清理后/原样变体仍按原依赖顺序执行。每步有界续算，线程只能改自己的链、节点、资源事件及输出；主线程在返回后处理取消、扩容、延迟错误和原序结果包装，消费与正式发布不变。串行批量和并行批量共享同一个 `_advance_native_group()`，后者调用既有整候选原生入口，不复制业务公式。
+
+共享基础输入通过只有一项的原生列表借用同一只读数组，候选帧为互不重叠的原生列表；Python 边界保留同帧引用，避免每次检查将整个原生帧重新装箱。该间接传递是实际编译所需：最初直接传递嵌套命名元组时，Numba 并行包装器将其误判为数组参数并报 `scalar type TaskColumns given for non scalar argument`；修正后串行与双线程 4 个小例通过。没有退回 Python 对象计算。
+
+扩充后 12 个新边界案例加现有必要业务共 78 项通过；原组合运行共 123 项通过后，仅架构旧否定断言仍禁止 `_numeric_batch` 使用 Numba，退出 1 / 269.24 秒。同步精确依赖正反断言后，架构全部 97 项通过 / 1.34 秒。没有放开其他文件、Pandas、SciPy 或测试依赖。其间一次重复启动的新例复跑在编译阶段主动停止，避免重复工作，不算通过。精确暂存树重新执行完整同 175 项，结果和目录记入 Git 提交正文。
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m pytest -q -x -p no:cacheprovider tests/core/test_numeric_native_batch.py tests/core/test_numeric_candidate_kernel.py tests/core/test_numeric_batch.py tests/core/test_numeric_refinement_common.py tests/architecture
+```
+
+覆盖成功/失败单双材、两个真实修复变体、没有清理变体、私有隔离、容量重试、取消、后续非法描述延迟和第一修复溢出阻断第二修复；实际无对象编译签名与全部数值输出核对通过。
+
+### 真实热点筛查
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_native_candidate_parallel.py --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json --output-dir diagnostics/unified_numeric_solver/stage823_hotspot_01
+```
+
+退出 0。正常首轮、拆单及重放后捕获 256 个实际生成描述，横跨 3 个正式代次、33 批；不是从中间快照恢复。动作分别为链内移动 104、节点移动/交换各 40、块移动 33、块交换 32、回收 7；249 描述保留清理/原样变体，7 描述单变体，失败尝试也计入。每次实际完成评价 80 次，其余原样保留准备失败/无变体等结果。缺失的切链/调序等边界由既有小例覆盖，不宣称这 256 项穷尽全流程。
+
+每模式预热一次，5 次热运行按模式轮换顺序；所有有效链映射、节点/派生列、资源事件、状态及完整评分输出摘要一致。计时包含描述校验、工作区准备、修复/资源/评价、输出包装及释放；不包含基础上下文/池创建、摘要核对、正常前缀或最终审核，**不是端到端性能**。
+
+| 模式 | 5 次墙钟中位数（秒） | CPU 中位数（秒） |
+|---|---:|---:|
+| 公共入口逐条串行 | 0.200562 | 0.200229 |
+| 整候选原生批量串行 | 0.146220 | 0.145894 |
+| 并行入口 1 线程 | 0.205066 | 0.308417 |
+| 2 线程 | 0.255566 | 0.469859 |
+| 4 线程 | 0.304550 | 0.780105 |
+| 8 线程 | 0.364021 | 1.324022 |
+
+环境实际 12 逻辑核、Numba 最大线程 12；工具完成后恢复线程设置。进程累计峰值 1573650432 字节含编译及全部模式，不当作某模式单独峰值。完整输入、源码、分组和样本见 `samples.json` / `hotspot.json`；生产摘要 `5104209e4580410a9e45fb7e16641cf66ddc2b63208c1c2d44b429926ce75df1`。
+
+本实现的线程协调总成本超过这些有界候选的收益；这是本次样本和实现的结论，不推断所有并行都无用。**不扩大任何线程组到真实窗口或 40 万次。**串行批量组织局部降低约 27.1%，下一项单独验证实际窗口及完整求解；尚不切换默认、不宣称整体提速。
