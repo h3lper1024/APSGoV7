@@ -128,6 +128,15 @@ def check_source(source, path, package):
                     item for item in ast.walk(node.slice)
                     if isinstance(item, ast.Constant) and type(item.value) is int and item.value == 3
                 )
+    if module == "apsgo_scheduler.core._numeric_refinement_scan":
+        # Violation buffer column 3 is the node start position, not a benchmark.
+        position_column = ast.parse("early[:, 3]", mode="eval").body
+        for function in tree.body:
+            if isinstance(function, ast.FunctionDef) and function.name == "build_scan":
+                for node in ast.walk(function):
+                    if ast.dump(node) == ast.dump(position_column):
+                        approved_shape_numbers.update(item for item in ast.walk(node)
+                                                      if isinstance(item, ast.Constant))
     sys_aliases = {"sys"}
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -312,6 +321,20 @@ def test_source_guard_accepts_standard_library():
         PACKAGE / "core" / "example.py",
         PACKAGE,
     )
+
+
+def test_release_time_position_column_exception_is_exact():
+    path = PACKAGE / "core" / "_numeric_refinement_scan.py"
+    source = "def build_scan():\n    return early[:, 3]\n"
+    check_source(source, path, PACKAGE)
+    for changed, target in (
+        (source, PACKAGE / "core" / "example.py"),
+        (source.replace("build_scan", "unrelated"), path),
+        (source + "    benchmark = 3\n", path),
+        (source.replace("early[:, 3]", "early[:, 37]"), path),
+    ):
+        with pytest.raises(AssertionError, match="Benchmark numeric literal"):
+            check_source(changed, target, PACKAGE)
 
 
 @pytest.mark.parametrize("function,statement", [

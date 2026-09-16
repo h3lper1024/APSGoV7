@@ -235,6 +235,7 @@ def numeric_delivery_plan_report(
                     lower = start_milliseconds(earliest, "earliest_start_at") - start_ms
                     early = max(0, lower - before)
                     node_rows[-1].update(source_order_id=node.source_order_id,
+                        chain_id=chain.chain_id, assigned_period=chain.assigned_period,
                         earliest_start_at=earliest, earliest_start_milliseconds=lower,
                         early_start_milliseconds=early, early_start_seconds=ratio(early, 1000))
     if set(completion) != set(timing.orders):
