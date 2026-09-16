@@ -1,0 +1,235 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>APSGo V7 后端技术说明</title><style>:root{--color-paper:#ffffff;--color-paper-2:#f3f7fc;--color-ink:#17324d;--color-muted:#536b83;--color-soft:#6a8199;--color-rule:#d3dfed;--color-accent:#1764b4;--color-accent-tint:#edf5ff;--color-link:#1764b4;--font-sans:'Geist','PingFang SC','Microsoft YaHei',sans-serif;--font-serif:'Instrument Serif','Songti SC',serif;--font-mono:'Geist Mono',Menlo,monospace}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#f3f7fc;color:var(--color-ink);font:15px/1.85 var(--font-sans)}aside{position:fixed;inset:0 auto 0 0;width:238px;padding:32px 24px;background:#17324d;color:white;overflow:auto}aside .brand{font:28px var(--font-serif);margin:8px 0 24px}aside a{display:block;color:#d9e8f8;padding:9px 0;font-size:13px;text-decoration:none;line-height:1.6}aside a:hover{color:white;text-decoration:underline}.eyebrow{font:10px var(--font-mono);letter-spacing:.15em}main{margin:0 0 0 238px;padding:48px 5vw 80px;max-width:1560px;background:white;min-height:100vh}h1{font:400 clamp(28px,3vw,40px)/1.35 var(--font-serif);margin:0 0 24px}h2{font-size:24px;line-height:1.45;margin:64px 0 20px;padding-top:20px;border-top:2px solid #1764b4;scroll-margin-top:20px}h3{font-size:18px;margin:32px 0 12px;line-height:1.5}p{margin:12px 0}a{color:var(--color-link);text-underline-offset:3px}blockquote{margin:24px 0;padding:16px 24px;background:var(--color-paper-2);border-left:4px solid var(--color-accent);font-size:14px}blockquote p{margin:0}.table-scroll{overflow-x:auto;margin:20px 0}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.75}th{background:#edf5ff;color:#17324d;text-align:left;font-weight:600}th,td{padding:12px 14px;border:1px solid var(--color-rule);vertical-align:top}td{overflow-wrap:anywhere}tr:nth-child(even) td{background:#fafcff}code{font-family:var(--font-mono);font-size:.86em;background:#edf2f8;padding:2px 4px;border-radius:3px;overflow-wrap:anywhere}pre{padding:20px 24px;background:#f3f7fc;border-left:3px solid #8eb9e5;overflow:auto;font-size:13px;line-height:1.8}pre code{background:none;padding:0}ul,ol{padding-left:24px}li{margin:8px 0}strong{font-weight:600}figure{margin:28px 0;background:white;border-block:1px solid var(--color-rule);padding:24px 0 16px}.figure-top h3{margin:8px 0}.figure-top p,figcaption{color:var(--color-muted);font-size:13px}figcaption{padding-top:8px}.diagram-container{overflow-x:auto}.diagram-container svg{display:block;width:100%;min-width:840px;height:auto}svg text{fill:var(--color-ink)}svg .node-name{font:600 12px var(--font-sans)}svg .entity-heading{font:600 14px var(--font-sans)}svg .sub{font:9px var(--font-mono);fill:var(--color-muted)}svg .tag{font:8px var(--font-mono);fill:var(--color-soft);letter-spacing:.08em}svg .edge-label{font:12px var(--font-sans);fill:var(--color-muted)}svg .note{font:12px var(--font-sans);fill:var(--color-muted)}svg .legend{font:10px var(--font-sans);fill:var(--color-muted)}hr{border:0;border-top:1px solid var(--color-rule);margin:40px 0}@media(max-width:980px){aside{position:static;width:100%;padding:20px 24px}aside nav{display:flex;flex-wrap:wrap;gap:0 18px}aside .brand{margin:4px 0 12px}main{margin:0;padding:28px 20px}h2{font-size:22px}table{min-width:650px}}@media print{aside{display:none}main{margin:0;padding:0;max-width:none}body{background:white;font-size:11px}h2{break-after:avoid;margin-top:28px}h3{break-after:avoid}figure{break-inside:avoid}.diagram-container{overflow:visible}.diagram-container svg{min-width:0}table{font-size:10px}th,td{padding:6px}pre{white-space:pre-wrap}a{color:inherit} }</style></head><body><aside><div class="eyebrow">CURRENT IMPLEMENTATION</div><div class="brand">APSGo V7</div><nav><a href="#section-1">1. 整体流程</a><a href="#section-2">2. 规则设计：决定“能怎么连、能怎么排”</a><a href="#section-3">3. 矩阵数据结构设计：把规则结果变成可查询的连接关系</a><a href="#section-4">4. 搜索设计：从初始链走向更好的完整方案</a><a href="#section-5">5. 候选优化目标设计：决定“哪种改动值得接受”</a></nav><p style="font-size:11px;color:#a5c1dd;margin-top:28px">2026-09-15<br>dde6609<br>当前实现 · 蓝白技术文档</p></aside><main><h1>APSGo V7 后端技术说明</h1>
+<blockquote>
+<p>当前实现概览 · 2026-09-15 · 源码基线 <code>dde6609</code></p>
+<p>本文围绕“规则 → 连接数据 → 搜索 → 目标比较”说明各部分如何协作，仅描述已实现代码。<a href="apsgo_v7_backend_technical_guide.md">Markdown 源文档</a>。</p>
+</blockquote>
+<h2 id="section-1">1. 整体流程</h2>
+<p><strong>V7 先根据规则找到材料之间的可连接关系，构造初始生产链，再不断尝试局部调整，用完整规则和优化目标决定是否接受，最后独立审计输出。</strong></p>
+<figure id="figure-architecture"><div class="figure-top"><span class="eyebrow">FIGURE ARCHITECTURE</span><h3>V7 后端整体流程</h3><p>先形成可用连接关系和初始链，再通过搜索逐步改善完整方案。</p></div><div class="diagram-container"><svg viewBox="0 0 1280 720" role="img" aria-labelledby="architecture-title architecture-desc"><title id="architecture-title">V7 后端整体流程</title><desc id="architecture-desc">订单和规则准备后生成连接图，构造初始链，经过局部搜索、受控拆单与后置精修，最后独立审计输出。</desc><defs><marker id="architecture-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#536b83"/></marker><marker id="architecture-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1764b4"/></marker><marker id="architecture-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1764b4"/></marker></defs><rect width="1280" height="720" fill="#ffffff"/><line x1="360" y1="200" x2="480" y2="200" stroke="#536b83" stroke-width="1.5"  marker-end="url(#architecture-arrow)"/><rect x="388" y="176" width="64" height="16" fill="#ffffff"/><text x="420" y="188" class="edge-label" text-anchor="middle">规则判定</text><line x1="800" y1="200" x2="920" y2="200" stroke="#536b83" stroke-width="1.5"  marker-end="url(#architecture-arrow)"/><rect x="834" y="176" width="52" height="16" fill="#ffffff"/><text x="860" y="188" class="edge-label" text-anchor="middle">连接图</text><line x1="1080" y1="296" x2="1080" y2="400" stroke="#536b83" stroke-width="1.5"  marker-end="url(#architecture-arrow)"/><rect x="1136" y="328" width="88" height="16" fill="#ffffff"/><text x="1180" y="340" class="edge-label" text-anchor="middle">完整初始方案</text><line x1="920" y1="472" x2="800" y2="472" stroke="#536b83" stroke-width="1.5"  marker-end="url(#architecture-arrow)"/><rect x="828" y="448" width="64" height="16" fill="#ffffff"/><text x="860" y="460" class="edge-label" text-anchor="middle">当前方案</text><line x1="480" y1="472" x2="360" y2="472" stroke="#536b83" stroke-width="1.5"  marker-end="url(#architecture-arrow)"/><rect x="388" y="448" width="64" height="16" fill="#ffffff"/><text x="420" y="460" class="edge-label" text-anchor="middle">最终候选</text><g class="node"><rect x="40" y="128" width="320" height="168" rx="6" fill="#ffffff"/><rect x="40" y="128" width="320" height="168" rx="6" fill="#f3f7fc" stroke="#d3dfed"/><rect x="56" y="140" width="46" height="16" rx="2" fill="none" stroke="#d3dfed"/><text x="64" y="151" class="tag" text-anchor="start">INPUT</text><text x="60" y="184" class="entity-heading" text-anchor="start">① 输入与规则准备</text><text x="60" y="212" class="note" text-anchor="start">· 订单、期间、规则快照</text><text x="60" y="236" class="note" text-anchor="start">· 钢种字典与虚拟材原型</text><text x="60" y="260" class="note" text-anchor="start">· 固定本次求解条件</text></g><g class="node"><rect x="480" y="128" width="320" height="168" rx="6" fill="#ffffff"/><rect x="480" y="128" width="320" height="168" rx="6" fill="#f3f7fc" stroke="#d3dfed"/><rect x="496" y="140" width="76" height="16" rx="2" fill="none" stroke="#d3dfed"/><text x="504" y="151" class="tag" text-anchor="start">CONNECTION</text><text x="500" y="184" class="entity-heading" text-anchor="start">② 建立连接关系</text><text x="500" y="212" class="note" text-anchor="start">· 规则判断材料能否相接</text><text x="500" y="236" class="note" text-anchor="start">· 邻接表保存构造关系</text><text x="500" y="260" class="note" text-anchor="start">· 缓存复用连接判定</text></g><g class="node"><rect x="920" y="128" width="320" height="168" rx="6" fill="#ffffff"/><rect x="920" y="128" width="320" height="168" rx="6" fill="#f3f7fc" stroke="#d3dfed"/><rect x="936" y="140" width="88" height="16" rx="2" fill="none" stroke="#d3dfed"/><text x="944" y="151" class="tag" text-anchor="start">INITIAL PLAN</text><text x="940" y="184" class="entity-heading" text-anchor="start">③ 构造初始方案</text><text x="940" y="212" class="note" text-anchor="start">· 路径覆盖串联材料</text><text x="940" y="236" class="note" text-anchor="start">· 按链规则截断和分组</text><text x="940" y="260" class="note" text-anchor="start">· 得到完整生产链方案</text></g><g class="node"><rect x="920" y="400" width="320" height="168" rx="6" fill="#ffffff"/><rect x="920" y="400" width="320" height="168" rx="6" fill="#edf5ff" stroke="#1764b4"/><rect x="936" y="412" width="52" height="16" rx="2" fill="none" stroke="#d3dfed"/><text x="944" y="423" class="tag" text-anchor="start">SEARCH</text><text x="940" y="456" class="entity-heading" text-anchor="start">④ 局部搜索与受控拆单</text><text x="940" y="484" class="note" text-anchor="start">· 合并、迁移、补重、换位</text><text x="940" y="508" class="note" text-anchor="start">· 规则授权后拆分原单</text><text x="940" y="532" class="note" text-anchor="start">· 接受拆单后可重放搜索</text></g><g class="node"><rect x="480" y="400" width="320" height="168" rx="6" fill="#ffffff"/><rect x="480" y="400" width="320" height="168" rx="6" fill="#edf5ff" stroke="#1764b4"/><rect x="496" y="412" width="76" height="16" rx="2" fill="none" stroke="#d3dfed"/><text x="504" y="423" class="tag" text-anchor="start">REFINEMENT</text><text x="500" y="456" class="entity-heading" text-anchor="start">⑤ 后置精修</text><text x="500" y="484" class="note" text-anchor="start">· 节点、片段与链序调整</text><text x="500" y="508" class="note" text-anchor="start">· 按模式支持普通桥回收</text><text x="500" y="532" class="note" text-anchor="start">· 共用剩余搜索预算</text></g><g class="node"><rect x="40" y="400" width="320" height="168" rx="6" fill="#ffffff"/><rect x="40" y="400" width="320" height="168" rx="6" fill="#f3f7fc" stroke="#d3dfed"/><rect x="56" y="412" width="52" height="16" rx="2" fill="none" stroke="#d3dfed"/><text x="64" y="423" class="tag" text-anchor="start">OUTPUT</text><text x="60" y="456" class="entity-heading" text-anchor="start">⑥ 独立审计与输出</text><text x="60" y="484" class="note" text-anchor="start">· 复算规则与来源守恒</text><text x="60" y="508" class="note" text-anchor="start">· 检查资源和结果契约</text><text x="60" y="532" class="note" text-anchor="start">· 确定是否可以发布</text></g><text x="40" y="624" class="note" text-anchor="start">④和⑤内部：生成候选 → 完整规则评价 → 有序目标比较 → 接受或拒绝</text><line x1="40" y1="660" x2="1240" y2="660" stroke="#d3dfed"/><text x="40" y="686" class="tag" text-anchor="start">LEGEND</text><text x="136" y="686" class="legend" text-anchor="start">实线：阶段总体顺序</text><text x="488" y="686" class="legend" text-anchor="start">蓝色：反复评价候选的搜索阶段</text><text x="840" y="686" class="legend" text-anchor="start">规则与目标贯穿构造、搜索和审计</text></svg></div><figcaption>总体阶段图 · 搜索中的候选评价与接受见第 4 节。</figcaption></figure>
+
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>做什么</th>
+<th>交给下一步的内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>① 输入与规则准备</td>
+<td>规范化订单，绑定规则、钢种字典、虚拟材原型和求解预算</td>
+<td>一份固定的求解输入与规则快照</td>
+</tr>
+<tr>
+<td>② 建立连接关系</td>
+<td>用相邻连接规则判断材料能否相接，再加构造顺序限制</td>
+<td>构造连接图，以及可复用的连接判定</td>
+</tr>
+<tr>
+<td>③ 构造初始方案</td>
+<td>通过路径覆盖把节点串起来，再按链重量和整链规则截断、分组</td>
+<td>一份覆盖输入材料的完整生产链方案</td>
+</tr>
+<tr>
+<td>④ 局部搜索与受控拆单</td>
+<td>尝试合并链、移动节点、虚拟补重、整链换位，以及规则授权的拆单；接受拆单后可重放搜索</td>
+<td>逐步改善的当前方案</td>
+</tr>
+<tr>
+<td>⑤ 后置精修</td>
+<td>继续尝试节点、片段、链顺序调整；相应交期模式下还支持普通桥接回收</td>
+<td>在剩余预算内得到的最终候选</td>
+</tr>
+<tr>
+<td>⑥ 独立审计与输出</td>
+<td>复算规则、来源守恒和资源，检查结果契约</td>
+<td>可发布结果，或说明不能发布的原因</td>
+</tr>
+</tbody></table></div>
+<p>其中，④和⑤内部都会反复执行：<strong>生成候选 → 检查规则 → 比较目标 → 接受或拒绝</strong>。时间或候选额度耗尽时，后续搜索阶段可能跳过，已有方案交由审计判断。</p>
+<h2 id="section-2">2. 规则设计：决定“能怎么连、能怎么排”</h2>
+<p>规则从配置加载为统一规则对象，按作用范围执行。它们既提供连接判断，也提供整链约束、全方案指标和拆单资格。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>规则层次</th>
+<th>典型内容</th>
+<th>在整体流程中的作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>节点与相邻连接</td>
+<td>客户构造优先级、宽度变化、厚度跳变、温度交集、软硬材料连接</td>
+<td>决定构造顺序和材料间可连接关系；搜索修改边界时继续复用</td>
+</tr>
+<tr>
+<td>整条生产链</td>
+<td>链重上下限、连续窄钢重量、同规格连续重量、逆宽次数、连续虚拟材数量</td>
+<td>判断一串可连接材料组成整链后是否仍满足要求</td>
+</tr>
+<tr>
+<td>全方案与动作资格</td>
+<td>来源期间、虚拟材占比、链间宽差、交期表现、受控拆单授权</td>
+<td>检查跨链影响，产出优化指标，限制特殊动作</td>
+</tr>
+</tbody></table></div>
+<p><strong>两张订单可以相接，不代表把它们接进某条链后一定合法。</strong> 例如相邻宽厚和温度都通过，追加后仍可能超过连续窄钢重量或整链重量上限。因此，连接图只承载相邻关系，整链与全方案规则仍在候选评价时执行。</p>
+<h3>规则如何生成连接图</h3>
+<p>对固定顺序中的节点 <code>A、B</code>，构图执行两个判断：</p>
+<ol>
+<li><strong>规则判断：</strong> 所有启用的相邻连接规则是否允许 <code>A → B</code>。</li>
+<li><strong>构造判断：</strong> 是否沿节点固定顺序向前连接，以及是否符合构造阶段的宽度方向。</li>
+</ol>
+<p>两者都通过，才在构造图中保存 <code>A → B</code>。相邻规则的判断结果同时进入任务内连接缓存，供后续查询使用。构造方向不写入该缓存，因此后续搜索仍能尝试工艺允许、但初始构造未采用的连接。</p>
+<p>规则输出还包含违规原因和评价指标。启用规则要求的输入字段缺失时，入口会报错；不会为了继续排程而自动跳过该规则。</p>
+<h2 id="section-3">3. 矩阵数据结构设计：把规则结果变成可查询的连接关系</h2>
+<p>“矩阵”可以理解为材料两两连接关系的表，但 V7 实际按用途采用几种互补结构，而不是把所有规则和目标装进一个大矩阵。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>结构</th>
+<th>保存什么</th>
+<th>怎样服务搜索</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>构造图：邻接表</strong></td>
+<td>每个节点允许连接的后继节点，如 <code>A: [B,C]</code></td>
+<td>供路径覆盖生成初始串联路径；没有边的位置不参与这次构造</td>
+</tr>
+<tr>
+<td><strong>连接判定缓存</strong></td>
+<td><code>(左语义编号, 右语义编号) → 允许/禁止及原因</code>；缓存绑定本任务规则</td>
+<td>搜索移动节点、拼接片段、寻找桥接时，复用相同材料语义的连接结果</td>
+</tr>
+<tr>
+<td><strong>数值目录与方案视图</strong></td>
+<td>材料物理属性数组、整数编号、链边界、节点及原单位置索引</td>
+<td>在当前方案中定位材料和片段，支持候选描述还原及插入位置查询</td>
+</tr>
+<tr>
+<td><strong>虚拟桥接数组</strong></td>
+<td>左右锚点、虚拟原型的宽厚温度，以及连接规则参数</td>
+<td>在直连失败时扫描单个或两个虚拟材组合，选择桥接材料</td>
+</tr>
+</tbody></table></div>
+<h3>用一个小例子理解存储方式</h3>
+<p>若规则与构造方向检查后，允许 <code>A → B、A → C、B → C</code>，逻辑连接矩阵是：</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>前节点 \ 后节点</th>
+<th>A</th>
+<th>B</th>
+<th>C</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A</td>
+<td>—</td>
+<td>允许</td>
+<td>允许</td>
+</tr>
+<tr>
+<td>B</td>
+<td>—</td>
+<td>—</td>
+<td>允许</td>
+</tr>
+<tr>
+<td>C</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody></table></div>
+<p>实际图结构只保存 <code>A: [B,C]、B: [C]、C: []</code>，不分配完整二维连接表。路径覆盖可据此串出 <code>A → B → C</code>；初始构造再检查整链规则，必要时截成多条链。</p>
+<p>开始搜索后，方案另用整数序列表示位置。例如两条链 <code>[A,B]、[C]</code>，节点编号为 <code>0、1、2</code>，方案视图保存：</p>
+<pre><code class="language-text">节点行号： [0, 1, 2]
+链边界：   [0, 2, 3]
+含义：第一条链取位置 [0,2)，第二条链取位置 [2,3)。
+</code></pre>
+<p>这使搜索能够定位“第几条链的哪个片段”。物理属性按字段存成数组，真实重量等权威数据仍保留十进制数值；数值视图辅助计算，完整领域方案仍是最终依据。</p>
+<h3>搜索怎样使用这些数据</h3>
+<p>例如把 <code>B</code> 插到 <code>X、Y</code> 之间，需要检查 <code>X → B</code> 和 <code>B → Y</code>。已经计算过的连接可从缓存读取，并批量标记直接可插入的位置；未知关系在原查询位置调用规则计算。直接可连接的位置优先尝试，其他位置仍保留给后续处理。</p>
+<p>当前候选描述记录“移动/交换什么、放在哪里”，并绑定产生它的方案版本。接受一次调整后，方案视图同步更新，旧版本描述不能继续用于新方案，避免位置已经变化却移动了错误材料。</p>
+<p><strong>这几种结构的分工是：图负责初始串联，缓存负责重复连接查询，数值视图负责位置和属性访问，桥接数组负责挑选连接材。它们都不能替代完整候选评价。</strong></p>
+<h2 id="section-4">4. 搜索设计：从初始链走向更好的完整方案</h2>
+<p>V7 的搜索以一份“当前已接受方案”为中心，按既定动作顺序生成局部改动，并使用统一入口决定是否接受。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>环节</th>
+<th>核心做法</th>
+<th>与前面设计的联系</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>初始构造</td>
+<td>在构造图上计算路径覆盖，再沿路径建立生产链</td>
+<td>使用规则生成的图，得到搜索起点；不是最终最优方案</td>
+</tr>
+<tr>
+<td>生成候选</td>
+<td>合并链、移动/交换节点或片段、调整链序、受控拆单等</td>
+<td>通过当前方案位置索引描述改动；通过规则确定动作资格</td>
+</tr>
+<tr>
+<td>修复连接</td>
+<td>检查改动后的边界，必要时尝试虚拟桥接</td>
+<td>查询连接缓存，使用虚拟原型数组选择连接材</td>
+</tr>
+<tr>
+<td>完整评价</td>
+<td>检查来源、期间、编号及规则，计算完整方案指标</td>
+<td>不只看新接上的边，还检查受影响链和全方案影响</td>
+</tr>
+<tr>
+<td>接受并继续</td>
+<td>满足动作保护且有序评分严格改善，才替换当前方案</td>
+<td>目标决定搜索方向；接受后更新方案和计算视图</td>
+</tr>
+</tbody></table></div>
+<figure id="figure-candidate"><div class="figure-top"><span class="eyebrow">FIGURE CANDIDATE</span><h3>完整候选的评价与提交时序</h3><p>只有统一接受入口提交状态；枚举、评分都不直接改写当前方案。</p></div><div class="diagram-container"><svg viewBox="0 0 1280 720" role="img" aria-labelledby="candidate-title candidate-desc"><title id="candidate-title">完整候选的评价与提交时序</title><desc id="candidate-desc">枚举器提交候选，统一接受入口完成结构检查与评价；严格改善且动作保护通过才提交状态，否则返回拒绝。</desc><defs><marker id="candidate-arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#536b83"/></marker><marker id="candidate-arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1764b4"/></marker><marker id="candidate-arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#1764b4"/></marker></defs><rect width="1280" height="720" fill="#ffffff"/><line x1="120" y1="164" x2="120" y2="640" stroke="#d3dfed" stroke-dasharray="4,4"/><line x1="464" y1="164" x2="464" y2="640" stroke="#d3dfed" stroke-dasharray="4,4"/><line x1="824" y1="164" x2="824" y2="640" stroke="#d3dfed" stroke-dasharray="4,4"/><line x1="1152" y1="164" x2="1152" y2="640" stroke="#d3dfed" stroke-dasharray="4,4"/><rect x="460" y="204" width="8" height="420" fill="#edf5ff" stroke="#d3dfed"/><rect x="820" y="308" width="8" height="92" fill="#f3f7fc" stroke="#d3dfed"/><rect x="72" y="448" width="1128" height="192" rx="4" fill="none" stroke="#d3dfed"/><rect x="72" y="448" width="48" height="20" fill="#f3f7fc" stroke="#d3dfed"/><text x="96" y="462" class="tag" text-anchor="middle">ALT</text><text x="140" y="480" class="note" text-anchor="start">严格改善且动作保护通过</text><line x1="80" y1="552" x2="1192" y2="552" stroke="#d3dfed" stroke-dasharray="4,4"/><text x="140" y="580" class="note" text-anchor="start">否则：拒绝，当前方案不变</text><line x1="120" y1="228" x2="460" y2="228" stroke="#536b83" stroke-width="1.5"  marker-end="url(#candidate-arrow)"/><rect x="248" y="204" width="64" height="16" fill="#ffffff"/><text x="280" y="216" class="edge-label" text-anchor="middle">完整候选</text><text x="492" y="272" class="note" text-anchor="start">先检查来源、期锁、编号与变动范围</text><line x1="468" y1="320" x2="820" y2="320" stroke="#536b83" stroke-width="1.5"  marker-end="url(#candidate-arrow)"/><rect x="596" y="296" width="88" height="16" fill="#ffffff"/><text x="640" y="308" class="edge-label" text-anchor="middle">完整语义评价</text><line x1="820" y1="400" x2="468" y2="400" stroke="#536b83" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#candidate-arrow)"/><rect x="593.5" y="376" width="93" height="16" fill="#ffffff"/><text x="640" y="388" class="edge-label" text-anchor="middle">quality_key</text><line x1="468" y1="520" x2="1152" y2="520" stroke="#1764b4" stroke-width="1.5"  marker-end="url(#candidate-arrow-accent)"/><rect x="756" y="496" width="136" height="16" fill="#ffffff"/><text x="824" y="508" class="edge-label" text-anchor="middle">提交方案、评价、编号</text><line x1="460" y1="616" x2="120" y2="616" stroke="#536b83" stroke-width="1.5" stroke-dasharray="5,4" marker-end="url(#candidate-arrow)"/><rect x="239" y="592" width="82" height="16" fill="#ffffff"/><text x="280" y="604" class="edge-label" text-anchor="middle">返回 False</text><g class="node"><rect x="40" y="68" width="160" height="96" rx="6" fill="#ffffff"/><rect x="40" y="68" width="160" height="96" rx="6" fill="#f3f7fc" stroke="#d3dfed"/><rect x="56" y="80" width="46" height="16" rx="2" fill="none" stroke="#d3dfed"/><text x="64" y="91" class="tag" text-anchor="start">ACTOR</text><text x="60" y="124" class="entity-heading" text-anchor="start">候选枚举器</text></g><text x="120" y="144" class="sub" text-anchor="middle">recipes</text><g class="node"><rect x="344" y="68" width="240" height="96" rx="6" fill="#ffffff"/><rect x="344" y="68" width="240" height="96" rx="6" fill="#f3f7fc" stroke="#d3dfed"/><rect x="360" y="80" width="46" height="16" rx="2" fill="none" stroke="#d3dfed"/><text x="368" y="91" class="tag" text-anchor="start">ACTOR</text><text x="364" y="124" class="entity-heading" text-anchor="start">统一接受入口</text></g><text x="464" y="144" class="sub" text-anchor="middle">try_complete_candidate</text><g class="node"><rect x="704" y="68" width="240" height="96" rx="6" fill="#ffffff"/><rect x="704" y="68" width="240" height="96" rx="6" fill="#f3f7fc" stroke="#d3dfed"/><rect x="720" y="80" width="46" height="16" rx="2" fill="none" stroke="#d3dfed"/><text x="728" y="91" class="tag" text-anchor="start">ACTOR</text><text x="724" y="124" class="entity-heading" text-anchor="start">完整评价器</text></g><text x="824" y="144" class="sub" text-anchor="middle">_evaluate_candidate_plan</text><g class="node"><rect x="1072" y="68" width="160" height="96" rx="6" fill="#ffffff"/><rect x="1072" y="68" width="160" height="96" rx="6" fill="#f3f7fc" stroke="#d3dfed"/><rect x="1088" y="80" width="46" height="16" rx="2" fill="none" stroke="#d3dfed"/><text x="1096" y="91" class="tag" text-anchor="start">ACTOR</text><text x="1092" y="124" class="entity-heading" text-anchor="start">已接受状态</text></g><text x="1152" y="144" class="sub" text-anchor="middle">SearchState</text><line x1="40" y1="660" x2="1240" y2="660" stroke="#d3dfed"/><text x="40" y="686" class="tag" text-anchor="start">LEGEND</text><text x="136" y="686" class="legend" text-anchor="start">实线：调用或提交</text><text x="488" y="686" class="legend" text-anchor="start">虚线：返回与生命线</text><text x="840" y="686" class="legend" text-anchor="start">蓝色：实际接受</text></svg></div><figcaption>时序图 · 4 个参与方、一个双分支。结构检查或预算失败可提前返回；图中重点展开通过结构检查后的比较与提交。</figcaption></figure>
+
+<p>为减少重复工作，当前实现可以复用<strong>完全未变链</strong>的规则评价；全方案指标仍按当前完整方案计算。交期模式还会把晚交、旧欠尾部等相关动作提前尝试，但“优先尝试”不等于“直接接受”。</p>
+<p>所有搜索阶段共用时间和候选额度。一旦某个候选被接受，后续搜索基于新方案继续；被拒绝时保留原方案。最终审计独立复算，避免搜索缓存或临时数据成为唯一判断依据。</p>
+<h2 id="section-5">5. 候选优化目标设计：决定“哪种改动值得接受”</h2>
+<p>规则回答“是否满足约束”，优化目标回答“两个完整方案哪个更好”。V7 把评价指标按优先级组成一个有序评分，<strong>从第一项开始比较，第一个不同的指标决定优劣，后面的改善不能抵消前面的恶化</strong>。</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>已实现模式</th>
+<th>从高到低的目标顺序</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>当前本地活动规则：七级</td>
+<td>禁止数 → 禁止严重度 → 欠重链数 → 欠重缺口 → 链间宽差 → 虚拟重量 → 链数</td>
+</tr>
+<tr>
+<td>后端显式秒级旧欠模式：九级</td>
+<td>禁止数 → 禁止严重度 → 欠重链数 → 欠重缺口 → 旧欠全部完成用时 → 等待延期负担 → 链间宽差 → 虚拟重量 → 链数</td>
+</tr>
+</tbody></table></div>
+<p>第二行是已实现的后端显式模式，不是当前本地月计划接口的默认规则。实际搜索读取请求绑定的目标声明；这里列出两种主要口径来说明比较方式。</p>
+<p>例如，在禁止项、欠重项都相同的前提下：</p>
+<ul>
+<li>七级模式首先看链间宽差，宽差改善可以优先于后面的虚拟重量代价。</li>
+<li>秒级旧欠模式先看旧欠能否更早全部完成；只有这一项相同时，才继续比较等待延期负担、宽差等。</li>
+<li>全部目标相同则不接受；来源守恒、期间锁定等动作保护也必须满足，不能仅凭分数更小绕过。</li>
+</ul>
+<p>交期评价按实际链序和节点序累计工时，拆单按原单最后片段完成时间计；虚拟材也占用生产时间。因此，<strong>移动一个节点既可能改变连接和链重，也可能改变后面许多订单的完成时间</strong>，需要评价完整方案后再决策。</p>
+<h3>把规则、矩阵、搜索与目标串起来</h3>
+<p>以“把旧欠订单 <code>B</code> 从较后的链移到前面”为例：</p>
+<ol>
+<li><strong>搜索提出改动：</strong> 在当前方案视图中找到 <code>B</code> 及目标插入位置。</li>
+<li><strong>连接数据支持判断：</strong> 查询新边界能否相连；不能直连时尝试合适虚拟桥。</li>
+<li><strong>规则检查整体影响：</strong> 除新边界外，还检查原链和目标链的重量、连续段、来源期间与虚拟占比。</li>
+<li><strong>目标比较收益和代价：</strong> 重算完成时间与整组评分，判断旧欠提前是否优先于新增虚拟材等代价。</li>
+<li><strong>统一接受并继续：</strong> 若动作保护通过且评分严格改善，提交新方案并更新位置视图；否则保留原方案、检查下一个候选。</li>
+</ol>
+<p><strong>整个过程不是“矩阵算完就得到结果”，而是“规则生成可用连接信息，搜索利用这些信息提出改动，完整评价与目标比较筛选改动，接受后继续搜索”。</strong></p>
+<hr>
+<p>范围：基于 macOS 本地仓库所列源码版本的结构核对；仅说明已实现接线，不代表新的性能或业务验收。主要源码为 <a href="../src/apsgo_scheduler/core/compatibility.py">规则与连接</a>、<a href="../src/apsgo_scheduler/core/_search_numeric.py">数值视图</a>、<a href="../src/apsgo_scheduler/core/neighborhoods.py">搜索与接受</a>、<a href="../src/apsgo_scheduler/core/evaluation.py">完整评价</a>。配图沿用 diagram-design 蓝白样式。</p>
+</main></body></html>

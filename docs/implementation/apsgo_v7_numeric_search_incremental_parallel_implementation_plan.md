@@ -196,7 +196,7 @@ PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i \
   --output-dir diagnostics/numeric_search_incremental_parallel/stage1_full_01
 ```
 
-`caffeinate` 只用于本机保持唤醒，不是产品依赖。Windows 使用实际 Conda 环境或后续实包试验入口，命令在接线和现场确认后记录。第二阶段使用同一工具和公共求解入口，影子与正常完整运行分别指定 `--screen-mode shadow`、`--screen-mode enabled` 及不同新目录；实际代码导出、目录及命令见[第二阶段记录](evidence/apsgo_v7_numeric_search_incremental_parallel/stage2.md)。线程参数尚未实现，不另写一套求解循环。
+`caffeinate` 只用于本机保持唤醒，不是产品依赖。Windows 使用实际 Conda 环境或后续实包试验入口，命令在接线和现场确认后记录。第二阶段使用同一工具和公共求解入口，影子与正常完整运行分别指定 `--screen-mode shadow`、`--screen-mode enabled` 及不同新目录；实际代码导出、目录及命令见[第二阶段记录](evidence/apsgo_v7_numeric_search_incremental_parallel/stage2.md)。第三阶段复用同一入口，新增私有 `--candidate-threads 0/1/2/4/8` 和 `--candidate-batch-size 1..32`；0 为原串行，1 为新数值串行，2/4/8 为线程，见[第三阶段记录](evidence/apsgo_v7_numeric_search_incremental_parallel/stage3.md)。不另写求解循环，参数不进入公共请求。
 
 第二阶段完整结果使用 `tools/verify_numeric_search.py --reference <阶段1目录> --candidate <第二阶段目录> --allow-evaluation-count-change --output <新比较文件>`。该显式选项只豁免物理完整评价计数差异，其他计数、三阶段方案/评价/接受轨迹、生成上界、拆单、双审计和逐单精确日期仍须一致。
 
@@ -283,7 +283,7 @@ V7 共享目录的旧残留检查可能仍报告八项 V6 稳定残留缺失：`
 | 2.2 | `8fa738e` | 共享/导出各 108 项及最终完整影子通过 | 已完成 |
 | 2.3 | `85dcd22` | 首轮累计 4108 项、补充 230 项，最终导出 4110 项；2.4 集中及完整核验通过 | 已完成 |
 | 2.4 | `98cbbf9` | 双树各 4110 项、完整影子、两次正常及五份比较通过；测试/测量树 `834189d`，最终只补文档，按路径证明源码/工具/测试未变 | 已按用户新指令进入第三阶段 |
-| 3.1 | 本项独立提交，实际 SHA 以 Git 历史为准 | 双树各 4122 项、四档首轮等价通过；数值串行胜出，线程收益检查未通过 | 3.3 已支持范围完整对照 |
+| 3.1 | `8454deb` | 双树各 4122 项、四档首轮等价通过；数值串行胜出，线程收益检查未通过 | 3.3 已支持范围完整对照 |
 | 3.2 | 未提交 | 首批多线程没有收益，按计划不扩大并行 | 不标为已实现；若改为结构候选串行数值化须另行确认 |
 | 3.3 | 未提交 | 正在准备完整同请求与重复对照 | 3.4 暂缓，3.5 源码结果汇总 |
 | 3.4 | 未提交 | 未执行 | 3.5 收口，未验项不关闭 |
