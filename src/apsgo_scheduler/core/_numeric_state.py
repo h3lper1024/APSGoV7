@@ -1029,7 +1029,10 @@ class NumericCandidateWorkspace:
 
     def require_view(self, view):
         if (not isinstance(view, NumericChainView) or view.epoch != self.epoch
-                or view.changed_rows is not self.changed_rows or view.ids is not self.ids):
+                or view.count != self.chain_count or view.base_rows is not self.plan.node_rows
+                or view.changed_rows is not self.changed_rows or view.ids is not self.ids
+                or view.starts is not self.starts or view.stops is not self.stops
+                or view.private is not self.private or view.periods is not self.periods):
             raise NumericValueError("workspace.view", "expired or foreign borrowed view")
 
     def capacity_status(self, *, changed_rows, chains, nodes, groups, events):

@@ -14,7 +14,10 @@ from ._numeric_rules import (
     NumericRuleResult,
     NumericViolation,
 )
-from ._numeric_state import NumericPlan, NumericPlanOverlay, NumericTask, readonly
+from ._numeric_state import (
+    NumericPlan, NumericPlanOverlay, NumericTask, readonly,
+    NumericCandidateWorkspace, NumericChainView,
+)
 from ._numeric_units import (
     NumericValueError,
     int64,
@@ -446,6 +449,43 @@ def summarize_numeric_candidate(task, program, quality, plan, previous_task,
     reuse = _validated_reuse(task, program, quality, previous_task, previous_program,
                              previous_quality, previous_plan, previous_evaluation)
     return _native_result(task, program, quality, plan, reuse=reuse)
+
+
+def evaluate_numeric_view(workspace, program, quality, *, view=None,
+                          previous_evaluation=None, detail=False):
+    """Common private summary/detail boundary; does not materialize a formal plan."""
+    from ._numeric_kernel import (
+        task_columns, private_task_columns, rule_tables, evaluate_view_kernel, CAPACITY,
+    )
+    if not isinstance(workspace, NumericCandidateWorkspace):
+        raise NumericValueError("evaluation_view", "numeric candidate workspace required")
+    task, plan = workspace.task, workspace.plan
+    _validate_evaluation_inputs(task, program, quality, plan)
+    if task.start_ms is None:
+        raise NumericValueError("delivery", "task has no production start and duration input")
+    view = workspace.view() if view is None else view
+    workspace.require_view(view)
+    if (view.count <= 0 or np.unique(view.ids[:view.count]).size != view.count
+            or np.any(view.ids[:view.count] < 0) or np.any(view.periods[:view.count] < 0)
+            or np.any(view.periods[:view.count] >= len(task.period_ids))):
+        raise NumericValueError("evaluation_view", "active chains and task periods must match")
+    # Editing primitives see capacity; evaluation must see only initialized rows.
+    active = NumericChainView(view.base_rows, view.changed_rows[:workspace.changed_count],
+        view.starts, view.stops, view.private, view.ids, view.periods, view.count, view.epoch)
+    columns = private_task_columns(task_columns(task), workspace.nodes, workspace.derived,
+                                   workspace.node_count)
+    reuse = None if previous_evaluation is None else _validated_reuse(
+        task, program, quality, task, program, quality, plan, previous_evaluation)
+    violations, metrics = (16, 32) if detail else (0, 0)
+    while True:
+        result = evaluate_view_kernel(columns, rule_tables(program.rules), active,
+            _objective_order(quality.objectives), detail, violations, metrics, False, reuse)
+        _check_kernel_status(result)
+        if result.status[0] != CAPACITY:
+            for array in result:
+                array.setflags(write=False)
+            return result
+        violations, metrics = map(int, result.counts[:2])
 
 
 def _map_kernel_details(task, program, quality, plan, output):

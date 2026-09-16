@@ -11,6 +11,8 @@ from numba import njit
 
 from ._numeric_rules import _GENERATED_VIRTUAL, _ACTUAL_TRANSITION
 from ._numeric_state import OK, INVALID, NUMERIC_ERROR, CANCELLED, CAPACITY, STALE
+from ._numeric_state import NumericChainView
+from ._numeric_chain_ops import chain_rows
 from .contracts import RuleScope
 
 MAX = (1 << 63) - 1
@@ -52,6 +54,47 @@ def task_columns(task):
         task.originals.due_ms, task.originals.old_backlog,
         _freeze(np.array((task.units.width, task.units.thickness,
                           task.units.temperature, task.units.weight), dtype=np.int64)),
+    )
+
+
+@njit(inline="always")
+def column_value(column, row):
+    if isinstance(column, tuple):
+        base, tail = column
+        return base[row] if row < base.size else tail[row - base.size]
+    return column[row]
+
+
+@njit(inline="always")
+def matrix_value(column, i, j, node_axis):
+    if isinstance(column, tuple):
+        base, tail = column
+        if node_axis == 0:
+            return base[i, j] if i < base.shape[0] else tail[i - base.shape[0], j]
+        return base[i, j] if j < base.shape[1] else tail[i, j - base.shape[1]]
+    return column[i, j]
+
+
+@njit(inline="always")
+def column_size(column):
+    if isinstance(column, tuple):
+        return column[0].size + column[1].size
+    return column.size
+
+
+@njit
+def private_task_columns(t, tail, derived, count):
+    """Two-part zero-copy columns; rule functions specialize the same formulas."""
+    return TaskColumns(
+        (t.width, tail.width[:count]), (t.thickness, tail.thickness[:count]),
+        (t.minimum, tail.min_temperature[:count]), (t.maximum, tail.max_temperature[:count]),
+        (t.present, tail.present[:count]), (t.weight, tail.weight[:count]),
+        (t.duration, tail.duration_ms[:count]), (t.role, tail.role[:count]),
+        (t.source, tail.source[:count]), (t.period, tail.source_period[:count]),
+        (t.hot, tail.hot_roll_grade[:count]), (t.soft, tail.soft_hard_class[:count]),
+        (t.priority, derived.priority[:, :count]), (t.narrow, derived.narrow_matches[:, :count]),
+        (t.surface, derived.surface_matches[:, :count]), (t.spec, derived.same_spec_groups[:, :count]),
+        t.original_weight, t.due, t.backlog, t.scales,
     )
 
 
@@ -208,19 +251,19 @@ def _tolerance_values(a, b, r, i, s):
 
 @njit
 def _tolerance(t, r, i, left, right, s):
-    return _tolerance_values(t.thickness[left], t.thickness[right], r, i, s)
+    return _tolerance_values(column_value(t.thickness, left), column_value(t.thickness, right), r, i, s)
 
 
 @njit
 def edge_node(t, row):
-    return EdgeNode(t.width[row], t.thickness[row], t.minimum[row], t.maximum[row],
-                    np.int64(t.role[row]), t.hot[row], t.soft[row], t.present[row, 0],
-                    t.present[row, 1], t.present[row, 2], t.present[row, 3])
+    return EdgeNode(column_value(t.width, row), column_value(t.thickness, row), column_value(t.minimum, row), column_value(t.maximum, row),
+                    np.int64(column_value(t.role, row)), column_value(t.hot, row), column_value(t.soft, row), matrix_value(t.present, row, 0, 0),
+                    matrix_value(t.present, row, 1, 0), matrix_value(t.present, row, 2, 0), matrix_value(t.present, row, 3, 0))
 
 
 @njit
 def private_edge_node(t, tail, count, row, s):
-    base = t.weight.size
+    base = column_size(t.weight)
     if row < 0 or row >= base + count:
         _error(s, INVALID)
         return EdgeNode(0, 0, 0, 0, -1, 0, 0, False, False, False, False)
@@ -256,7 +299,7 @@ def gather_local_task_columns(t, tail, derived, rows):
     present = np.empty((rows.size, t.present.shape[1]), dtype=np.bool_)
     for i in range(rows.size):
         row = rows[i]
-        present[i] = t.present[row] if row < t.weight.size else tail.present[row - t.weight.size]
+        present[i] = t.present[row] if row < column_size(t.weight) else tail.present[row - column_size(t.weight)]
     return TaskColumns(
         _gather_column(t.width, tail.width, rows), _gather_column(t.thickness, tail.thickness, rows),
         _gather_column(t.minimum, tail.min_temperature, rows),
@@ -350,13 +393,13 @@ def _edge(t, r, i, left, right, chain, position, out, detail):
     s = out.status
     _location(s, i, chain, position)
     kind, v = r.meta[i, 0], r.values[i]
-    if (kind == 0 or kind == 4) and (not t.present[left, 0] or not t.present[right, 0]):
+    if (kind == 0 or kind == 4) and (not matrix_value(t.present, left, 0, 0) or not matrix_value(t.present, right, 0, 0)):
         _violation(out, detail, i, 0, chain, position, position + 1, SEVERITY)
         return
     allowed = edge_allowed(t, r, i, left, right, s)
     reason, severity = -1, 0
     if kind == 0:
-        increase = max(0, _sub(t.width[right], t.width[left], s))
+        increase = max(0, _sub(column_value(t.width, right), column_value(t.width, left), s))
         _metric(out, detail, i, 0, chain, increase, 1, t.scales[3])
         reason = 1
         if not allowed:
@@ -364,16 +407,16 @@ def _edge(t, r, i, left, right, chain, position, out, detail):
     elif kind == 1:
         reason, severity = 2, SEVERITY
     elif kind == 2 and not allowed:
-        overlap = _sub(min(t.maximum[left], t.maximum[right]),
-                       max(t.minimum[left], t.minimum[right]), s)
+        overlap = _sub(min(column_value(t.maximum, left), column_value(t.maximum, right)),
+                       max(column_value(t.minimum, left), column_value(t.minimum, right)), s)
         reason, severity = 3, _ratio(_sub(v[0], overlap, s), max(v[0], t.scales[2]), s)
     elif kind == 3 and not allowed:
         diff, tolerance = _tolerance(t, r, i, left, right, s)
         reason = 4
         severity = SEVERITY if tolerance == 0 else _ratio(_sub(diff, tolerance, s), tolerance, s)
     elif kind == 4 and not allowed:
-        virtual = t.role[left] == _GENERATED_VIRTUAL or t.role[right] == _GENERATED_VIRTUAL
-        delta = _sub(t.width[right], t.width[left], s)
+        virtual = column_value(t.role, left) == _GENERATED_VIRTUAL or column_value(t.role, right) == _GENERATED_VIRTUAL
+        delta = _sub(column_value(t.width, right), column_value(t.width, left), s)
         if virtual:
             delta = _abs(delta, s)
         limit = v[1 if virtual else 0]
@@ -397,13 +440,13 @@ def _chain(t, r, i, rows, chain, out, detail):
             if pos < length:
                 row = rows[pos]
                 if kind == 7:
-                    group = 0 if t.surface[v[0], row] else -1
+                    group = 0 if matrix_value(t.surface, v[0], row, 1) else -1
                 elif kind == 8:
-                    group = 0 if t.narrow[v[0], row] else -1
+                    group = 0 if matrix_value(t.narrow, v[0], row, 1) else -1
                 elif kind == 9:
-                    group = t.spec[v[0], row]
+                    group = matrix_value(t.spec, v[0], row, 1)
                 else:
-                    group = 0 if t.role[row] == _GENERATED_VIRTUAL else -1
+                    group = 0 if column_value(t.role, row) == _GENERATED_VIRTUAL else -1
             if start >= 0 and (group < 0 or group != previous):
                 maximum = max(maximum, total)
                 if total > limit:
@@ -415,7 +458,7 @@ def _chain(t, r, i, rows, chain, out, detail):
             if group >= 0:
                 if start < 0:
                     start = pos
-                total = _add(total, 1 if kind == 7 or kind == 11 else t.weight[rows[pos]], s)
+                total = _add(total, 1 if kind == 7 or kind == 11 else column_value(t.weight, rows[pos]), s)
             previous = group
         _metric(out, detail, i, metric, chain, maximum, 1, t.scales[3])
     elif kind == 10:
@@ -433,12 +476,12 @@ def _chain(t, r, i, rows, chain, out, detail):
     elif kind == 12:
         baseline, has_baseline, count = 0, False, 0
         for row in rows:
-            if not t.present[row, 0]:
+            if not matrix_value(t.present, row, 0, 0):
                 has_baseline = False
-            elif has_baseline and t.width[row] > baseline:
+            elif has_baseline and column_value(t.width, row) > baseline:
                 count += 1
             else:
-                baseline, has_baseline = t.width[row], True
+                baseline, has_baseline = column_value(t.width, row), True
         if count > v[0]:
             _violation(out, detail, i, 13, chain, 0, length - 1,
                        _mul(count - v[0], SEVERITY, s))
@@ -447,7 +490,7 @@ def _chain(t, r, i, rows, chain, out, detail):
         count, previous = 0, False
         for pos in range(length - 1):
             a, b = rows[pos], rows[pos + 1]
-            reverse = t.present[a, 0] and t.present[b, 0] and t.width[b] > t.width[a]
+            reverse = matrix_value(t.present, a, 0, 0) and matrix_value(t.present, b, 0, 0) and column_value(t.width, b) > column_value(t.width, a)
             if previous and reverse:
                 count += 1
                 _violation(out, detail, i, 14, chain, pos - 1, pos, SEVERITY)
@@ -457,13 +500,13 @@ def _chain(t, r, i, rows, chain, out, detail):
         anchor, anchor_pos = -1, -1
         for pos in range(length):
             row = rows[pos]
-            if t.role[row] == _GENERATED_VIRTUAL:
+            if column_value(t.role, row) == _GENERATED_VIRTUAL:
                 continue
             if anchor >= 0 and pos > anchor_pos + 1:
-                if not t.present[anchor, 0] or not t.present[row, 0]:
+                if not matrix_value(t.present, anchor, 0, 0) or not matrix_value(t.present, row, 0, 0):
                     _violation(out, detail, i, 0, chain, anchor_pos, pos, SEVERITY)
                 else:
-                    delta = _sub(t.width[row], t.width[anchor], s)
+                    delta = _sub(column_value(t.width, row), column_value(t.width, anchor), s)
                     if delta > v[0]:
                         _violation(out, detail, i, 6, chain, anchor_pos, pos,
                                    _ratio(_sub(delta, v[0], s), max(v[0], t.scales[0]), s))
@@ -494,16 +537,24 @@ def _facts(t, rows, period, chain, out):
     s = out.status
     _location(s, -1, chain, 0)
     for row in rows:
-        out.facts[chain, 0] = _add(out.facts[chain, 0], t.weight[row], s)
-        out.facts[chain, 1] = _add(out.facts[chain, 1], t.duration[row], s)
-        column = 3 if t.role[row] == _GENERATED_VIRTUAL else 2
-        out.facts[chain, column] = _add(out.facts[chain, column], t.weight[row], s)
-        if column == 2 and period < t.period[row]:
-            out.facts[chain, 4] = _add(out.facts[chain, 4], t.weight[row], s)
+        out.facts[chain, 0] = _add(out.facts[chain, 0], column_value(t.weight, row), s)
+        out.facts[chain, 1] = _add(out.facts[chain, 1], column_value(t.duration, row), s)
+        column = 3 if column_value(t.role, row) == _GENERATED_VIRTUAL else 2
+        out.facts[chain, column] = _add(out.facts[chain, column], column_value(t.weight, row), s)
+        if column == 2 and period < column_value(t.period, row):
+            out.facts[chain, 4] = _add(out.facts[chain, 4], column_value(t.weight, row), s)
 
 
 @njit
-def _plan_rules(t, r, rows, offsets, periods, out, detail):
+def flat_chain_view(rows, offsets, periods, ids=None):
+    count = periods.size
+    identities = np.arange(count, dtype=np.int64) if ids is None else ids
+    return NumericChainView(rows, rows[:0], offsets[:-1], offsets[1:],
+                            np.zeros(count, dtype=np.bool_), identities, periods, count, 0)
+
+
+@njit
+def _plan_rules_view(t, r, view, out, detail):
     s = out.status
     real, virtual = out.totals[0], out.totals[1]
     total = _add(real, virtual, s)
@@ -512,12 +563,12 @@ def _plan_rules(t, r, rows, offsets, periods, out, detail):
         kind, v = r.meta[i, 0], r.values[i]
         if kind == 14:
             count = 0
-            for c in range(periods.size):
-                for p in range(offsets[c], offsets[c + 1]):
-                    row = rows[p]
-                    if t.role[row] != _GENERATED_VIRTUAL and periods[c] > t.period[row]:
+            for c in range(view.count):
+                chain = chain_rows(view, c)
+                for pos in range(chain.size):
+                    row = chain[pos]
+                    if column_value(t.role, row) != _GENERATED_VIRTUAL and view.periods[c] > column_value(t.period, row):
                         count += 1
-                        pos = p - offsets[c]
                         _violation(out, detail, i, 15, c, pos, pos, SEVERITY, True, True)
             _metric(out, detail, i, 14, -1, count, 1, t.scales[3])
         elif kind == 15:
@@ -528,26 +579,27 @@ def _plan_rules(t, r, rows, offsets, periods, out, detail):
                 _violation(out, detail, i, 16, -1, -1, -1, max(1, severity))
             _metric(out, detail, i, 15, -1, virtual, total or 1, t.scales[3])
         elif kind == 16:
-            gap = _inter_width_gap(t, rows, offsets, s)
+            gap = _inter_width_gap_view(t, view, s)
             _metric(out, detail, i, 16, -1, gap, 1, t.scales[3])
         elif kind == 17:
             gap = 0
-            for c in range(periods.size):
+            for c in range(view.count):
                 gap = _add(gap, max(0, _sub(v[0], out.facts[c, 0], s)), s)
             _metric(out, detail, i, 17, -1, gap, 1, t.scales[3])
 
 
 @njit
-def _clock(t, rows, out):
-    s, clock = out.status, 0
+def _clock_view(t, view, out):
+    s, clock, pos = out.status, 0, 0
     _location(s, -2, -1, -1)
-    for pos in range(rows.size):
-        row = rows[pos]
-        clock = _add(clock, t.duration[row], s)
-        out.ends[pos] = clock
-        source = t.source[row]
-        if source >= 0:
-            out.completion[source] = max(out.completion[source], clock)
+    for c in range(view.count):
+        for row in chain_rows(view, c):
+            clock = _add(clock, column_value(t.duration, row), s)
+            out.ends[pos] = clock
+            pos += 1
+            source = column_value(t.source, row)
+            if source >= 0:
+                out.completion[source] = max(out.completion[source], clock)
     old = 0
     for source in range(t.original_weight.size):
         end, due = out.completion[source], t.due[source]
@@ -564,16 +616,33 @@ def _clock(t, rows, out):
 
 
 @njit
-def _inter_width_gap(t, rows, offsets, status):
+def _inter_width_gap_view(t, view, status):
     gap = 0
-    for c in range(offsets.size - 2):
-        a, b = rows[offsets[c + 1] - 1], rows[offsets[c + 1]]
-        if not t.present[a, 0] or not t.present[b, 0]:
+    for c in range(view.count - 1):
+        a, b = chain_rows(view, c)[-1], chain_rows(view, c + 1)[0]
+        if not matrix_value(t.present, a, 0, 0) or not matrix_value(t.present, b, 0, 0):
             _error(status, INVALID)
             status[2] = c
             return 0
-        gap = _add(gap, _abs(_sub(t.width[a], t.width[b], status), status), status)
+        gap = _add(gap, _abs(_sub(column_value(t.width, a), column_value(t.width, b), status), status), status)
     return gap
+
+
+@njit
+def _plan_rules(t, r, rows, offsets, periods, out, detail):
+    _plan_rules_view(t, r, flat_chain_view(rows, offsets, periods), out, detail)
+
+
+@njit
+def _clock(t, rows, out):
+    _clock_view(t, flat_chain_view(rows, np.array((0, rows.size), dtype=np.int64),
+                                  np.zeros(1, dtype=np.int64)), out)
+
+
+@njit
+def _inter_width_gap(t, rows, offsets, status):
+    return _inter_width_gap_view(t, flat_chain_view(rows, offsets,
+        np.zeros(offsets.size - 1, dtype=np.int64)), status)
 
 
 @njit
@@ -594,30 +663,54 @@ def allocate_result(chains, rules, nodes, originals, violation_capacity=0, metri
 def evaluate_kernel(t, r, rows, offsets, periods, objective_order, detail=False,
                     violation_capacity=0, metric_capacity=0, cancelled=False,
                     chain_ids=None, reuse=None):
-    """Single candidate entry. No objects, callbacks, or alternate score formula."""
+    """A formal flat plan is the zero-change case of the common view kernel."""
     count = periods.size
-    out = allocate_result(count, r.meta.shape[0], rows.size, t.original_weight.size,
-                          violation_capacity, metric_capacity)
-    if cancelled:
-        out.status[0] = CANCELLED
+    if cancelled or offsets.size != count + 1 or offsets[0] != 0 or offsets[-1] != rows.size:
+        out = allocate_result(count, r.meta.shape[0], rows.size, t.original_weight.size,
+                              violation_capacity, metric_capacity)
+        out.status[0] = CANCELLED if cancelled else INVALID
         return out
-    if offsets.size != count + 1 or offsets[0] != 0 or offsets[-1] != rows.size:
+    return evaluate_view_kernel(t, r, flat_chain_view(rows, offsets, periods, chain_ids),
+        objective_order, detail, violation_capacity, metric_capacity, cancelled,
+        reuse, chain_ids is not None)
+
+
+@njit
+def evaluate_view_kernel(t, r, view, objective_order, detail=False,
+                         violation_capacity=0, metric_capacity=0, cancelled=False,
+                         reuse=None, allow_reuse=True):
+    """Evaluate base/changed chains and base/private columns without flattening."""
+    count, size = view.count, 0
+    invalid_chain = -1
+    if count < 0 or count > min(view.starts.size, view.stops.size, view.private.size,
+                                view.ids.size, view.periods.size):
+        out = allocate_result(0, r.meta.shape[0], 0, t.original_weight.size)
         out.status[0] = INVALID
         return out
-    for row in rows:
-        if row < 0 or row >= t.weight.size:
-            out.status[0] = INVALID
-            return out
     for c in range(count):
-        if offsets[c] >= offsets[c + 1] or (c > 0 and periods[c] < periods[c - 1]):
-            out.status[0] = INVALID
-            out.status[2] = c
-            return out
-        chain = rows[offsets[c]:offsets[c + 1]]
+        capacity = view.changed_rows.size if view.private[c] else view.base_rows.size
+        if (view.starts[c] < 0 or view.stops[c] > capacity or view.starts[c] >= view.stops[c]
+                or c > 0 and view.periods[c] < view.periods[c - 1]):
+            invalid_chain = c
+            break
+        size += view.stops[c] - view.starts[c]
+    if invalid_chain >= 0 or cancelled:
+        out = allocate_result(count, r.meta.shape[0], 0, t.original_weight.size)
+        out.status[0] = CANCELLED if cancelled else INVALID
+        out.status[2] = invalid_chain
+        return out
+    out = allocate_result(count, r.meta.shape[0], size, t.original_weight.size,
+                          violation_capacity, metric_capacity)
+    for c in range(count):
+        chain = chain_rows(view, c)
+        for row in chain:
+            if row < 0 or row >= column_size(t.weight):
+                out.status[0] = INVALID
+                return out
         old = -1
-        if not detail and reuse is not None and chain_ids is not None:
+        if not detail and reuse is not None and allow_reuse:
             for j in range(reuse.ids.size):
-                if chain_ids[c] == reuse.ids[j] and periods[c] == reuse.periods[j]:
+                if view.ids[c] == reuse.ids[j] and view.periods[c] == reuse.periods[j]:
                     before = reuse.rows[reuse.offsets[j]:reuse.offsets[j + 1]]
                     if chain.size == before.size and np.array_equal(chain, before):
                         old = j
@@ -630,7 +723,7 @@ def evaluate_kernel(t, r, rows, offsets, periods, objective_order, detail=False,
             out.counts[:2] += reuse.event_counts[old]
         else:
             v0, m0 = out.counts[0], out.counts[1]
-            _facts(t, chain, periods[c], c, out)
+            _facts(t, chain, view.periods[c], c, out)
             chain_rules(t, r, chain, c, out, detail)
             out.event_counts[c] = (out.counts[0] - v0, out.counts[1] - m0)
             out.counts[2] += 1
@@ -639,8 +732,8 @@ def evaluate_kernel(t, r, rows, offsets, periods, objective_order, detail=False,
             out.totals[j] = _add(out.totals[j], out.facts[c, j + 2], out.status)
         if out.status[0] != OK and out.status[0] != CAPACITY:
             return out
-    _plan_rules(t, r, rows, offsets, periods, out, detail)
-    _clock(t, rows, out)
+    _plan_rules_view(t, r, view, out, detail)
+    _clock_view(t, view, out)
     for i in range(r.meta.shape[0]):
         if r.meta[i, 0] == 19:
             for k in range(3):
@@ -648,8 +741,9 @@ def evaluate_kernel(t, r, rows, offsets, periods, objective_order, detail=False,
     for i in range(r.meta.shape[0]):
         if r.meta[i, 0] == 5 or r.meta[i, 0] == 6:
             total = 0
-            for row in rows:
-                total = _add(total, t.priority[r.values[i, 0], row], out.status)
+            for c in range(count):
+                for row in chain_rows(view, c):
+                    total = _add(total, matrix_value(t.priority, r.values[i, 0], row, 1), out.status)
             _metric(out, detail, i, r.meta[i, 0] - 4, -2, total, 1, t.scales[3])
     canonical = np.zeros(9, np.int64)
     for c in range(count + 1):
