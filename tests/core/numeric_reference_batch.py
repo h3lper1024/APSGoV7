@@ -15,7 +15,7 @@ from apsgo_scheduler.core._numeric_units import NumericValueError
 MAX_BATCH_CANDIDATES = 64
 MAX_BATCH_BYTES = 32 * 1024 * 1024
 _DERIVED = frozenset(("priority", "narrow", "surface", "spec"))
-_SHARED = frozenset(("original_weight", "due", "backlog", "scales"))
+_SHARED = frozenset(("original_weight", "due", "backlog", "scales", "earliest_start", "has_earliest_start"))
 _RESOURCE_FIELDS = (
     "resource", "prototype", "purpose", "split_group", "piece_index", "piece_count",
     "accepted_sequence",

@@ -192,6 +192,8 @@ class NumericOriginals:
     duration_ms: np.ndarray
     due_ms: np.ndarray
     old_backlog: np.ndarray
+    earliest_start_ms: np.ndarray
+    has_earliest_start: np.ndarray
 
 
 @dataclass(frozen=True, slots=True, eq=False)
@@ -430,6 +432,7 @@ class NumericTask:
             text_labels.append(tuple(labels))
             values[name] = readonly(encoded, np.int64)
         due, durations, start = [0] * original_count, [0] * count, None
+        earliest, has_earliest = [0] * original_count, [False] * original_count
         if timing_input is not None:
             by_source = {item.source_order_id.strip(): item for item in timing_input.orders}
             rates = {
@@ -446,6 +449,11 @@ class NumericTask:
                 )
             start = start_milliseconds(timing_input.schedule_start_at, "schedule_start_at")
             for i, source in enumerate(source_ids):
+                lower = by_source[source].earliest_start_at
+                if lower is not None:
+                    earliest[i] = int64(start_milliseconds(lower, f"orders[{i}].earliest_start_at") - start,
+                                        f"orders[{i}].earliest_start_at")
+                    has_earliest[i] = True
                 due[i] = due_milliseconds(
                     by_source[source].due_date, start, f"orders[{i}].due_date"
                 )
@@ -472,6 +480,8 @@ class NumericTask:
             values["duration_ms"][:original_count],
             readonly(due, np.int64),
             readonly([start is not None and value <= 0 for value in due], np.bool_),
+            readonly(earliest, np.int64),
+            readonly(has_earliest, np.bool_),
         )
         priority, narrow, surface, groups = [], [], [], []
         priority_ids, narrow_ids, surface_ids, group_ids = [], [], [], []
@@ -557,6 +567,11 @@ class NumericTask:
         for index, array in enumerate((originals.due_ms, originals.old_backlog, *derived)):
             digest.update(fingerprint((index, array.shape, array.dtype.str)).encode("ascii"))
             digest.update(array.astype(array.dtype.newbyteorder("<"), copy=False).tobytes())
+        if any(has_earliest):
+            for name in ("earliest_start_ms", "has_earliest_start"):
+                array = getattr(originals, name)
+                digest.update(fingerprint((name, array.shape, array.dtype.str)).encode("ascii"))
+                digest.update(array.astype(array.dtype.newbyteorder("<"), copy=False).tobytes())
         return cls(
             units,
             nodes,

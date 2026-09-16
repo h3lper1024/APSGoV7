@@ -22,7 +22,7 @@ EDGE, CHAIN = 0, 1
 
 TaskColumns = namedtuple("TaskColumns", (
     "width thickness minimum maximum present weight duration role source period "
-    "hot soft priority narrow surface spec original_weight due backlog scales"
+    "hot soft priority narrow surface spec original_weight due backlog scales earliest_start has_earliest_start"
 ))
 RuleTables = namedtuple("RuleTables", "meta values flags bands")
 EdgeNode = namedtuple("EdgeNode", (
@@ -51,6 +51,7 @@ def task_columns(task):
         task.originals.due_ms, task.originals.old_backlog,
         _freeze(np.array((task.units.width, task.units.thickness,
                           task.units.temperature, task.units.weight), dtype=np.int64)),
+        task.originals.earliest_start_ms, task.originals.has_earliest_start,
     )
 
 
@@ -91,7 +92,7 @@ def private_task_columns(t, tail, derived, count):
         (t.hot, tail.hot_roll_grade[:count]), (t.soft, tail.soft_hard_class[:count]),
         (t.priority, derived.priority[:, :count]), (t.narrow, derived.narrow_matches[:, :count]),
         (t.surface, derived.surface_matches[:, :count]), (t.spec, derived.same_spec_groups[:, :count]),
-        t.original_weight, t.due, t.backlog, t.scales,
+        t.original_weight, t.due, t.backlog, t.scales, t.earliest_start, t.has_earliest_start,
     )
 
 
@@ -309,7 +310,7 @@ def gather_local_task_columns(t, tail, derived, rows):
         _gather_derived(t.narrow, derived.narrow_matches, rows),
         _gather_derived(t.surface, derived.surface_matches, rows),
         _gather_derived(t.spec, derived.same_spec_groups, rows),
-        t.original_weight, t.due, t.backlog, t.scales,
+        t.original_weight, t.due, t.backlog, t.scales, t.earliest_start, t.has_earliest_start,
     )
 
 

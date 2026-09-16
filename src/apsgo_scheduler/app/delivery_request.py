@@ -58,7 +58,9 @@ def prepare_delivery_request(request, *, schedule_start_at, order_timing, virtua
     inputs = []
     for node in problem.nodes:
         values = order_timing[node.source_order_id]
-        if not isinstance(values, Mapping) or set(values) != {"due_date", "furnace_speed_mpm", "process_speed_mpm"}:
+        required = {"due_date", "furnace_speed_mpm", "process_speed_mpm"}
+        if (not isinstance(values, Mapping) or not required <= set(values)
+                or set(values) - required - {"earliest_start_at"}):
             raise ValueError(f"{node.source_order_id}: timing requires due_date and both speed fields")
         speeds = (values["furnace_speed_mpm"], values["process_speed_mpm"])
         for name, value in zip(("furnace_speed_mpm", "process_speed_mpm"), speeds):
@@ -66,7 +68,9 @@ def prepare_delivery_request(request, *, schedule_start_at, order_timing, virtua
         speed = next((value for value in speeds if value is not None and value > 0), None)
         if speed is None:
             raise ValueError(f"{node.source_order_id}: no positive production speed")
-        inputs.append(OrderTimingInput(node.source_order_id, values["due_date"], production_hours(node.weight, node.width, node.thickness, speed)))
+        inputs.append(OrderTimingInput(node.source_order_id, values["due_date"],
+            production_hours(node.weight, node.width, node.thickness, speed),
+            values.get("earliest_start_at")))
     timing = DeliveryTimingInput(schedule_start_at, tuple(inputs), {
         item.prototype_id: production_hours(Decimal(1), item.width, item.thickness, virtual_speed_mpm)
         for item in problem.virtual_prototypes

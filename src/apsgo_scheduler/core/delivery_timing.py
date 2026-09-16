@@ -1,7 +1,7 @@
 """Task timing, separate from physical specifications and their connection cache."""
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 from decimal import Context, Decimal, ROUND_HALF_EVEN, localcontext
 from types import MappingProxyType
@@ -63,16 +63,29 @@ def _due(value, start):
                 + Decimal(delta.microseconds) / 1000000) / 3600
 
 
+def validate_earliest_start(value):
+    """Factory wall time must be explicit; never infer a browser/local timezone."""
+    require_text(value, "earliest_start_at")
+    parsed = datetime.fromisoformat(value)
+    if (parsed.utcoffset() != timedelta(hours=8)
+            or value != parsed.isoformat(timespec="seconds") or parsed.microsecond):
+        raise ValueError("earliest_start_at must use YYYY-MM-DDTHH:MM:SS+08:00")
+    return value
+
+
 @dataclass(frozen=True, slots=True)
 class OrderTimingInput:
     source_order_id: str
     due_date: str
     duration_hours: Decimal
+    earliest_start_at: str | None = field(default=None, metadata={"omit_none": True})
 
     def __post_init__(self):
         require_text(self.source_order_id, "source_order_id")
         require_text(self.due_date, "due_date")
         require_decimal(self.duration_hours, "duration_hours", positive=True)
+        if self.earliest_start_at is not None:
+            validate_earliest_start(self.earliest_start_at)
 
 
 @dataclass(frozen=True, slots=True)
@@ -102,11 +115,14 @@ class OrderDeliveryTiming:
     due_hours: Decimal
     weight: Decimal
     hours_per_tonne: Decimal
+    earliest_start_at: str | None = field(default=None, metadata={"omit_none": True})
 
     def __post_init__(self):
         require_text(self.due_date, "due_date")
         for name in ("due_hours", "weight", "hours_per_tonne"):
             require_decimal(getattr(self, name), name, positive=name != "due_hours")
+        if self.earliest_start_at is not None:
+            validate_earliest_start(self.earliest_start_at)
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,6 +163,7 @@ def normalize_delivery_timing(value, nodes, prototypes):
                 inputs[node.source_order_id].due_date,
                 _due(inputs[node.source_order_id].due_date, start),
                 node.weight, inputs[node.source_order_id].duration_hours / node.weight,
+                inputs[node.source_order_id].earliest_start_at,
             )
             for node in nodes
         }
