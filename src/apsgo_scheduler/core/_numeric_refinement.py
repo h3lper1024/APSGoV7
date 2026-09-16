@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 _GENERATED_VIRTUAL = tuple(MaterialRole).index(MaterialRole.GENERATED_VIRTUAL)
 _PROPOSALS_PER_SOURCE = 4
 _PROPOSALS_PER_FAMILY = 64
+_SERIAL_BATCH_SIZE = 8
 _CRITICAL_FAMILY_COUNT = len(("intra", "node", "block"))
 _REGULAR_FAMILY_COUNT = 6
 _FAMILIES = ("intra", "node", "block", "cut", "order", "reclaim")
@@ -59,16 +60,25 @@ class NumericRefinementDiagnostics:
     complete_evaluations: dict[str, int] = field(default_factory=dict)
     accepted: dict[str, int] = field(default_factory=dict)
     plan_materializations: dict[str, int] = field(default_factory=dict)
+    batch_prepared: dict[str, int] = field(default_factory=dict)
+    batch_consumed: dict[str, int] = field(default_factory=dict)
+    batch_rejected: dict[str, int] = field(default_factory=dict)
+    batch_accepted: dict[str, int] = field(default_factory=dict)
+    batch_stale: dict[str, int] = field(default_factory=dict)
+    batch_cancelled: dict[str, int] = field(default_factory=dict)
+    batch_stopped: dict[str, int] = field(default_factory=dict)
     layout_call_count: int = 0
     layout_seconds: float = 0.0
     maximum_generator_advance_seconds: float = 0.0
+    maximum_batch_size: int = 0
 
     @staticmethod
-    def _increment(values, key):
-        values[key] = values.get(key, 0) + 1
+    def _increment(values, key, count=1):
+        values[key] = values.get(key, 0) + count
 
-    def record(self, name, key):
-        self._increment(getattr(self, name), key)
+    def record(self, name, key, count=1):
+        if count:
+            self._increment(getattr(self, name), key, count)
 
     def snapshot(self):
         return {
@@ -82,11 +92,19 @@ class NumericRefinementDiagnostics:
                 "complete_evaluations",
                 "accepted",
                 "plan_materializations",
+                "batch_prepared",
+                "batch_consumed",
+                "batch_rejected",
+                "batch_accepted",
+                "batch_stale",
+                "batch_cancelled",
+                "batch_stopped",
             )
         } | {
             "layout_call_count": self.layout_call_count,
             "layout_seconds": self.layout_seconds,
             "maximum_generator_advance_seconds": self.maximum_generator_advance_seconds,
+            "maximum_batch_size": self.maximum_batch_size,
         }
 
 
@@ -673,6 +691,7 @@ def _family_stream(
     budget,
     diagnostics=None,
     index=None,
+    defer_cursor=False,
 ):
     sources = _rotate_after(ordered_sources, cursor[family])
     ownership = (
@@ -718,10 +737,13 @@ def _family_stream(
                 diagnostics.record("raw_combinations", key)
             if diagnostics is not None:
                 diagnostics.record("unique_combinations", key)
-            cursor[family] = source
             if diagnostics is not None:
                 diagnostics.record("routed_combinations", key)
-            yield recipe
+            if defer_cursor:
+                yield source, recipe
+            else:
+                cursor[family] = source
+                yield recipe
 
     return _round_robin(
         (source_stream(source) for source in sources), budget, _PROPOSALS_PER_SOURCE
@@ -1244,41 +1266,87 @@ def _scan_family(
     diagnostics=None,
     diagnostic_key="regular:unknown",
     index=None,
+    cursor=None,
+    family=None,
+    _batch_size=_SERIAL_BATCH_SIZE,
 ):
-    for _ in range(_PROPOSALS_PER_FAMILY):
+    if type(_batch_size) is not int or not 1 <= _batch_size <= _PROPOSALS_PER_FAMILY:
+        raise NumericValueError("candidate_batch_size", "one to 64 descriptions required")
+    if (cursor is None) != (family is None):
+        raise NumericValueError("candidate_batch_cursor", "cursor and family required together")
+    remaining = _PROPOSALS_PER_FAMILY
+    while remaining:
         if not budget.allows_search():
             return False, False
-        try:
-            started = perf_counter()
-            recipe = next(recipes)
+        available = budget.candidate_check_limit - budget.candidate_check_count
+        limit = min(_batch_size, remaining, available + 1)
+        batch, exhausted = [], False
+        for _ in range(limit):
+            if not budget.allows_search():
+                break
+            try:
+                started = perf_counter()
+                batch.append(next(recipes))
+                if diagnostics is not None:
+                    diagnostics.maximum_generator_advance_seconds = max(
+                        diagnostics.maximum_generator_advance_seconds,
+                        perf_counter() - started,
+                    )
+            except StopIteration:
+                exhausted = not budget.must_stop
+                break
+        if diagnostics is not None:
+            diagnostics.record("batch_prepared", diagnostic_key, len(batch))
+            diagnostics.maximum_batch_size = max(
+                diagnostics.maximum_batch_size, len(batch)
+            )
+        if not batch:
+            return False, exhausted
+        for position, item in enumerate(batch):
+            owner, recipe = item if cursor is not None else (None, item)
+            if not budget.consume_candidate_check():
+                stopped = len(batch) - position
+                if diagnostics is not None:
+                    diagnostics.record("batch_stopped", diagnostic_key, stopped)
+                    if budget.stop_reason is SearchStopReason.USER_CANCELLED:
+                        diagnostics.record("batch_cancelled", diagnostic_key, stopped)
+                return False, False
+            remaining -= 1
+            if cursor is not None:
+                cursor[family] = owner
             if diagnostics is not None:
-                diagnostics.maximum_generator_advance_seconds = max(
-                    diagnostics.maximum_generator_advance_seconds,
-                    perf_counter() - started,
+                diagnostics.record("candidate_checks", diagnostic_key)
+                diagnostics.record("batch_consumed", diagnostic_key)
+            evaluations = state.complete_candidate_evaluation_count if state is not None else 0
+            accepted = _try_recipe(
+                state,
+                budget,
+                recipe,
+                maximum_virtual_bridge_nodes,
+                diagnostics,
+                diagnostic_key,
+                index,
+            )
+            if diagnostics is not None:
+                diagnostics.record(
+                    "complete_evaluations",
+                    diagnostic_key,
+                    state.complete_candidate_evaluation_count - evaluations,
                 )
-        except StopIteration:
-            return False, True
-        if not budget.consume_candidate_check():
-            return False, False
-        if diagnostics is not None:
-            diagnostics.record("candidate_checks", diagnostic_key)
-        evaluations = state.complete_candidate_evaluation_count if state is not None else 0
-        accepted = _try_recipe(
-            state,
-            budget,
-            recipe,
-            maximum_virtual_bridge_nodes,
-            diagnostics,
-            diagnostic_key,
-            index,
-        )
-        if diagnostics is not None:
-            for _ in range(state.complete_candidate_evaluation_count - evaluations):
-                diagnostics.record("complete_evaluations", diagnostic_key)
+                diagnostics.record(
+                    "batch_accepted" if accepted else "batch_rejected",
+                    diagnostic_key,
+                )
+                if accepted:
+                    diagnostics.record(
+                        "batch_stale", diagnostic_key, len(batch) - position - 1
+                    )
             if accepted:
-                diagnostics.record("accepted", diagnostic_key)
-        if accepted:
-            return True, False
+                if diagnostics is not None:
+                    diagnostics.record("accepted", diagnostic_key)
+                return True, False
+        if exhausted:
+            return False, True
     return False, False
 
 
@@ -1288,6 +1356,7 @@ def improve_numeric_refinement(
     *,
     maximum_virtual_bridge_nodes=2,
     diagnostics=None,
+    _batch_size=_SERIAL_BATCH_SIZE,
 ):
     """Alternate critical and regular action families until no improvement remains."""
     _validate_search_inputs(state.task, state.program, state.quality, state, budget)
@@ -1295,6 +1364,8 @@ def improve_numeric_refinement(
         raise NumericValueError(
             "maximum_virtual_bridge_nodes", "zero, one or two bridge nodes required"
         )
+    if type(_batch_size) is not int or not 1 <= _batch_size <= _PROPOSALS_PER_FAMILY:
+        raise NumericValueError("candidate_batch_size", "one to 64 descriptions required")
     if any(value.prohibited for value in state.evaluation.violations):
         return state
     if budget.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE:
@@ -1323,6 +1394,7 @@ def improve_numeric_refinement(
                     budget,
                     diagnostics,
                     index,
+                    defer_cursor=True,
                 )
                 for family in _FAMILIES[: _CRITICAL_FAMILY_COUNT if lane == 0 else -1]
             ]
@@ -1346,18 +1418,24 @@ def improve_numeric_refinement(
                 diagnostics=diagnostics,
                 diagnostic_key="regular:reclaim",
                 index=index,
+                _batch_size=_batch_size,
             )
         while not accepted and any(pending) and budget.allows_search():
             lane = next_lane if pending[next_lane] else 1 - next_lane
             family = pending[lane].popleft()
+            family_name = _FAMILIES[family]
+            cursor = None if family_name == "reclaim" else cursors[lane]
             accepted, exhausted = _scan_family(
                 state,
                 budget,
                 streams[lane][family],
                 maximum_virtual_bridge_nodes,
                 diagnostics=diagnostics,
-                diagnostic_key=f"{'critical' if lane == 0 else 'regular'}:{_FAMILIES[family]}",
+                diagnostic_key=f"{'critical' if lane == 0 else 'regular'}:{family_name}",
                 index=index,
+                cursor=cursor,
+                family=family_name if cursor is not None else None,
+                _batch_size=_batch_size,
             )
             next_family[lane] = (family + 1) % sizes[lane]
             next_lane = 1 - lane

@@ -131,6 +131,71 @@ def test_refinement_diagnostics_separate_generated_and_consumed_work(monkeypatch
     assert diagnostics.maximum_generator_advance_seconds >= 0
 
 
+def test_serial_batch_consumes_in_order_and_discards_stale_descriptions(monkeypatch):
+    diagnostics = NumericRefinementDiagnostics()
+    runtime = budget(candidate_limit=100)
+    state = type("State", (), {"complete_candidate_evaluation_count": 0})()
+    cursor = {"node": None}
+    consumed = []
+
+    def accept_first(_state, _budget, recipe, *_args):
+        consumed.append(recipe)
+        return True
+
+    monkeypatch.setattr(refinement, "_try_recipe", accept_first)
+    accepted, exhausted = _scan_family(
+        state,
+        runtime,
+        iter(((3, "first"), (5, "stale-a"), (7, "stale-b"))),
+        diagnostics=diagnostics,
+        diagnostic_key="regular:node",
+        cursor=cursor,
+        family="node",
+        _batch_size=3,
+    )
+
+    assert (accepted, exhausted) == (True, False)
+    assert consumed == ["first"]
+    assert cursor == {"node": 3}
+    assert runtime.candidate_check_count == 1
+    assert diagnostics.batch_prepared == {"regular:node": 3}
+    assert diagnostics.batch_consumed == {"regular:node": 1}
+    assert diagnostics.batch_accepted == {"regular:node": 1}
+    assert diagnostics.batch_stale == {"regular:node": 2}
+    assert diagnostics.maximum_batch_size == 3
+
+
+def test_serial_batch_cancellation_does_not_consume_prefetched_descriptions(monkeypatch):
+    flag = type("Flag", (), {"cancelled": False})()
+    cancellation = type(
+        "Cancellation", (), {"is_cancelled": lambda _self: flag.cancelled}
+    )()
+    diagnostics = NumericRefinementDiagnostics()
+    runtime = budget(candidate_limit=100, cancellation=cancellation)
+    state = type("State", (), {"complete_candidate_evaluation_count": 0})()
+
+    def cancel_after_first(*_args):
+        flag.cancelled = True
+        return False
+
+    monkeypatch.setattr(refinement, "_try_recipe", cancel_after_first)
+    accepted, exhausted = _scan_family(
+        state,
+        runtime,
+        iter(("first", "cancelled-a", "cancelled-b")),
+        diagnostics=diagnostics,
+        diagnostic_key="regular:node",
+        _batch_size=3,
+    )
+
+    assert (accepted, exhausted) == (False, False)
+    assert runtime.candidate_check_count == 1
+    assert runtime.stop_reason is SearchStopReason.USER_CANCELLED
+    assert diagnostics.batch_rejected == {"regular:node": 1}
+    assert diagnostics.batch_cancelled == {"regular:node": 2}
+    assert diagnostics.batch_stopped == {"regular:node": 2}
+
+
 def test_refinement_generates_critical_lane_without_post_filter(monkeypatch):
     task, program, quality = construction_case(
         weights=("100",) * 6,
@@ -469,6 +534,65 @@ def test_direct_ownership_preserves_candidate_budget_and_acceptance_order():
     assert state.plan.chain_offsets.tolist() == [0, 3, 5, 10, 12]
     assert sum(diagnostics.accepted.values()) == 8
     assert sum(diagnostics.plan_materializations.values()) == 8
+
+
+def test_serial_batches_preserve_first_improvement_trace_and_result():
+    def solve(batch_size):
+        task, program, quality = construction_case(
+            weights=("100",) * 12,
+            widths=(
+                "1000",
+                "990",
+                "980",
+                "970",
+                "800",
+                "790",
+                "780",
+                "770",
+                "900",
+                "890",
+                "880",
+                "870",
+            ),
+        )
+        state = _state(
+            task,
+            program,
+            quality,
+            range(12),
+            (0, 4, 8, 12),
+            (10, 20, 30),
+            (0, 0, 0),
+        )
+        runtime = budget(candidate_limit=1000)
+        diagnostics = NumericRefinementDiagnostics()
+        improve_numeric_refinement(
+            state,
+            runtime,
+            diagnostics=diagnostics,
+            _batch_size=batch_size,
+        )
+        return (
+            state.plan.node_rows.tolist(),
+            state.plan.chain_offsets.tolist(),
+            state.plan.chain_ids.tolist(),
+            state.plan.chain_periods.tolist(),
+            state.evaluation.quality_key.tolist(),
+            state.accepted_moves,
+            state.complete_candidate_evaluation_count,
+            state.virtual_sequence,
+            state.split_sequence,
+            runtime.candidate_check_count,
+            runtime.stop_reason,
+        ), diagnostics
+
+    single, single_diagnostics = solve(1)
+    batched, batched_diagnostics = solve(8)
+
+    assert batched == single
+    assert single_diagnostics.maximum_batch_size == 1
+    assert batched_diagnostics.maximum_batch_size == 8
+    assert sum(batched_diagnostics.batch_stale.values()) > 0
 
 
 def test_refinement_reclaims_only_ordinary_bridge_and_keeps_split_separator():
