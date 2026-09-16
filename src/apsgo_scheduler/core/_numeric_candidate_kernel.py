@@ -4,7 +4,7 @@ Stage control owns enumeration, quota and acceptance. This module has no reverse
 dependency on search/refinement and never constructs a formal task or plan.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 from numba import njit
@@ -71,6 +71,7 @@ class NumericCandidateAttempt:
     descriptor: np.ndarray
     program: object
     quality_program: object
+    policy: CandidateCheckPolicy
 
 
 @njit
@@ -552,15 +553,17 @@ def _split_candidate(workspace, program, descriptor, source, decision, policy,
     return OK, True, sequence, split_sequence, np.concatenate((removed, added))
 
 
-def compute_candidate_attempt(workspace, program, quality, descriptors, index, policy, *,
+def prepare_candidate_attempt(workspace, program, quality, descriptors, index, policy, *,
                               virtual_sequence=0, split_sequence=0, split_decision=None,
-                              previous_evaluation=None, allows_continue=None):
-    """Compute one declared repair variant. Never charge quota or publish state.
+                              allows_continue=None):
+    """Prepare one declared repair variant. Never charge quota or publish state.
 
     Variant 0 is original, 1 trims ordinary inner bridges (only if any exist).
     The caller owns the original cleaned-before-original attempt/charging order.
     FILL uses node_row for the selected prototype index; CUT uses target_start/
     target_stop for the prefix/suffix final positions and target_id for the new ID.
+    Split control may pause here at its original preparation-before-charge point.
+    All successful preparations must finish through compute_candidate_attempt.
     """
     if (not isinstance(workspace, NumericCandidateWorkspace)
             or not isinstance(descriptors, NumericCandidateDescriptors)
@@ -585,7 +588,7 @@ def compute_candidate_attempt(workspace, program, quality, descriptors, index, p
     def result(status=OK, prepared=False, admissible=False, summary=None):
         return NumericCandidateAttempt(int(status), prepared, admissible, workspace.view(), summary,
             readonly(affected, np.int64), int(virtual_sequence), int(split_sequence), cleaned,
-            descriptor, program, quality)
+            descriptor, program, quality, policy)
 
     if allows_continue is not None and not allows_continue():
         return result(CANCELLED)
@@ -672,14 +675,37 @@ def compute_candidate_attempt(workspace, program, quality, descriptors, index, p
         policy.maximum_changed_chain_weight, group_periods)
     if status != OK or not found:
         return result(status)
+    return result(OK, True)
+
+
+def compute_candidate_attempt(workspace, program, quality, descriptors, index, policy, *,
+                              virtual_sequence=0, split_sequence=0, split_decision=None,
+                              previous_evaluation=None, allows_continue=None, preparation=None):
+    """Unique complete attempt; optionally resume at the original split quota boundary."""
+    if preparation is None:
+        preparation = prepare_candidate_attempt(workspace, program, quality, descriptors, index, policy,
+            virtual_sequence=virtual_sequence, split_sequence=split_sequence,
+            split_decision=split_decision, allows_continue=allows_continue)
+    else:
+        if (not isinstance(preparation, NumericCandidateAttempt)
+                or type(index) is not int or not 0 <= index < descriptors.values.shape[0]):
+            raise NumericValueError("candidate.resume", "matching unfinished preparation required")
+        descriptors.require_current(workspace.task, workspace.plan)
+        workspace.require_view(preparation.view)
+        if (preparation.program is not program or preparation.quality_program is not quality
+                or preparation.policy != policy or preparation.summary is not None
+                or not np.array_equal(preparation.descriptor, descriptors.values[index])):
+            raise NumericValueError("candidate.resume", "matching unfinished preparation required")
+    if preparation.status != OK or not preparation.prepared:
+        return preparation
     base_groups = PrivateSplitColumns(*(getattr(workspace.task.split_groups, name)
                                          for name in PrivateSplitColumns._fields))
     if not _split_periods_match(workspace.view(), _base_nodes(workspace.task), workspace.nodes,
                                 base_groups, workspace.split_groups):
-        return result()
+        return replace(preparation, prepared=False)
     if allows_continue is not None and not allows_continue():
-        return result(CANCELLED)
+        return replace(preparation, status=CANCELLED, prepared=False)
     summary = evaluate_numeric_view(workspace, program, quality, previous_evaluation=previous_evaluation)
     admissible = not any(summary.hits[:, rule.index].any() for rule in program.rules
                          if rule.kind in policy.reject_prohibited_kinds)
-    return result(OK, True, admissible, summary)
+    return replace(preparation, admissible=admissible, summary=summary)

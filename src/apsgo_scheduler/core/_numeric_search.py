@@ -707,6 +707,8 @@ def consume_candidate_result(state, budget, workspace, result):
         raise NumericValueError("candidate.compute", f"numeric candidate status {result.status}; capacity must retry before consumption")
     if not result.prepared:
         return False
+    if result.summary is None:
+        raise NumericValueError("candidate.consume", "unfinished preparation cannot be consumed")
     if budget.candidate_check_count <= 0:
         raise NumericValueError("candidate.consume", "candidate must consume its original logical check first")
     state.complete_candidate_evaluation_count += 1
@@ -1028,6 +1030,25 @@ def _first_description(workspace, action, source, target, *, row=-1, position=-1
     return NumericCandidateDescriptors(workspace.task, workspace.plan, readonly(values, np.int64))
 
 
+def _prepare_current_description(state, budget, workspace, description, policy, *, split_decision=None):
+    """Return private geometry before split's existing logical charge boundary."""
+    while True:
+        result = common_candidate.prepare_candidate_attempt(workspace, state.program, state.quality,
+            description, 0, policy, virtual_sequence=state.virtual_sequence,
+            split_sequence=state.split_sequence, split_decision=split_decision,
+            allows_continue=budget.allows_search)
+        if result.status != CAPACITY:
+            return result
+        _grow_candidate_workspace(workspace)
+
+
+def _grow_candidate_workspace(workspace):
+    workspace.grow_for_retry(changed_capacity=max(1, workspace.changed_rows.size * 2),
+        chain_capacity=max(1, workspace.ids.size * 2), node_capacity=max(1, workspace.templates.size * 2),
+        group_capacity=max(1, workspace.split_groups.parent_row.size * 2),
+        event_capacity=max(1, workspace.event_node_ends.size * 2))
+
+
 def _try_first_description(state, budget, workspace, description, policy):
     while True:
         result = capture_candidate_result(workspace, state.program, state.quality, description, 0,
@@ -1035,10 +1056,7 @@ def _try_first_description(state, budget, workspace, description, policy):
             previous_evaluation=state.evaluation, allows_continue=budget.allows_search)
         if isinstance(result, NumericDeferredCandidateFailure) or result.status != CAPACITY:
             return consume_candidate_result(state, budget, workspace, result)
-        workspace.grow_for_retry(changed_capacity=max(1, workspace.changed_rows.size * 2),
-            chain_capacity=max(1, workspace.ids.size * 2), node_capacity=max(1, workspace.templates.size * 2),
-            group_capacity=max(1, workspace.split_groups.parent_row.size * 2),
-            event_capacity=max(1, workspace.event_node_ends.size * 2))
+        _grow_candidate_workspace(workspace)
 
 
 def improve_numeric_whole_chain(
@@ -1395,61 +1413,40 @@ def improve_numeric_controlled_split(
     starting_split_sequence = state.split_sequence
     while budget.allows_search():
         task, program = state.task, state.program
-        chains, chain_ids, periods = _layout(state.plan)
+        workspace, view, _, _, _, _ = _first_workspace(state)
+        chain_ids, periods = state.plan.chain_ids, state.plan.chain_periods
+        policy = common_candidate.CandidateCheckPolicy(maximum_virtual_bridge_nodes,
+            reject_prohibited_kinds=(NumericRuleKind.VIRTUAL_RATIO,))
         accepted = False
-        for donor_index, donor in enumerate(chains):
+        for donor_index in range(view.count):
+            donor = chain_rows(view, donor_index)
             for parent_row in donor:
                 decision = evaluate_numeric_split(
                     task,
                     program,
-                    parent_row,
-                    periods[donor_index],
+                    int(parent_row),
+                    int(periods[donor_index]),
                     state.split_sequence,
                 )
                 if not decision.eligible:
                     continue
-                prepared = _prepare_numeric_split(
-                    state,
-                    parent_row,
-                    donor_index,
-                    decision,
-                    maximum_virtual_bridge_nodes,
-                )
-                if prepared is None:
+                new_chain_id = checked_sum((int(chain_ids.max()), 1), "candidate.chain_id")
+                description = _first_description(workspace, common_candidate.SPLIT,
+                    chain_ids[donor_index], new_chain_id, row=parent_row)
+                prepared = _prepare_current_description(state, budget, workspace, description, policy,
+                    split_decision=decision)
+                if prepared.status == CANCELLED:
+                    return state
+                if prepared.status != OK:
+                    raise NumericValueError("split.prepare", f"numeric preparation failed: {prepared.status}")
+                if not prepared.prepared:
                     continue
-                (
-                    workspace,
-                    candidate,
-                    new_chain_id,
-                    virtual_sequence,
-                    split_sequence,
-                    affected_rows,
-                ) = prepared
                 if not budget.consume_candidate_check():
                     return state
-                edit = NumericCandidateEdit(
-                    task.fingerprint,
-                    state.plan.fingerprint,
-                    state.plan.generation,
-                    budget.candidate_check_count,
-                    NumericSearchAction.CONTROLLED_ORDER_SPLIT,
-                    chain_ids[donor_index],
-                    new_chain_id,
-                    node_row=parent_row,
-                )
-                if _try_prepared_candidate(
-                    state,
-                    budget,
-                    edit,
-                    workspace.task,
-                    workspace.program,
-                    workspace.quality,
-                    candidate,
-                    affected_rows,
-                    virtual_sequence=virtual_sequence,
-                    split_sequence=split_sequence,
-                    reject_prohibited_kinds=(NumericRuleKind.VIRTUAL_RATIO,),
-                ):
+                result = common_candidate.compute_candidate_attempt(workspace, state.program, state.quality,
+                    description, 0, policy, preparation=prepared, previous_evaluation=state.evaluation,
+                    allows_continue=budget.allows_search)
+                if consume_candidate_result(state, budget, workspace, result):
                     accepted = True
                     break
             if accepted or budget.must_stop:

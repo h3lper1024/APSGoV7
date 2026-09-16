@@ -48,3 +48,42 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m 
 共享 175 项通过、114.76 秒、退出 0；精确暂存树同范围验证见提交正文。五种直接/资源动作在旧准备函数失败桩下仍正常接受；拒绝零正式物化、从零容量增长不额外扣额、小例拆后调用新首轮也通过。先期新边前检传错既有共享原语参数，实际编译测试拦截后按已声明签名修正，未改变规则；最终测试/真实对照均关闭该失败。
 
 计划 v0.12，下一项 5.2 两类拆单及唯一重放；共享残留只保留原 9 项已登记差异，正式配置/SQLite、原请求和四份用户文件不变。没有完整性能、并行或历史交期改善结论。
+
+## 5.2 两类拆单与唯一重放
+
+实施前 `39d956c`。拆单资格继续使用权威列和既有授权判定，公共候选准备使用私有拆片/分隔材、资源事件和链视图。成功准备后才按原位置扣额，随后同一 `compute_candidate_attempt()` 从绑定策略/身份/代次的未评价结果继续期锁与评价；不创建第二套拆单算法。未完成结果不能消费，准备失败不扣额，期锁拒绝不算完整评价。拒绝路径不调用旧 `_prepare_numeric_split()`、`_layout()` 或正式扩展；接受后唯一重放已统一的四类首轮入口。
+
+### 真实拆单/重放前缀对照
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_unified_numeric_search_prefix.py \
+  --source-root /tmp/apsgo-unified-stage0-V92qIO \
+  --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json \
+  --output-dir diagnostics/unified_numeric_solver/stage52_reference_01 --through-split
+
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_unified_numeric_search_prefix.py \
+  --source-root /Users/miles/dev/dev-py/APSGOV7 \
+  --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json \
+  --output-dir diagnostics/unified_numeric_solver/stage52_native_01 --through-split
+
+cmp diagnostics/unified_numeric_solver/stage52_reference_01/search_prefix.json \
+    diagnostics/unified_numeric_solver/stage52_native_01/search_prefix.json
+```
+
+均退出 0；JSON SHA-256 均为 `53fd0ff62191aeb386e9be594a40e5a5af3d84f7cd0bc0a6c5375eb88712e29f`。累计 134226 次检查、1128 次完整评价、442 次接受、3937 次桥接需求、18 个虚拟序号、两类拆单各 1、重放 1；完整扣额摘要、接受记录、链/资源/祖先/任务和方案身份一致。
+
+精修入口九级整数键为 `[0,0,0,0,1998065,446850097161,11729,36000,22]`，22 链、360 吨虚拟、零禁止/欠重。**仅为冻结一致的中间状态，没有运行后置精修及最终双审计。**旧/新冷诊断经过时间 35.491305 / 79.321247 秒，CPU 35.323828 / 78.923195 秒，包含编译与追踪且有测试并发，不作为性能验收。
+
+### 必要验证
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m pytest -q -p no:cacheprovider \
+  tests/core/test_numeric_split_common.py tests/core/test_numeric_first_common.py \
+  tests/core/test_numeric_search.py tests/core/test_numeric_candidate_kernel.py \
+  tests/core/test_numeric_candidate_publication.py tests/core/test_numeric_private_split.py \
+  tests/core/test_numeric_refinement.py tests/architecture
+```
+
+共享 190 项通过、111.54 秒、退出 0；精确暂存树同范围验证见提交正文。覆盖两类拆单/唯一重放、无旧对象路径、准备先于扣额、评价晚于扣额、失败/期锁拒绝计数、未评价结果/策略错配/代次过期拒绝。首次两个断言误将零分组容量的第一次扩容尝试当成准备完成，已改为明确断言一次扩容且额度仍为零，再核对成功准备和评价，不更改生产行为；最终全部通过。
+
+计划 v0.13，阶段 5 完成、下一项 6.1。残留检查及保护范围保持，不宣称全流程质量/性能、并行或历史交期问题已解决。
