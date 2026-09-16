@@ -1,7 +1,6 @@
 """Numeric candidate edits and the static parts of first local search."""
 
 from dataclasses import dataclass
-from enum import Enum
 from math import isfinite
 from time import perf_counter
 
@@ -30,7 +29,7 @@ from ._numeric_rules import (
     evaluate_numeric_split,
     numeric_edge_allowed,
 )
-from ._numeric_state import NumericPlan, NumericTask, split_target_periods_match
+from ._numeric_state import NumericPlan, NumericTask, NumericSearchAction, split_target_periods_match
 from ._numeric_units import (
     NumericValueError,
     allocate_piece_milliseconds,
@@ -42,23 +41,6 @@ from .contracts import SearchStopReason, fingerprint
 from .model import MaterialRole, VirtualPurpose
 
 _GENERATED_VIRTUAL = tuple(MaterialRole).index(MaterialRole.GENERATED_VIRTUAL)
-
-
-class NumericSearchAction(str, Enum):
-    WHOLE_CHAIN_APPEND = "whole_chain_append"
-    WHOLE_CHAIN_PREPEND = "whole_chain_prepend"
-    WHOLE_CHAIN_INSERTION = "whole_chain_insertion"
-    REAL_NODE_RELOCATION = "real_node_relocation"
-    CHAIN_ORDER_RELOCATION = "chain_order_relocation"
-    VIRTUAL_WEIGHT_FILL = "virtual_weight_fill"
-    CONTROLLED_ORDER_SPLIT = "controlled_order_split"
-    DELIVERY_INTRA_MOVE = "delivery_intra_move"
-    NODE_MOVE = "width_node_move"
-    NODE_EXCHANGE = "width_node_exchange"
-    BLOCK_MOVE = "width_block_move"
-    BLOCK_EXCHANGE = "width_block_exchange"
-    CHAIN_CUT = "width_chain_cut"
-    BRIDGE_RECLAMATION = "width_bridge_reclamation"
 
 
 @dataclass(frozen=True, slots=True)

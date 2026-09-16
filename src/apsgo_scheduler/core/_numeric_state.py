@@ -7,6 +7,8 @@ columns contain no Nodes, Decimals, dictionaries or object-dtype arrays.
 from dataclasses import dataclass, fields, replace
 from dataclasses import field as dataclass_field
 from hashlib import sha256
+from collections import namedtuple
+from enum import Enum
 
 import numpy as np
 
@@ -47,6 +49,26 @@ _WEIGHT_PARAMETERS = (
     "maximum_separator_weight",
 )
 _ROLES = tuple(MaterialRole)
+
+# Shared native status codes; the existing evaluation kernel uses these too.
+OK, INVALID, NUMERIC_ERROR, CANCELLED, CAPACITY, STALE = range(6)
+
+
+class NumericSearchAction(str, Enum):
+    WHOLE_CHAIN_APPEND = "whole_chain_append"
+    WHOLE_CHAIN_PREPEND = "whole_chain_prepend"
+    WHOLE_CHAIN_INSERTION = "whole_chain_insertion"
+    REAL_NODE_RELOCATION = "real_node_relocation"
+    CHAIN_ORDER_RELOCATION = "chain_order_relocation"
+    VIRTUAL_WEIGHT_FILL = "virtual_weight_fill"
+    CONTROLLED_ORDER_SPLIT = "controlled_order_split"
+    DELIVERY_INTRA_MOVE = "delivery_intra_move"
+    NODE_MOVE = "width_node_move"
+    NODE_EXCHANGE = "width_node_exchange"
+    BLOCK_MOVE = "width_block_move"
+    BLOCK_EXCHANGE = "width_block_exchange"
+    CHAIN_CUT = "width_chain_cut"
+    BRIDGE_RECLAMATION = "width_bridge_reclamation"
 
 
 def readonly(values, dtype):
@@ -859,3 +881,185 @@ class NumericPlanOverlay:
                 "candidate_overlay", "candidate chain identity or row is invalid"
             )
         return cls(tuple(values), ids, periods, current.generation + 1, task.fingerprint)
+
+
+# Descriptions are homogeneous integer records; material fields stay in typed
+# columns. Owner is an original-source index, not a chain index or node row.
+DESCRIPTOR_FIELDS = (
+    "action", "source_chain_id", "target_chain_id", "node_row", "target_position",
+    "source_start", "source_stop", "target_start", "target_stop",
+    "source_reversed", "target_reversed", "owner_source", "repair_variant",
+)
+
+
+@dataclass(frozen=True, slots=True, eq=False)
+class NumericCandidateDescriptors:
+    task: NumericTask
+    plan: NumericPlan
+    values: np.ndarray
+
+    def __post_init__(self):
+        _require_numeric_base(self.task, self.plan)
+        value = self.values
+        if (not isinstance(value, np.ndarray) or value.dtype != np.int64
+                or value.ndim != 2 or value.shape[1] != len(DESCRIPTOR_FIELDS)
+                or value.flags.writeable or not value.flags.c_contiguous):
+            raise NumericValueError("descriptors", "read-only contiguous integer records required")
+        action = value[:, DESCRIPTOR_FIELDS.index("action")]
+        if np.any(action < 0) or np.any(action >= len(NumericSearchAction)):
+            raise NumericValueError("descriptors.action", "unknown action code")
+        for name in ("source_reversed", "target_reversed"):
+            column = value[:, DESCRIPTOR_FIELDS.index(name)]
+            if np.any((column != 0) & (column != 1)):
+                raise NumericValueError(f"descriptors.{name}", "integer boolean required")
+        # Action-specific position/period authorization belongs to the common
+        # attempt, not this transport boundary or a second algorithm here.
+        for name in ("source_chain_id", "target_chain_id", "repair_variant"):
+            if np.any(value[:, DESCRIPTOR_FIELDS.index(name)] < 0):
+                raise NumericValueError(f"descriptors.{name}", "nonnegative code required")
+        owners = value[:, DESCRIPTOR_FIELDS.index("owner_source")]
+        if np.any(owners < -1) or np.any(owners >= self.task.originals.weight.size):
+            raise NumericValueError("descriptors.owner_source", "original index outside task")
+
+    def require_current(self, task, plan):
+        if task is not self.task or plan is not self.plan:
+            raise NumericValueError("descriptors", "stale task or plan generation")
+
+
+def _require_numeric_base(task, plan):
+    if (not isinstance(task, NumericTask) or not isinstance(plan, NumericPlan)
+            or plan.task_fingerprint != task.fingerprint):
+        raise NumericValueError("workspace", "matching numeric task and plan required")
+
+
+# Array-only named tuples are directly consumable by native kernels. Reuse the
+# authoritative field names and dtypes instead of defining a second node schema.
+PrivateNodeColumns = namedtuple("PrivateNodeColumns", (f.name for f in fields(NumericNodeColumns)))
+PrivateSplitColumns = namedtuple("PrivateSplitColumns", (f.name for f in fields(NumericSplitGroups)))
+PrivateDerivedColumns = namedtuple("PrivateDerivedColumns", "priority narrow_matches surface_matches same_spec_groups")
+NumericChainView = namedtuple("NumericChainView", (
+    "base_rows changed_rows starts stops private ids periods count epoch"
+))
+
+
+@dataclass(slots=True, eq=False)
+class NumericCandidateWorkspace:
+    """One attempt owns writable tails; accepted input arrays are never copied.
+
+    A chain view borrows the workspace until reset/growth. Validate its epoch at
+    the Python dispatch boundary; native code uses only arrays/scalars. No view
+    may survive acceptance or be reused by a concurrent attempt.
+    """
+
+    task: NumericTask
+    plan: NumericPlan
+    changed_rows: np.ndarray
+    starts: np.ndarray
+    stops: np.ndarray
+    private: np.ndarray
+    ids: np.ndarray
+    periods: np.ndarray
+    nodes: PrivateNodeColumns
+    derived: PrivateDerivedColumns
+    split_groups: PrivateSplitColumns
+    templates: np.ndarray
+    event_node_ends: np.ndarray
+    event_group_ends: np.ndarray
+    chain_count: int = 0
+    changed_count: int = 0
+    node_count: int = 0
+    group_count: int = 0
+    event_count: int = 0
+    epoch: int = 0
+
+    @classmethod
+    def allocate(cls, task, plan, *, changed_capacity, chain_capacity,
+                 node_capacity, group_capacity, event_capacity):
+        _require_numeric_base(task, plan)
+        sizes = (changed_capacity, chain_capacity, node_capacity, group_capacity, event_capacity)
+        if any(type(n) is not int or n < 0 for n in sizes):
+            raise NumericValueError("workspace.capacity", "nonnegative integer capacities required")
+        if chain_capacity < plan.chain_ids.size:
+            raise NumericValueError("workspace.capacity", "capacity must contain the base chain map")
+
+        def empty_like(column, count, axis=0):
+            shape = list(column.shape)
+            shape[axis] = count
+            return np.empty(tuple(shape), dtype=column.dtype)
+
+        nodes = PrivateNodeColumns(*(empty_like(getattr(task.nodes, f.name), node_capacity)
+                                     for f in fields(NumericNodeColumns)))
+        derived = PrivateDerivedColumns(*(empty_like(getattr(task, name), node_capacity, 1)
+                                          for name in PrivateDerivedColumns._fields))
+        groups = PrivateSplitColumns(*(np.empty(group_capacity, dtype=np.int64)
+                                       for _ in fields(NumericSplitGroups)))
+        result = cls(task, plan, np.empty(changed_capacity, dtype=np.int64),
+                     np.empty(chain_capacity, dtype=np.int64),
+                     np.empty(chain_capacity, dtype=np.int64),
+                     np.empty(chain_capacity, dtype=np.bool_),
+                     np.empty(chain_capacity, dtype=np.int64),
+                     np.empty(chain_capacity, dtype=np.int64),
+                     nodes, derived, groups, np.empty(node_capacity, dtype=np.int64),
+                     np.empty(event_capacity, dtype=np.int64),
+                     np.empty(event_capacity, dtype=np.int64))
+        result.reset()
+        return result
+
+    def reset(self):
+        """Invalidate all borrowed views without touching quota, RNG or the base."""
+        count = self.plan.chain_ids.size
+        self.starts[:count] = self.plan.chain_offsets[:-1]
+        self.stops[:count] = self.plan.chain_offsets[1:]
+        self.private[:count] = False
+        self.ids[:count] = self.plan.chain_ids
+        self.periods[:count] = self.plan.chain_periods
+        self.chain_count = count
+        self.changed_count = self.node_count = self.group_count = self.event_count = 0
+        self.epoch += 1
+
+    def require_current(self, task, plan):
+        if task is not self.task or plan is not self.plan:
+            raise NumericValueError("workspace", "stale task or plan generation")
+
+    def view(self):
+        return NumericChainView(self.plan.node_rows, self.changed_rows,
+                                self.starts, self.stops, self.private, self.ids,
+                                self.periods, self.chain_count, self.epoch)
+
+    def require_view(self, view):
+        if (not isinstance(view, NumericChainView) or view.epoch != self.epoch
+                or view.changed_rows is not self.changed_rows or view.ids is not self.ids):
+            raise NumericValueError("workspace.view", "expired or foreign borrowed view")
+
+    def capacity_status(self, *, changed_rows, chains, nodes, groups, events):
+        requested = (changed_rows, chains, nodes, groups, events)
+        if any(type(n) is not int or n < 0 for n in requested):
+            return INVALID
+        capacities = (self.changed_rows.size, self.ids.size, self.templates.size,
+                      self.split_groups.parent_row.size, self.event_node_ends.size)
+        return CAPACITY if any(n > cap for n, cap in zip(requested, capacities)) else OK
+
+    def grow_for_retry(self, *, changed_capacity, chain_capacity, node_capacity,
+                       group_capacity, event_capacity):
+        """Replace private buffers and retry from the same base, never publish."""
+        capacities = (self.changed_rows.size, self.ids.size, self.templates.size,
+                      self.split_groups.parent_row.size, self.event_node_ends.size)
+        requested = (changed_capacity, chain_capacity, node_capacity, group_capacity, event_capacity)
+        if any(type(n) is not int or n < current for n, current in zip(requested, capacities)):
+            raise NumericValueError("workspace.capacity", "retry cannot shrink existing capacities")
+        replacement = type(self).allocate(self.task, self.plan,
+            changed_capacity=changed_capacity, chain_capacity=chain_capacity,
+            node_capacity=node_capacity, group_capacity=group_capacity, event_capacity=event_capacity)
+        epoch = self.epoch + 1
+        for item in fields(self):
+            if item.name not in {"task", "plan", "epoch"}:
+                setattr(self, item.name, getattr(replacement, item.name))
+        self.epoch = epoch
+
+    @property
+    def allocated_bytes(self):
+        """Owned buffers only; shared task/plan memory and Python wrappers excluded."""
+        arrays = (self.changed_rows, self.starts, self.stops, self.private, self.ids,
+                  self.periods, self.templates, self.event_node_ends, self.event_group_ends,
+                  *self.nodes, *self.derived, *self.split_groups)
+        return sum(array.nbytes for array in arrays)

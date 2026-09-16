@@ -10,9 +10,9 @@ import numpy as np
 from numba import njit
 
 from ._numeric_rules import _GENERATED_VIRTUAL, _ACTUAL_TRANSITION
+from ._numeric_state import OK, INVALID, NUMERIC_ERROR, CANCELLED, CAPACITY, STALE
 from .contracts import RuleScope
 
-OK, INVALID, NUMERIC_ERROR, CANCELLED, CAPACITY, STALE = range(6)
 MAX = (1 << 63) - 1
 MIN = -(1 << 63)
 SEVERITY = 1000000
