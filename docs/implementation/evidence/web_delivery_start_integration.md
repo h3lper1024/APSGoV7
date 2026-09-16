@@ -78,6 +78,19 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
 
 ## 部署状态
 
-尚未启用正式规则或重启 8001。需要用户确认允许服务切换后，先备份实际 SQLite 到
-`/Users/miles/dev/dev-py/APSGOV7-bak`，再创建新活动版本并启动新代码；旧进程不能直接读取
-新交期规则版本。代码通过不等于正式服务已经生效。
+2026-09-17 用户确认仅备份数据库并启用九项目标，服务启动及测试由用户执行。
+基线 `bc54444`，工作树操作前干净；8001 操作前无监听，本任务未启停服务。
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src \
+  /Users/miles/anaconda3/envs/aps_3.10.18/bin/python \
+  -m apsgo_v7_service.enable_delivery_rules \
+  --database-path /Users/miles/dev/dev-py/APSGOV7/data/apsgo_v7_rules.sqlite3 \
+  --backup-path /Users/miles/dev/dev-py/APSGOV7-bak/apsgo_v7_rules_before_delivery_v14_20260917_045558.sqlite3 \
+  --expected-active-version-id 14
+```
+
+命令退出 0，实际活动版本为 15；备份的活动版本为 14。仅进行数据库回读核验：
+原版本 1～14 的版本记录完整保留，已有 17 条规则定义及虚拟材原型保持，新增启用交期规则，
+九项目标与计划顺序一致。正式库和备份的 SQLite 完整性检查均为 `ok`。
+本轮不运行单元测试、浏览器测试或求解；正式环境运行效果待用户手动验证。
