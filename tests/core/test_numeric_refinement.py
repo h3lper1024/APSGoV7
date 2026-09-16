@@ -216,6 +216,40 @@ def test_refinement_routes_each_recipe_once_and_polls_cancellation():
     assert runtime.stop_reason is SearchStopReason.USER_CANCELLED
 
 
+def test_block_family_builds_shared_structural_ownership_once(monkeypatch):
+    task, program, quality = construction_case(
+        weights=("100",) * 6,
+        widths=("1000", "990", "980", "970", "960", "950"),
+    )
+    state = _state(task, program, quality, range(6), (0, 3, 6), (10, 20), (0, 0))
+    index = NumericRefinementIndex.build(state)
+    sources = _delivery_sources(state)
+    original = refinement._structural_ownership
+    calls = []
+
+    def counted(*args, **kwargs):
+        calls.append((args, kwargs))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(refinement, "_structural_ownership", counted)
+    recipes = tuple(
+        _family_stream(
+            state,
+            "block",
+            {family: None for family in refinement._FAMILIES},
+            sources,
+            frozenset(),
+            False,
+            budget(candidate_limit=1000),
+            index=index,
+        )
+    )
+
+    assert recipes
+    assert len(calls) == 1
+    assert calls[0][1] == {"include_intervals": True}
+
+
 def test_block_interval_is_owned_once_when_one_order_has_multiple_pieces():
     task, program, quality = construction_case(
         weights=("100",) * 6,

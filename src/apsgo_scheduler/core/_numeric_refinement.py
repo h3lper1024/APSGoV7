@@ -399,6 +399,57 @@ def _chain_recipe_stream(state, index, family, chain):
                 )
 
 
+def _structural_ownership(index, ordered_sources, *, include_intervals):
+    """Build position ranks once for every source stream in one family scan."""
+    ranks = {
+        position: rank
+        for rank, owner in enumerate(ordered_sources)
+        for position in reversed(index.source_positions[owner])
+    }
+    position_order = {
+        position: order
+        for owner in ordered_sources
+        for order, position in enumerate(reversed(index.source_positions[owner]))
+    }
+    position_ranks = []
+    position_orders = []
+    for chain, rows in enumerate(index.chains):
+        chain_ranks = np.full(len(rows), -1, dtype=np.int64)
+        chain_orders = np.full(len(rows), -1, dtype=np.int64)
+        for slot in range(len(rows)):
+            position = (chain, slot)
+            if position in ranks:
+                chain_ranks[slot] = ranks[position]
+                chain_orders[slot] = position_order[position]
+        position_ranks.append(readonly(chain_ranks, np.int64))
+        position_orders.append(readonly(chain_orders, np.int64))
+    if not include_intervals:
+        return tuple(position_ranks), (), ()
+
+    default_rank = len(ranks)
+    interval_ranks = []
+    interval_owner_slots = []
+    for chain_ranks, chain_orders in zip(position_ranks, position_orders):
+        length = len(chain_ranks)
+        owner_ranks = np.full((length, length + 1), default_rank, dtype=np.int64)
+        owner_slots = np.full((length, length + 1), -1, dtype=np.int64)
+        for start in range(length):
+            best = (default_rank, default_rank)
+            best_slot = -1
+            for stop in range(start + 1, length + 1):
+                slot = stop - 1
+                rank = int(chain_ranks[slot])
+                order = int(chain_orders[slot])
+                if rank >= 0 and (rank, order) < best:
+                    best = (rank, order)
+                    best_slot = slot
+                owner_ranks[start, stop] = best[0]
+                owner_slots[start, stop] = best_slot
+        interval_ranks.append(readonly(owner_ranks, np.int64))
+        interval_owner_slots.append(readonly(owner_slots, np.int64))
+    return tuple(position_ranks), tuple(interval_ranks), tuple(interval_owner_slots)
+
+
 def _source_recipe_stream(
     state,
     source,
@@ -411,6 +462,7 @@ def _source_recipe_stream(
     diagnostics=None,
     index=None,
     budget=None,
+    ownership=None,
 ):
     plan = state.plan
     index = index or NumericRefinementIndex.build(state)
@@ -435,11 +487,9 @@ def _source_recipe_stream(
         return
 
     if family == "node":
-        ranks = {
-            position: rank
-            for rank, owner in enumerate(ordered_sources)
-            for position in reversed(index.source_positions[owner])
-        }
+        position_ranks, _, _ = ownership or _structural_ownership(
+            index, ordered_sources, include_intervals=False
+        )
 
         def moves():
             for chain, start in positions:
@@ -472,7 +522,8 @@ def _source_recipe_stream(
                     for owner in ordered_sources
                     for position in reversed(index.source_positions[owner])
                     if position[0] != chain
-                    and ranks.get((chain, start), -1) < ranks.get(position, -1)
+                    and int(position_ranks[chain][start])
+                    < int(position_ranks[position[0]][position[1]])
                 ):
                     yield (
                         NumericSearchAction.NODE_EXCHANGE,
@@ -488,34 +539,16 @@ def _source_recipe_stream(
         return
 
     if family == "block":
-        ranks = {
-            position: rank
-            for rank, owner in enumerate(ordered_sources)
-            for position in reversed(index.source_positions[owner])
-        }
-        position_order = {
-            position: order
-            for owner in ordered_sources
-            for order, position in enumerate(reversed(index.source_positions[owner]))
-        }
+        _, interval_ranks, interval_owner_slots = ownership or _structural_ownership(
+            index, ordered_sources, include_intervals=True
+        )
 
         def owner(chain, start, stop):
-            return min(
-                (ranks[(chain, slot)] for slot in range(start, stop) if (chain, slot) in ranks),
-                default=len(ranks),
-            )
+            return int(interval_ranks[chain][start, stop])
 
         def owner_position(chain, start, stop):
-            candidates = (
-                (chain, slot)
-                for slot in range(start, stop)
-                if (chain, slot) in ranks
-            )
-            return min(
-                candidates,
-                key=lambda position: (ranks[position], position_order[position]),
-                default=None,
-            )
+            slot = int(interval_owner_slots[chain][start, stop])
+            return None if slot < 0 else (chain, slot)
 
         for chain, anchor in positions:
             maximum = min(4, len(chains[chain])) if critical_lane else len(chains[chain])
@@ -609,6 +642,15 @@ def _family_stream(
     index=None,
 ):
     sources = _rotate_after(ordered_sources, cursor[family])
+    ownership = (
+        _structural_ownership(
+            index,
+            ordered_sources,
+            include_intervals=family == "block",
+        )
+        if family in {"node", "block"}
+        else None
+    )
     chain_recipe_streams = None
     if family in {"cut", "order"}:
         chain_recipe_streams = {}
@@ -633,6 +675,7 @@ def _family_stream(
             diagnostics=diagnostics,
             index=index,
             budget=budget,
+            ownership=ownership,
         ):
             if not budget.allows_search():
                 return
