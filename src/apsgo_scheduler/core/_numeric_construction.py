@@ -17,7 +17,7 @@ from ._numeric_evaluation import (
 from ._numeric_rules import (
     NumericRuleKind,
     NumericRuleProgram,
-    evaluate_numeric_rows,
+    numeric_rows_prohibited_profile,
     numeric_edge_allowed,
 )
 from ._numeric_state import NumericPlan, NumericTask, readonly
@@ -572,27 +572,9 @@ def construct_numeric_initial_plan(task, program, quality, graph, cover, budget)
             appended_weight = checked_sum((current_weight, weight), "initial_chain_weight")
             within_weight = maximum is None or appended_weight <= maximum
             if current and within_weight:
-                direct = evaluate_numeric_rows(task, program, append)
-                direct_profile = (
-                    sum(value.prohibited for value in direct.violations),
-                    checked_sum(
-                        (value.severity for value in direct.violations if value.prohibited),
-                        "initial_prohibited_severity",
-                    ),
-                )
+                direct_profile = numeric_rows_prohibited_profile(task, program, append)
                 if current_profile is None:
-                    current_result = evaluate_numeric_rows(task, program, current)
-                    current_profile = (
-                        sum(value.prohibited for value in current_result.violations),
-                        checked_sum(
-                            (
-                                value.severity
-                                for value in current_result.violations
-                                if value.prohibited
-                            ),
-                            "initial_prohibited_severity",
-                        ),
-                    )
+                    current_profile = numeric_rows_prohibited_profile(task, program, current)
                 if direct_profile <= current_profile:
                     current = list(append)
                     current_weight = appended_weight

@@ -93,6 +93,15 @@ def check_source(source, path, package):
             item for item in ast.walk(tree)
             if isinstance(item, ast.Constant) and type(item.value) is int and item.value == 3
         )
+    if module in ("apsgo_scheduler.core._numeric_evaluation",
+                   "apsgo_scheduler.core._numeric_rules"):
+        # Boundary projections of the documented native buffer column 3.
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Subscript):
+                approved_shape_numbers.update(
+                    item for item in ast.walk(node.slice)
+                    if isinstance(item, ast.Constant) and type(item.value) is int and item.value == 3
+                )
     sys_aliases = {"sys"}
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -342,6 +351,17 @@ def test_numeric_evaluation_dependency_exception_is_exact():
             check_source(source, PACKAGE / "core" / "_numeric_evaluation.py", PACKAGE)
     with pytest.raises(AssertionError, match="External production dependency"):
         check_source("import numpy", PACKAGE / "core" / "_numeric_evaluation_extra.py", PACKAGE)
+
+
+def test_complete_numeric_kernel_dependency_and_benchmark_exception_is_exact():
+    for source in ("import numpy", "from numba import njit"):
+        check_source(source, PACKAGE / "core" / "_numeric_kernel.py", PACKAGE)
+    for source in ("import scipy", "import pandas", "import tests",
+                   "benchmark = 531", "benchmark = 37"):
+        with pytest.raises(AssertionError):
+            check_source(source, PACKAGE / "core" / "_numeric_kernel.py", PACKAGE)
+    with pytest.raises(AssertionError):
+        check_source("import numba", PACKAGE / "core" / "_numeric_kernel_extra.py", PACKAGE)
 
 
 def test_numeric_construction_dependency_exception_is_exact():

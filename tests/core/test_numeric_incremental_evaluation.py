@@ -81,16 +81,11 @@ def test_chain_reorder_reuses_unchanged_chain_results_and_matches_full(monkeypat
     previous_plan = NumericPlan.build(task, (0, 1, 2), (0, 1, 3), (10, 20), (0, 0))
     previous = evaluate_numeric_plan(task, program, quality, previous_plan)
     candidate = NumericPlan.build(task, (1, 2, 0), (0, 2, 3), (20, 10), (0, 0), generation=1)
-    calls = []
-    original = evaluation_module.evaluate_numeric_chain
-
-    def counted(*args):
-        calls.append(args[-1])
-        return original(*args)
-
-    monkeypatch.setattr(evaluation_module, "evaluate_numeric_chain", counted)
+    summary = evaluation_module.summarize_numeric_candidate(
+        task, program, quality, candidate, task, program, quality, previous_plan, previous
+    )
     incremental = _incremental(task, program, quality, candidate, previous_plan, previous)
-    assert calls == []
+    assert summary.counts[2] == 0
     full = evaluate_numeric_plan(task, program, quality, candidate)
     _assert_same(incremental, full)
 
@@ -121,19 +116,13 @@ def test_only_changed_chains_are_recomputed_and_result_matches_full(monkeypatch)
     candidate = NumericPlan.build(
         task, (0, 1, 2, 3), (0, 1, 3, 4), (10, 20, 30), (0, 0, 0), generation=1
     )
-    calls = []
-    original = evaluation_module.evaluate_numeric_chain
-
-    def counted(*args):
-        calls.append(args[-1])
-        return original(*args)
-
-    monkeypatch.setattr(evaluation_module, "evaluate_numeric_chain", counted)
+    summary = evaluation_module.summarize_numeric_candidate(
+        task, program, quality, candidate, task, program, quality, previous_plan, previous
+    )
     incremental = _incremental(task, program, quality, candidate, previous_plan, previous)
-    assert calls == [0, 1]
-    calls.clear()
+    assert summary.counts[2] == 2
     full = evaluate_numeric_plan(task, program, quality, candidate)
-    assert calls == [0, 1, 2]
+    assert full.kernel_result.counts[2] == 3
     _assert_same(incremental, full)
 
 
@@ -142,14 +131,9 @@ def test_changed_task_uses_full_new_numeric_evaluation(monkeypatch):
     plan = NumericPlan.build(task, (0, 1), (0, 1, 2), (10, 20), (0, 0))
     previous_task = replace(task)
     previous = evaluate_numeric_plan(previous_task, program, quality, plan)
-    calls = []
-    original = evaluation_module.evaluate_numeric_chain
-
-    def counted(*args):
-        calls.append(args[-1])
-        return original(*args)
-
-    monkeypatch.setattr(evaluation_module, "evaluate_numeric_chain", counted)
+    summary = evaluation_module.summarize_numeric_candidate(
+        task, program, quality, plan, previous_task, program, quality, plan, previous
+    )
     result = evaluate_numeric_candidate(
         task,
         program,
@@ -161,7 +145,7 @@ def test_changed_task_uses_full_new_numeric_evaluation(monkeypatch):
         plan,
         previous,
     )
-    assert calls == [0, 1]
+    assert summary.counts[2] == 2
     _assert_same(result, evaluate_numeric_plan(task, program, quality, plan))
 
 
@@ -199,14 +183,10 @@ def test_append_only_resource_extension_reuses_unchanged_chains_and_matches_full
         (0, 0),
         generation=1,
     )
-    calls = []
-    original = evaluation_module.evaluate_numeric_chain
-
-    def counted(*args):
-        calls.append(args[-1])
-        return original(*args)
-
-    monkeypatch.setattr(evaluation_module, "evaluate_numeric_chain", counted)
+    summary = evaluation_module.summarize_numeric_candidate(
+        extension.task, extension.program, extension.quality, candidate,
+        task, program, quality, previous_plan, previous,
+    )
     incremental = evaluate_numeric_candidate(
         extension.task,
         extension.program,
@@ -218,12 +198,11 @@ def test_append_only_resource_extension_reuses_unchanged_chains_and_matches_full
         previous_plan,
         previous,
     )
-    assert calls == [0]
-    calls.clear()
+    assert summary.counts[2] == 1
     full = evaluate_numeric_plan(
         extension.task, extension.program, extension.quality, candidate
     )
-    assert calls == [0, 1]
+    assert full.kernel_result.counts[2] == 2
     _assert_same(incremental, full)
 
 

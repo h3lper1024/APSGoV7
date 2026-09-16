@@ -469,7 +469,7 @@ def test_refinement_rejects_split_piece_outside_authorized_target_period(monkeyp
     )
     monkeypatch.setattr(
         refinement,
-        "evaluate_numeric_overlay_candidate",
+        "summarize_numeric_candidate",
         lambda *args, **kwargs: pytest.fail("invalid split candidate must not be evaluated"),
     )
 
@@ -655,6 +655,12 @@ def test_rejected_refinement_overlay_does_not_materialize_formal_plan(monkeypatc
         "_build_plan",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError()),
     )
+    import apsgo_scheduler.core._numeric_evaluation as evaluation
+    def reject_detail_object(*_args, **_kwargs):
+        raise AssertionError("rejected production candidate created detail objects")
+    for cls in (evaluation.NumericPlanEvaluation, evaluation.NumericRuleResult,
+                evaluation.NumericViolation, evaluation.NumericMetric):
+        monkeypatch.setattr(cls, "__post_init__", reject_detail_object)
 
     assert not refinement._try_order(
         state,

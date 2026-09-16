@@ -9,7 +9,8 @@ from ._numeric_construction import NumericInitialSolution
 from ._numeric_evaluation import (
     NumericPlanEvaluation,
     NumericQualityProgram,
-    evaluate_numeric_candidate,
+    summarize_numeric_candidate,
+    materialize_numeric_evaluation,
     preview_numeric_chain_order_quality,
 )
 from ._numeric_resources import (
@@ -25,7 +26,7 @@ from ._numeric_rules import (
     NumericMetricKind,
     NumericRuleKind,
     NumericRuleProgram,
-    evaluate_numeric_rows,
+    numeric_rows_prohibited_profile,
     evaluate_numeric_split,
     numeric_edge_allowed,
 )
@@ -637,7 +638,7 @@ def _try_prepared_candidate(
     chains, _, periods = _layout(candidate)
     if not split_target_periods_match(candidate_task, chains, periods):
         return False
-    evaluation = evaluate_numeric_candidate(
+    summary = summarize_numeric_candidate(
         candidate_task,
         candidate_program,
         candidate_quality,
@@ -650,13 +651,15 @@ def _try_prepared_candidate(
     )
     state.complete_candidate_evaluation_count += 1
     if any(
-        violation.prohibited
-        and candidate_program.rules[violation.rule_index].kind in reject_prohibited_kinds
-        for violation in evaluation.violations
+        summary.hits[:, rule.index].any()
+        for rule in candidate_program.rules if rule.kind in reject_prohibited_kinds
     ):
         return False
-    if not budget.allows_search() or not _quality(evaluation) < _quality(state.evaluation):
+    if not budget.allows_search() or not tuple(summary.quality) < _quality(state.evaluation):
         return False
+    evaluation = materialize_numeric_evaluation(
+        candidate_task, candidate_program, candidate_quality, candidate, summary
+    )
     state.commit(
         candidate_task,
         candidate_program,
@@ -679,11 +682,7 @@ def _try_candidate(task, program, quality, state, budget, edit, affected_rows=()
 
 
 def _prohibited_profile(task, program, rows):
-    result = evaluate_numeric_rows(task, program, rows)
-    prohibited = tuple(value for value in result.violations if value.prohibited)
-    return len(prohibited), checked_sum(
-        (value.severity for value in prohibited), "candidate_prohibited_severity"
-    )
+    return numeric_rows_prohibited_profile(task, program, rows)
 
 
 def _variants(task, program, rows):

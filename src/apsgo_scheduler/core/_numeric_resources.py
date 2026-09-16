@@ -9,7 +9,7 @@ from ._numeric_evaluation import NumericQualityProgram
 from ._numeric_rules import (
     NumericRuleKind,
     NumericRuleProgram,
-    evaluate_numeric_rows,
+    numeric_rows_prohibited_profile,
     numeric_edge_allowed,
 )
 from ._numeric_state import (
@@ -365,11 +365,11 @@ def choose_split_separator(task, program, quality, left, right, *, sequence, gro
             candidate.task, candidate.program, row, right
         ):
             continue
-        result = evaluate_numeric_rows(candidate.task, candidate.program, (left, row, right))
-        prohibited = tuple(value for value in result.violations if value.prohibited)
+        profile = numeric_rows_prohibited_profile(
+            candidate.task, candidate.program, (left, row, right)
+        )
         score = (
-            len(prohibited),
-            checked_sum((value.severity for value in prohibited), "separator_severity"),
+            *profile,
             _smoothness(candidate.task, (left, row, right)),
         )
         if best_score is None or score < best_score:

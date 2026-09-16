@@ -114,6 +114,8 @@ def _mul(a, b, s):
         return 0
     x, y = abs(a), abs(b)
     if x > MAX // y:
+        if (a < 0) != (b < 0) and x == MAX // y + 1 and MAX % y == y - 1:
+            return MIN
         _error(s, NUMERIC_ERROR)
         return 0
     return a * b
@@ -426,14 +428,7 @@ def _plan_rules(t, r, rows, offsets, periods, out, detail):
                 _violation(out, detail, i, 16, -1, -1, -1, max(1, severity))
             _metric(out, detail, i, 15, -1, virtual, total or 1, t.scales[3])
         elif kind == 16:
-            gap = 0
-            for c in range(periods.size - 1):
-                a, b = rows[offsets[c + 1] - 1], rows[offsets[c + 1]]
-                if not t.present[a, 0] or not t.present[b, 0]:
-                    _error(s, INVALID)
-                    s[2] = c
-                    return
-                gap = _add(gap, _abs(_sub(t.width[a], t.width[b], s), s), s)
+            gap = _inter_width_gap(t, rows, offsets, s)
             _metric(out, detail, i, 16, -1, gap, 1, t.scales[3])
         elif kind == 17:
             gap = 0
@@ -466,6 +461,19 @@ def _clock(t, rows, out):
         if t.backlog[source]:
             old = max(old, end)
     out.totals[4] = _round(old, 1000, s)
+
+
+@njit
+def _inter_width_gap(t, rows, offsets, status):
+    gap = 0
+    for c in range(offsets.size - 2):
+        a, b = rows[offsets[c + 1] - 1], rows[offsets[c + 1]]
+        if not t.present[a, 0] or not t.present[b, 0]:
+            _error(status, INVALID)
+            status[2] = c
+            return 0
+        gap = _add(gap, _abs(_sub(t.width[a], t.width[b], status), status), status)
+    return gap
 
 
 @njit
@@ -585,3 +593,44 @@ def edges_allowed_kernel(t, r, left, right):
             if not edge_allowed(t, r, i, left, right, status):
                 return False, status
     return True, status
+
+
+@njit
+def chain_order_kernel(t, rows, offsets, order, current_quality, objective_order):
+    out = allocate_result(order.size, 0, rows.size, t.original_weight.size)
+    ordered = np.empty_like(rows)
+    boundaries = np.zeros_like(offsets)
+    position = 0
+    for c in range(order.size):
+        old = order[c]
+        for p in range(offsets[old], offsets[old + 1]):
+            ordered[position] = rows[p]
+            position += 1
+        boundaries[c + 1] = position
+    _clock(t, ordered, out)
+    gap = _inter_width_gap(t, ordered, boundaries, out.status)
+    out.quality[:] = current_quality
+    for i in range(objective_order.size):
+        if objective_order[i] == 4:
+            out.quality[i] = out.totals[4]
+        elif objective_order[i] == 5:
+            out.quality[i] = out.totals[5]
+        elif objective_order[i] == 6:
+            out.quality[i] = gap
+    return out
+
+
+def pack_rows(rows):
+    return _freeze(np.ascontiguousarray(rows, dtype=np.int64))
+
+
+@njit
+def static_plan_kernel(t, r, rows, offsets, periods):
+    capacity = (rows.size + 1) * (r.meta.shape[0] + 1)
+    out = allocate_result(periods.size, r.meta.shape[0], 0, 0, capacity, capacity)
+    for c in range(periods.size):
+        _facts(t, rows[offsets[c]:offsets[c + 1]], periods[c], c, out)
+        for j in range(3):
+            out.totals[j] = _add(out.totals[j], out.facts[c, j + 2], out.status)
+    _plan_rules(t, r, rows, offsets, periods, out, True)
+    return out

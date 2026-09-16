@@ -1,6 +1,8 @@
 """Replay the real prefix, inspect its actual refinement window, never restore state."""
 import argparse
+import json
 from dataclasses import replace
+from decimal import Decimal
 from pathlib import Path
 import sys
 from unittest.mock import patch
@@ -12,6 +14,7 @@ for directory in (ROOT, ROOT / "src"):
 
 from apsgo_scheduler.app.service import solve_request
 from apsgo_scheduler.core import _numeric_refinement as refinement
+from apsgo_scheduler.core._numeric_evaluation import evaluate_numeric_overlay_candidate
 from apsgo_scheduler.core.contracts import fingerprint
 from tests.core import numeric_migration_reference_evaluation as reference
 from tests.core.test_numeric_incremental_evaluation import _assert_same
@@ -20,13 +23,45 @@ from tools.profile_solver_search import load_request
 from tools.verify_solver_diagnostics import _write_json, _code_identity, _sha256
 
 
+def compare_runs(reference_run, candidate_run):
+    def read(path):
+        return json.loads(path.read_text(encoding="utf-8"), parse_float=Decimal)
+    left = read(reference_run / "response.json")
+    right = read(candidate_run / "response.json")
+    # The complete public result includes all ordered nodes, trace identities,
+    # resources and both audits. Only measured durations may differ.
+    for result in (left, right):
+        result["run_manifest"].pop("stage_duration_seconds")
+    if left != right:
+        from tools.verify_numeric_search import first_difference
+        raise AssertionError(first_difference(left, right))
+    for name in ("prepared_request.json", "delivery_report.json"):
+        if (reference_run / name).read_bytes() != (candidate_run / name).read_bytes():
+            raise AssertionError(f"{name} differs")
+    return {"equal": True, "reference": str(reference_run), "candidate": str(candidate_run),
+            "reference_measurement": read(reference_run / "measurement.json"),
+            "candidate_measurement": read(candidate_run / "measurement.json")}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--prepared-request", type=Path, required=True)
+    parser.add_argument("--prepared-request", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--count", type=int, default=256)
     parser.add_argument("--native", action="store_true")
+    parser.add_argument("--reference-run", type=Path)
+    parser.add_argument("--compare-run", type=Path, action="append")
     args = parser.parse_args()
+    if args.reference_run or args.compare_run:
+        if not args.reference_run or not args.compare_run:
+            parser.error("both --reference-run and --compare-run are required")
+        comparisons = [compare_runs(args.reference_run, run) for run in args.compare_run]
+        args.output_dir.mkdir(parents=True, exist_ok=False)
+        _write_json(args.output_dir / "comparison.json", comparisons)
+        print(f"matched {len(comparisons)} complete runs, excluding measured durations only")
+        return
+    if args.prepared_request is None:
+        parser.error("--prepared-request is required for a candidate window")
     args.output_dir.mkdir(parents=True, exist_ok=False)
     request = derive_numeric_request(load_request(args.prepared_request))
     request = replace(request, policy=replace(request.policy, candidate_check_limit=150000))
@@ -38,7 +73,7 @@ def main():
             inputs = (task, rules, quality, overlay, state.task, state.program,
                       state.quality, state.plan, state.evaluation)
             expected = reference.evaluate_numeric_overlay_candidate(*inputs)
-            actual = refinement.evaluate_numeric_overlay_candidate(*inputs)
+            actual = evaluate_numeric_overlay_candidate(*inputs)
             _assert_same(actual, expected)
             if args.native:
                 import numpy as np

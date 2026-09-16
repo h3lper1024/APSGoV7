@@ -126,12 +126,38 @@ def test_native_status_and_checked_arithmetic_do_not_wrap():
         assert status[0] == NUMERIC_ERROR
     for value, expected in ((1500, 2), (2500, 3), (4500, 5)):
         assert _round(value, 1000, np.zeros(5, np.int64)) == expected
+    exact = np.zeros(5, np.int64)
+    assert _mul(-(2**62), 2, exact) == -(2**63)
+    assert exact[0] == 0
     task, rules, quality = construction_case()
     args = (task_columns(task), rule_tables(rules.rules), np.array([0, 1]),
             np.array([0, 2]), np.array([0]), np.arange(9))
     assert evaluate_kernel(*args, cancelled=True).status[0] == CANCELLED
     invalid = (*args[:3], np.array([0, 3]), *args[4:])
     assert evaluate_kernel(*invalid).status[0] == INVALID
+
+
+def test_native_missing_fields_and_parameter_branches_match_reference():
+    from apsgo_scheduler.core._numeric_rules import NumericRuleKind
+    from apsgo_scheduler.core._numeric_state import readonly
+    task, rules, quality = construction_case(
+        weights=("100.005", "200.004", "999.991"),
+        widths=("1000", "1040", "900"),
+        temperatures=(("700", "710"), ("800", "810"), ("700", "800")),
+    )
+    plan = NumericPlan.build(task, (0, 1, 2), (0, 3), (1,), (0,))
+    for field in range(4):
+        present = task.nodes.present.copy()
+        present[1, field] = False
+        altered = replace(task, nodes=replace(task.nodes, present=readonly(present, np.bool_)))
+        assert_kernel_matches(altered, rules, quality, plan)
+    for ignore, adaptive in ((False, False), (True, False), (True, True)):
+        changed = tuple(
+            replace(rule, flags=(ignore, adaptive)) if rule.kind == NumericRuleKind.TEMPERATURE else
+            replace(rule, values=(0, 1)) if rule.kind == NumericRuleKind.VIRTUAL_RATIO else rule
+            for rule in rules.rules
+        )
+        assert_kernel_matches(task, replace(rules, rules=changed), quality, plan)
 
 
 def test_summary_has_zero_detail_objects_and_reuses_only_unchanged_chains(monkeypatch):

@@ -50,3 +50,47 @@
 明细缓冲从 16 条违规/32 条指标开始；不足时返回真实所需容量，由边界扩容重跑同一原语。接受前核对评分、事实、规则命中、时钟及各项计数；之后才创建原有明细类型。方案级延后规则虽然有链内主体位置，仍归方案汇总，避免污染未变链缓存。独立审核将使用无缓存明细入口。
 
 专项检查含拒绝零对象失败桩、只重算 2 条变化链、完全相同方案复用 0 条、方案延后指标不重复及全部明细顺序差分。最终共享/精确树结果记录在本项提交正文；生产切换和全量回归仍属 7.4。
+
+## 7.4 生产串行接线（实施前 ea93072）
+
+首轮搜索、动态桥接/填充、两类拆分及唯一重放、后置结构精修和普通连接材回收已统一接入数值汇总；首改善接受后才调用同一原语生成明细，并核对全部数值数组。构造阶段和桥接/拆分预检也只取数值禁止轮廓；纯链调序预览复用相同的原单时钟和链间宽差原语。独立审核仍从冻结事实重建任务和最终方案，不读取搜索缓存。
+
+原 Python 规则公式和完整评价组装已退出生产文件，测试参考独立保留；公开输入/输出及旧数值标准入口未改变。生产没有 Python 规则评价回退，没有新增算法、线程或配置。未变链的测试计数改为读取原生内核的实际扫描数，不再通过已不存在的 Python 链循环计数。
+
+### 完整同标准对照
+
+参考使用 7.1 精确导出（生产源码等同 a03fdf5），当前使用 7.4 生产源码。全部使用同一冻结请求、种子 590531、400000 次额度、9999 秒搜索＋10 秒收尾。新版同进程运行两次，第一份包含首次编译成本，第二份复用已编译内核；不是两种求解模式或修改预算。
+
+| 项目 | 改造前 | 新版首次运行 | 新版同进程第二次 |
+|---|---:|---:|---:|
+| 完整经过时间 | 233.390746 秒 | 154.426290 秒 | 138.965682 秒 |
+| 进程 CPU 时间 | 232.287252 秒 | 154.094291 秒 | 138.558913 秒 |
+| 候选额度消费 | 400000 | 400000 | 400000 |
+| 完整候选评价 | 78775 | 78775 | 78775 |
+| 接受次数 | 486 | 486 | 486 |
+| 同期间拆单/未来借入归还 | 1 / 1 | 1 / 1 | 1 / 1 |
+| 禁止/欠重/链数/虚拟重量 | 0 / 0 / 22 / 360 吨 | 完全一致 | 完全一致 |
+| 核心/应用审计 | 均通过 | 均通过 | 均通过 |
+
+九级质量保持 `(0,0,0,0,541.2236111111111111111111111,1181514.034911111111111111111,11606,360,22)`。结果指纹 `f1f7678e13998a8945a5c887aa91388e6276a0fbcc1e21989e5666a8b881072a`、确定性运行指纹和轨迹指纹逐项一致。比较工具核对完整公开结果（仅移除实测阶段耗时字段），包括所有有序订单、资源和审计；准备请求和交期报告还做字节比较，两次均通过，而不是只比最终九个分数。
+
+原始目录：
+
+- `diagnostics/numpy_numeric_search_and_calculation/stage7_reference_400k_01/run_01/`；
+- `diagnostics/numpy_numeric_search_and_calculation/stage7_native_400k_01/run_01/`、`run_02/`；
+- `diagnostics/numpy_numeric_search_and_calculation/stage7_complete_comparison_01/comparison.json`。
+
+实际命令（均使用同一 Conda Python，设置 `PYTHONDONTWRITEBYTECODE=1`）：
+
+```bash
+python tools/profile_numeric_solver.py --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json --output-dir diagnostics/numpy_numeric_search_and_calculation/stage7_native_400k_01 --candidate-check-limit 400000 --repeat 2
+python tools/verify_numeric_kernel_migration.py --reference-run diagnostics/numpy_numeric_search_and_calculation/stage7_reference_400k_01/run_01 --compare-run diagnostics/numpy_numeric_search_and_calculation/stage7_native_400k_01/run_01 --compare-run diagnostics/numpy_numeric_search_and_calculation/stage7_native_400k_01/run_02 --output-dir diagnostics/numpy_numeric_search_and_calculation/stage7_complete_comparison_01
+python -m pytest -q -p no:cacheprovider tests/architecture tests/api tests/app tests/core tests/service
+```
+
+### 完成边界
+
+- 内核、串行接线和同标准结果一致性已验证；专项另验证普通生产拒绝候选的四类明细构造器为零调用、整数越界/缺值/参数分支和缓存边界。
+- 初次全仓 4237 项通过；之后补充完整内核架构白名单及参数边界测试，最终共享树累计 **4239 项通过，99.72 秒，退出 0**。精确暂存树同范围结果、树身份和残留检查见本项提交正文（不自引用提交 SHA）。
+- 本次只有一组旧版及两份新版样本，不宣称 20 对性能门通过。完整经过时间首次减少约 33.83%，同进程第二次减少约 40.46%；首次峰值常驻内存从旧版 196952064 字节增加到 633864192 字节。编译与原生运行有内存成本，后续并行不能假设免费。
+- **一分钟目标仍未达到。**阶段 7.4 后停止；阶段 8 的扁平批次、候选并行及收益验收均未实施。Windows exe 未在本机验证。正式 YAML、SQLite、外部仓库及四份既有用户改动保持原状。

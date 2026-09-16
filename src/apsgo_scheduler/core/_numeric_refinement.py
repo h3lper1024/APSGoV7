@@ -10,8 +10,8 @@ from types import MappingProxyType
 import numpy as np
 
 from ._numeric_evaluation import (
-    evaluate_numeric_candidate,
-    evaluate_numeric_overlay_candidate,
+    summarize_numeric_candidate,
+    materialize_numeric_evaluation,
 )
 from ._numeric_resources import NumericResourceExtension
 from ._numeric_rules import NumericRuleKind
@@ -849,42 +849,6 @@ def _candidate_overlay(task, current, chains, chain_ids, periods, *, group_perio
     return NumericPlanOverlay.build(task, current, chains, chain_ids, periods)
 
 
-def _same_candidate_evaluation(left, right):
-    if (
-        left.task_fingerprint != right.task_fingerprint
-        or left.rule_program_fingerprint != right.rule_program_fingerprint
-        or left.quality_program_fingerprint != right.quality_program_fingerprint
-        or left.plan_generation != right.plan_generation
-        or left.chain_results != right.chain_results
-        or left.plan_result != right.plan_result
-        or left.node_metrics != right.node_metrics
-        or left.violations != right.violations
-        or left.scheduled_real_weight != right.scheduled_real_weight
-        or left.generated_virtual_weight != right.generated_virtual_weight
-        or left.borrowed_future_weight != right.borrowed_future_weight
-        or not np.array_equal(left.quality_key, right.quality_key)
-    ):
-        return False
-    return all(
-        np.array_equal(getattr(left.delivery, name), getattr(right.delivery, name))
-        for name in ("node_end_ms", "original_completion_ms", "newly_late", "wait_seconds")
-    ) and all(
-        getattr(left.delivery, name) == getattr(right.delivery, name)
-        for name in (
-            "newly_late_weight",
-            "old_backlog_last_completion_seconds",
-            "wait_burden_weight_seconds",
-        )
-    ) and all(
-        np.array_equal(getattr(left.chain_facts, name), getattr(right.chain_facts, name))
-        for name in (
-            "total_weight",
-            "duration_ms",
-            "real_weight",
-            "virtual_weight",
-            "borrowed_weight",
-        )
-    )
 
 
 def _try_overlay_candidate(
@@ -909,7 +873,7 @@ def _try_overlay_candidate(
         candidate_task, overlay.chains, overlay.chain_periods
     ):
         return False
-    preview = evaluate_numeric_overlay_candidate(
+    preview = summarize_numeric_candidate(
         candidate_task,
         candidate_program,
         candidate_quality,
@@ -922,12 +886,11 @@ def _try_overlay_candidate(
     )
     state.complete_candidate_evaluation_count += 1
     if any(
-        violation.prohibited
-        and candidate_program.rules[violation.rule_index].kind in reject_prohibited_kinds
-        for violation in preview.violations
+        preview.hits[:, rule.index].any()
+        for rule in candidate_program.rules if rule.kind in reject_prohibited_kinds
     ):
         return False
-    if not budget.allows_search() or not tuple(preview.quality_key) < tuple(
+    if not budget.allows_search() or not tuple(preview.quality) < tuple(
         state.evaluation.quality_key
     ):
         return False
@@ -939,21 +902,13 @@ def _try_overlay_candidate(
         overlay.chain_periods,
         group_periods=False,
     )
-    evaluation = evaluate_numeric_candidate(
+    evaluation = materialize_numeric_evaluation(
         candidate_task,
         candidate_program,
         candidate_quality,
         candidate,
-        state.task,
-        state.program,
-        state.quality,
-        state.plan,
-        state.evaluation,
+        preview,
     )
-    if not _same_candidate_evaluation(preview, evaluation):
-        raise NumericValueError(
-            "candidate_overlay", "candidate overlay and formal evaluation differ"
-        )
     if diagnostics is not None:
         diagnostics.record("plan_materializations", diagnostic_key)
     state.commit(
