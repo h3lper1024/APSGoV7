@@ -5,25 +5,27 @@ dependency on search/refinement and never constructs a formal task or plan.
 """
 
 from dataclasses import dataclass, replace
+from collections import namedtuple
 
 import numpy as np
 from numba import njit
 
 from ._numeric_chain_ops import chain_rows, write_parts, reorder_chains, replace_span
-from ._numeric_evaluation import evaluate_numeric_view
+from ._numeric_evaluation import evaluate_numeric_view, NumericEvaluationContext, _check_kernel_status
 from ._numeric_kernel import (
     task_columns, private_task_columns, rule_tables, column_value, _add,
     all_edges_allowed_values, private_edge_node,
+    allocate_result, evaluate_view_kernel, KernelResult,
 )
 from ._numeric_resources import (
     prepare_private_split, prepare_private_separator,
-    _append_selected_virtuals, private_resource_columns, private_bridge_step,
+    private_resource_columns, private_bridge_step, append_virtual_selection_native,
 )
 from ._numeric_rules import NumericRuleKind, NumericSplitDecision
 from ._numeric_state import (
     NumericCandidateDescriptors, NumericCandidateWorkspace, NumericSearchAction,
-    PrivateNodeColumns, PrivateSplitColumns,
-    DESCRIPTOR_FIELDS, OK, INVALID, NUMERIC_ERROR, CANCELLED, CAPACITY, MORE_WORK, readonly,
+    PrivateNodeColumns, PrivateSplitColumns, NumericChainView,
+    DESCRIPTOR_FIELDS, OK, INVALID, CANCELLED, CAPACITY, MORE_WORK, readonly,
 )
 from ._numeric_units import NumericValueError, int64, checked_sum
 from .model import MaterialRole, VirtualPurpose
@@ -35,6 +37,9 @@ from .model import MaterialRole, VirtualPurpose
 GROUP, CHAIN, FIRST, LAST, REVERSE = range(5)
 _VIRTUAL = tuple(MaterialRole).index(MaterialRole.GENERATED_VIRTUAL)
 _BRIDGE = tuple(VirtualPurpose).index(VirtualPurpose.EDGE_BRIDGE)
+_FILL_PURPOSE = tuple(VirtualPurpose).index(VirtualPurpose.WEIGHT_FILL)
+(_ERROR_NONE, _ERROR_BRIDGE_SEQUENCE, _ERROR_FILL_SEQUENCE,
+ _ERROR_ACTIVE_CHAINS, _ERROR_TIMING) = range(5)
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,6 +77,7 @@ class NumericCandidateAttempt:
     program: object
     quality_program: object
     policy: CandidateCheckPolicy
+    native_state: object = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -319,13 +325,6 @@ def _base_nodes(task):
     return PrivateNodeColumns(*(getattr(task.nodes, name) for name in PrivateNodeColumns._fields))
 
 
-def _edge(workspace, program, left, right):
-    status = np.array((OK, -1, -1, -1), dtype=np.int64)
-    columns = task_columns(workspace.task)
-    a = private_edge_node(columns, workspace.nodes, workspace.node_count, int(left), status)
-    b = private_edge_node(columns, workspace.nodes, workspace.node_count, int(right), status)
-    allowed = all_edges_allowed_values(a, b, rule_tables(program.rules), status)
-    return int(status[0]), bool(allowed)
 
 
 def _append_rows(workspace, rows):
@@ -368,7 +367,7 @@ def repair_parts_step(view, base_view, parts, indices, columns, rules, base,
             first_sequence = _add(sequence, 1, check)
             _add(first_sequence, maximum_bridge_nodes, check)
             if check[0] != OK:
-                progress[_RP_ERROR] = 1
+                progress[_RP_ERROR] = _ERROR_BRIDGE_SEQUENCE
                 return check[0], False
             status, connected, bridge, nodes, events = private_bridge_step(
                 columns, rules, base, base_derived, tail, derived, templates,
@@ -420,56 +419,21 @@ def _base_view(workspace):
         private=workspace.private.copy(), ids=workspace.ids.copy(), periods=workspace.periods.copy())
 
 
-def _move_order(workspace, source, position):
-    order = np.arange(workspace.chain_count, dtype=np.int64)
+@njit
+def _move_order_native(view, source, position):
+    order = np.arange(view.count, dtype=np.int64)
     if source < position:
         order[source:position] = order[source + 1:position + 1]
     elif source > position:
         order[position + 1:source + 1] = order[position:source]
     order[position] = source
-    return int(reorder_chains(workspace.view(), order))
+    return reorder_chains(view, order)
 
 
-def _local_resource_edit(workspace, program, descriptor, source, policy, sequence):
-    rows = chain_rows(workspace.view(), source)
-    empty = np.empty(0, dtype=np.int64)
-    if descriptor[ACTION] == FILL:
-        position, prototype = int(descriptor[POSITION]), int(descriptor[NODE])
-        if not 0 <= position <= rows.size or not 0 <= prototype < workspace.task.prototype_rows.size:
-            return INVALID, False, sequence, empty
-        left, right = rows[max(0, position - 1)], rows[min(rows.size - 1, position)]
-        next_sequence = checked_sum((sequence, 1), "candidate.virtual_sequence")
-        status, found, added = _append_selected_virtuals(workspace,
-            np.array((prototype,), dtype=np.int64), int(left), int(right),
-            VirtualPurpose.WEIGHT_FILL, next_sequence, -1)
-        if status != OK or not found:
-            return status, False, sequence, empty
-        if position:
-            status, allowed = _edge(workspace, program, left, added[0])
-            if status != OK or not allowed:
-                return status, False, sequence, empty
-        if position < rows.size:
-            status, allowed = _edge(workspace, program, added[0], right)
-            if status != OK or not allowed:
-                return status, False, sequence, empty
-        status, end = replace_span(workspace.view(), source, position, position, added, workspace.changed_count)
-        if status == OK:
-            workspace.changed_count = int(end)
-        return int(status), status == OK, next_sequence, added
-    start, stop = int(descriptor[START]), int(descriptor[STOP])
-    if not 0 <= start < stop <= rows.size:
-        return INVALID, False, sequence, empty
-    removed = rows[start:stop]
-    if not _ordinary_run(_base_nodes(workspace.task), removed):
-        return OK, False, sequence, empty
-    if start and stop < rows.size:
-        status, allowed = _edge(workspace, program, rows[start - 1], rows[stop])
-        if status != OK or not allowed:
-            return status, False, sequence, empty
-    status, end = replace_span(workspace.view(), source, start, stop, empty, workspace.changed_count)
-    if status == OK:
-        workspace.changed_count = int(end)
-    return int(status), status == OK, sequence, removed
+def _move_order(workspace, source, position):
+    return int(_move_order_native(workspace.view(), source, position))
+
+
 
 
 @njit
@@ -514,13 +478,6 @@ def _cut_map(view, columns, source, cut, new_id, prefix_position, suffix_positio
     return OK, True
 
 
-def _cut_candidate(workspace, descriptor, source):
-    affected = chain_rows(workspace.view(), source)
-    status, found = _cut_map(workspace.view(), task_columns(workspace.task), source,
-        int(descriptor[START]), int(descriptor[TARGET]), int(descriptor[OTHER_START]), int(descriptor[OTHER_STOP]))
-    if status == OK and found:
-        workspace.chain_count += 1
-    return int(status), bool(found), affected
 
 
 @njit
@@ -607,9 +564,328 @@ def _split_candidate(workspace, program, descriptor, source, decision, policy,
     return OK, True, sequence, split_sequence, np.concatenate((removed, added))
 
 
+NativeCandidateInput = namedtuple("NativeCandidateInput", (
+    "columns rules nodes derived groups prototypes base_view objectives reuse period_count has_timing"
+))
+NativeCandidateFrame = namedtuple("NativeCandidateFrame", (
+    "chains nodes derived groups templates event_node_ends event_group_ends control "
+    "parts indices removed affected progress cursor output"
+))
+NativeCandidatePolicy = namedtuple("NativeCandidatePolicy", "bridge maximum same_period record_rows reject")
+(_NC_STATUS, _NC_PHASE, _NC_CHAINS, _NC_NODES, _NC_EVENTS, _NC_CHANGED,
+ _NC_SEQUENCE, _NC_CLEANED, _NC_PREPARED, _NC_ADMISSIBLE, _NC_PARTS,
+ _NC_INDICES, _NC_REMOVED, _NC_AFFECTED, _NC_ERROR, _NC_SOURCE, _NC_TARGET,
+ _NC_EVALUATED, _NC_ENDS) = range(19)
+_NC_BEGIN, _NC_REPAIR, _NC_FINALIZE, _NC_DONE = range(4)
+_NC_EVALUATE = 4
+
+
+def native_candidate_input(context):
+    """Borrow immutable generation inputs; no candidate-specific task copy."""
+    return NativeCandidateInput(context.columns, context.rules, context.base_nodes,
+        context.base_derived, context.base_groups, context.task.prototype_rows,
+        context.base_view, context.objectives, context.reuse, len(context.task.period_ids), context.task.start_ms is not None)
+
+
+def native_candidate_policy(program, policy):
+    reject = np.array([rule.kind in policy.reject_prohibited_kinds for rule in program.rules], np.bool_)
+    reject.setflags(write=False)
+    return NativeCandidatePolicy(policy.maximum_bridge_nodes, policy.maximum_changed_chain_weight,
+        policy.same_period_order, policy.record_order_rows, reject)
+
+
+def native_candidate_frame(workspace, data, sequence):
+    """Only array/scalar tuples cross the compiled boundary; counts are call-local."""
+    if workspace.native_frame is not None:
+        frame = workspace.native_frame._replace(chains=workspace.view())
+        frame.control[:] = 0
+        frame.control[_NC_CHAINS], frame.control[_NC_SEQUENCE] = workspace.chain_count, sequence
+        frame.progress[:], frame.cursor[:] = 0, 0
+        workspace.native_frame = frame
+        return frame
+    control = np.zeros(19, np.int64)
+    control[_NC_CHAINS], control[_NC_SEQUENCE] = workspace.chain_count, sequence
+    result = NativeCandidateFrame(workspace.view(), workspace.nodes, workspace.derived,
+        workspace.split_groups, workspace.templates, workspace.event_node_ends,
+        workspace.event_group_ends, control, np.empty((6, 5), np.int64),
+        np.empty(2, np.int64), np.empty(workspace.plan.node_rows.size, np.int64),
+        np.empty(2 * workspace.plan.node_rows.size + workspace.templates.size, np.int64),
+        np.zeros(8, np.int64), np.zeros(6, np.int64),
+        allocate_result(workspace.ids.size, data.rules.meta.shape[0],
+            workspace.plan.node_rows.size + workspace.templates.size, data.columns.original_weight.size))
+    workspace.native_frame = result
+    return result
+
+
+@njit
+def _frame_view(frame, active=False):
+    v = frame.chains
+    changed = v.changed_rows[:frame.control[_NC_CHANGED]] if active else v.changed_rows
+    return NumericChainView(v.base_rows, changed, v.starts, v.stops, v.private,
+        v.ids, v.periods, frame.control[_NC_CHAINS], v.epoch)
+
+
+@njit
+def _frame_edge(data, frame, left, right):
+    status = np.array((OK, -1, -1, -1), np.int64)
+    a = private_edge_node(data.columns, frame.nodes, frame.control[_NC_NODES], left, status)
+    b = private_edge_node(data.columns, frame.nodes, frame.control[_NC_NODES], right, status)
+    allowed = all_edges_allowed_values(a, b, data.rules, status)
+    return status[0], allowed
+
+
+@njit
+def _frame_affected(frame, rows):
+    if rows.size > frame.affected.size:
+        return CAPACITY
+    frame.affected[:rows.size] = rows
+    frame.control[_NC_AFFECTED] = rows.size
+    return OK
+
+
+@njit
+def _native_local_resource(data, f, d, source):
+    c, view = f.control, _frame_view(f)
+    rows = chain_rows(view, source)
+    empty = rows[:0]
+    if d[ACTION] == FILL:
+        position, prototype = d[POSITION], d[NODE]
+        if not 0 <= position <= rows.size or not 0 <= prototype < data.prototypes.size:
+            return INVALID, False
+        left, right = rows[max(0, position - 1)], rows[min(rows.size - 1, position)]
+        status = np.array((OK, -1, -1, -1), np.int64)
+        sequence = _add(c[_NC_SEQUENCE], 1, status)
+        if status[0] != OK:
+            c[_NC_ERROR] = _ERROR_FILL_SEQUENCE
+            return status[0], False
+        code, found, added, nodes, events = append_virtual_selection_native(
+            data.columns, data.nodes, data.derived, f.nodes, f.derived, f.templates,
+            data.prototypes, f.event_node_ends, f.event_group_ends, c[_NC_NODES], 0,
+            c[_NC_EVENTS], np.array((prototype,), np.int64), left, right,
+            _FILL_PURPOSE, sequence, -1)
+        c[_NC_NODES], c[_NC_EVENTS] = nodes, events
+        if code != OK or not found:
+            return code, False
+        if position:
+            code, found = _frame_edge(data, f, left, added[0])
+            if code != OK or not found:
+                return code, False
+        if position < rows.size:
+            code, found = _frame_edge(data, f, added[0], right)
+            if code != OK or not found:
+                return code, False
+        code, end = replace_span(view, source, position, position, added, c[_NC_CHANGED])
+        if code == OK:
+            c[_NC_CHANGED] = end
+        c[_NC_SEQUENCE] = sequence
+        if code == OK:
+            code = _frame_affected(f, added)
+        return code, code == OK
+    start, stop = d[START], d[STOP]
+    if not 0 <= start < stop <= rows.size:
+        return INVALID, False
+    removed = rows[start:stop]
+    if not _ordinary_run(data.nodes, removed):
+        return OK, False
+    if start and stop < rows.size:
+        code, found = _frame_edge(data, f, rows[start - 1], rows[stop])
+        if code != OK or not found:
+            return code, False
+    code, end = replace_span(view, source, start, stop, empty, c[_NC_CHANGED])
+    if code == OK:
+        c[_NC_CHANGED] = end
+        code = _frame_affected(f, removed)
+    return code, code == OK
+
+
+@njit
+def _native_candidate_begin(data, f, d, policy):
+    c, base, action = f.control, data.base_view, d[ACTION]
+    source, target = _chain_index(base, d[SOURCE]), _chain_index(base, d[TARGET])
+    c[_NC_SOURCE], c[_NC_TARGET] = source, target
+    if source < 0 or not _valid_descriptor(d) or action == SPLIT:
+        return INVALID, False
+    if action == CUT:
+        code, found = _cut_map(_frame_view(f), data.columns, source, d[START], d[TARGET], d[OTHER_START], d[OTHER_STOP])
+        if code == OK and found:
+            c[_NC_CHAINS] += 1
+            code = _frame_affected(f, chain_rows(base, source))
+        return code, found
+    if action == ORDER:
+        position = d[POSITION]
+        if target < 0 or not 0 <= position < c[_NC_CHAINS] or base.ids[position] != d[TARGET]:
+            return INVALID, False
+        if policy.same_period and base.periods[source] != base.periods[target]:
+            return OK, False
+        code = _frame_affected(f, chain_rows(base, source)) if policy.record_rows else OK
+        if code == OK:
+            code = _move_order_native(_frame_view(f), source, position)
+        return code, code == OK
+    if action in (FILL, RECLAIM):
+        f.indices[0], c[_NC_INDICES] = source, 1
+        return _native_local_resource(data, f, d, source)
+    code, parts, indices = _parts(base, data.nodes, d)
+    if code != OK:
+        return code, False
+    removed = f.removed[:0]
+    if action in (INTRA, NODE_MOVE, NODE_SWAP, BLOCK_MOVE, BLOCK_SWAP):
+        if not _parts_have_real(base, data.columns, parts, indices.size):
+            return OK, False
+        if action != INTRA:
+            if not _has_real(data.columns, chain_rows(base, source)[d[START]:d[STOP]]):
+                return OK, False
+            if action in (NODE_SWAP, BLOCK_SWAP) and not _has_real(data.columns,
+                    chain_rows(base, target)[d[OTHER_START]:d[OTHER_STOP]]):
+                return OK, False
+        parts, removed = _trim_parts(base, data.nodes, parts, d[VARIANT] == 1)
+        c[_NC_CLEANED] = int(removed.size > 0)
+        if d[VARIANT] == 1 and not c[_NC_CLEANED]:
+            return OK, False
+        if d[VARIANT] == 0:
+            removed = removed[:0]
+    if parts.shape[0] > f.parts.shape[0] or indices.size > f.indices.size or removed.size > f.removed.size:
+        return CAPACITY, False
+    c[_NC_PARTS], c[_NC_INDICES], c[_NC_REMOVED] = parts.shape[0], indices.size, removed.size
+    f.parts[:parts.shape[0]], f.indices[:indices.size], f.removed[:removed.size] = parts, indices, removed
+    f.progress[:] = 0
+    f.progress[_RP_GROUP], f.progress[_RP_SEQUENCE] = -1, c[_NC_SEQUENCE]
+    c[_NC_PHASE] = _NC_REPAIR
+    return MORE_WORK, False
+
+
+@njit
+def native_candidate_prepare_step(data, f, d, policy):
+    """The common non-split preparation, resumable without Python row processing."""
+    c, action = f.control, d[ACTION]
+    if c[_NC_PHASE] == _NC_DONE:
+        return
+    code, found = OK, False
+    if c[_NC_PHASE] == _NC_BEGIN:
+        code, found = _native_candidate_begin(data, f, d, policy)
+        if code == MORE_WORK:
+            c[_NC_STATUS] = MORE_WORK
+            return
+        if code == OK and found:
+            c[_NC_PHASE] = _NC_FINALIZE
+    elif c[_NC_PHASE] == _NC_REPAIR:
+        maximum = 0 if action == REAL_MOVE else policy.bridge
+        code, found = repair_parts_step(_frame_view(f), data.base_view,
+            f.parts[:c[_NC_PARTS]], f.indices[:c[_NC_INDICES]], data.columns, data.rules,
+            data.nodes, data.derived, f.nodes, f.derived, f.templates, data.prototypes,
+            f.event_node_ends, f.event_group_ends, 0, maximum, f.progress, f.cursor, 64)
+        c[_NC_CHANGED], c[_NC_NODES], c[_NC_EVENTS], c[_NC_SEQUENCE] = (
+            f.progress[_RP_CHANGED], f.progress[_RP_NODES], f.progress[_RP_EVENTS], f.progress[_RP_SEQUENCE])
+        c[_NC_ERROR] = f.progress[_RP_ERROR]
+        if code == MORE_WORK:
+            c[_NC_STATUS] = MORE_WORK
+            return
+        if code == OK and found:
+            if action in (APPEND, PREPEND, INSERT):
+                _move_order_native(_frame_view(f), c[_NC_TARGET], c[_NC_CHAINS] - 1)
+                source = _chain_index(_frame_view(f), d[SOURCE])
+                _move_order_native(_frame_view(f), source, c[_NC_CHAINS] - 1)
+                c[_NC_CHAINS] -= 1
+                affected = np.arange(data.nodes.weight.size, data.nodes.weight.size + c[_NC_NODES])
+            elif action == REAL_MOVE:
+                affected = np.array((d[NODE],), np.int64)
+            else:
+                affected = _affected_parts(data.base_view, f.parts[:c[_NC_PARTS]],
+                    f.removed[:c[_NC_REMOVED]], data.nodes.weight.size, c[_NC_NODES])
+            code = _frame_affected(f, affected)
+            if code == OK:
+                c[_NC_PHASE] = _NC_FINALIZE
+    if c[_NC_PHASE] == _NC_FINALIZE:
+        columns = private_task_columns(data.columns, f.nodes, f.derived, c[_NC_NODES])
+        changed = data.base_view.ids[f.indices[:c[_NC_INDICES]]]
+        code, found = _finalize_map(_frame_view(f), columns, changed, policy.maximum, action not in (CUT, ORDER))
+        c[_NC_PREPARED] = int(code == OK and found)
+    c[_NC_STATUS], c[_NC_PHASE] = code, _NC_DONE
+
+
+def _sync_native_frame(workspace, frame, policy):
+    c = frame.control
+    workspace.chain_count, workspace.node_count = int(c[_NC_CHAINS]), int(c[_NC_NODES])
+    workspace.event_count, workspace.changed_count = int(c[_NC_EVENTS]), int(c[_NC_CHANGED])
+    if c[_NC_ERROR] == _ERROR_BRIDGE_SEQUENCE:
+        checked_sum((int(c[_NC_SEQUENCE]) + 1, policy.maximum_bridge_nodes), "private_bridge.sequence")
+    elif c[_NC_ERROR] == _ERROR_FILL_SEQUENCE:
+        checked_sum((int(c[_NC_SEQUENCE]), 1), "candidate.virtual_sequence")
+
+
+@njit
+def native_candidate_complete_step(data, f, d, policy):
+    """Shared native preparation-through-summary step; workers cannot publish."""
+    c = f.control
+    if c[_NC_PHASE] == _NC_EVALUATE:
+        c[_NC_PHASE], c[_NC_STATUS] = _NC_DONE, OK
+    else:
+        resumed_preparation = c[_NC_PHASE] == _NC_DONE
+        native_candidate_prepare_step(data, f, d, policy)
+        if not resumed_preparation and c[_NC_PHASE] == _NC_DONE and c[_NC_PREPARED]:
+            # Keep the original cancellation boundary before complete evaluation.
+            c[_NC_PHASE], c[_NC_STATUS] = _NC_EVALUATE, MORE_WORK
+            return
+    if c[_NC_PHASE] != _NC_DONE or not c[_NC_PREPARED] or c[_NC_EVALUATED]:
+        return
+    if not data.has_timing:
+        c[_NC_ERROR] = _ERROR_TIMING
+        return
+    view = _frame_view(f, True)
+    if not _split_periods_match(view, data.nodes, f.nodes, data.groups, f.groups):
+        c[_NC_PREPARED] = 0
+        return
+    if view.count <= 0:
+        c[_NC_ERROR] = _ERROR_ACTIVE_CHAINS
+        return
+    for i in range(view.count):
+        if view.ids[i] < 0 or not 0 <= view.periods[i] < data.period_count:
+            c[_NC_ERROR] = _ERROR_ACTIVE_CHAINS
+            return
+        for j in range(i):
+            if view.ids[i] == view.ids[j]:
+                c[_NC_ERROR] = _ERROR_ACTIVE_CHAINS
+                return
+    columns = private_task_columns(data.columns, f.nodes, f.derived, c[_NC_NODES])
+    result = evaluate_view_kernel(columns, data.rules, view, data.objectives, False, 0, 0, False, data.reuse)
+    # Only numeric outputs cross a batch barrier. Every slot owns these buffers.
+    out = f.output
+    out.status[:] = result.status
+    if result.ends.size > out.ends.size:
+        c[_NC_STATUS], c[_NC_PREPARED] = CAPACITY, 0
+        return
+    c[_NC_ENDS] = result.ends.size
+    out.quality[:] = result.quality
+    out.facts[:view.count] = result.facts
+    out.scores[:view.count + 1] = result.scores
+    out.hits[:view.count + 1] = result.hits
+    out.totals[:] = result.totals
+    out.ends[:result.ends.size] = result.ends
+    out.completion[:], out.late[:], out.waits[:] = result.completion, result.late, result.waits
+    out.counts[:], out.event_counts[:view.count] = result.counts, result.event_counts
+    c[_NC_EVALUATED], c[_NC_ADMISSIBLE] = 1, 1
+    for r in range(policy.reject.size):
+        if policy.reject[r]:
+            for i in range(view.count + 1):
+                if result.hits[i, r]:
+                    c[_NC_ADMISSIBLE] = 0
+
+
+def native_candidate_summary(frame):
+    c, out = frame.control, frame.output
+    count, nodes = int(c[_NC_CHAINS]), int(c[_NC_ENDS])
+    result = KernelResult(out.status[:], out.quality[:], out.facts[:count],
+        out.scores[:count + 1], out.hits[:count + 1], out.totals[:], out.ends[:nodes],
+        out.completion[:], out.late[:], out.waits[:], out.violations[:], out.metrics[:],
+        out.counts[:], out.event_counts[:count])
+    _check_kernel_status(result)
+    for array in result:
+        array.setflags(write=False)
+    return result
+
+
 def prepare_candidate_attempt(workspace, program, quality, descriptors, index, policy, *,
                               virtual_sequence=0, split_sequence=0, split_decision=None,
-                              allows_continue=None):
+                              allows_continue=None, evaluation_context=None, _complete=False):
     """Prepare one declared repair variant. Never charge quota or publish state.
 
     Variant 0 is original, 1 trims ordinary inner bridges (only if any exist).
@@ -634,6 +910,24 @@ def prepare_candidate_attempt(workspace, program, quality, descriptors, index, p
     workspace.reset()
     descriptor = descriptors.values[index]
     action = int(descriptor[ACTION])
+    if action != SPLIT:
+        context = evaluation_context or NumericEvaluationContext(workspace.task, program, quality, workspace.plan, None)
+        context.require_current(workspace, program, quality, context.previous_evaluation)
+        data = native_candidate_input(context)
+        native_policy = native_candidate_policy(program, policy)
+        frame = native_candidate_frame(workspace, data, virtual_sequence)
+        step = native_candidate_complete_step if _complete else native_candidate_prepare_step
+        while frame.control[_NC_PHASE] != _NC_DONE:
+            if allows_continue is not None and not allows_continue():
+                frame.control[_NC_STATUS], frame.control[_NC_PREPARED] = CANCELLED, 0
+                break
+            step(data, frame, descriptor, native_policy)
+        _sync_native_frame(workspace, frame, policy)
+        c = frame.control
+        return NumericCandidateAttempt(int(c[_NC_STATUS]), bool(c[_NC_PREPARED]), False,
+            workspace.view(), None, readonly(frame.affected[:c[_NC_AFFECTED]], np.int64),
+            int(c[_NC_SEQUENCE]), split_sequence, bool(c[_NC_CLEANED]), descriptor, program, quality, policy,
+            (data, frame, native_policy))
     base = _base_view(workspace)
     source, target = _chain_index(base, descriptor[SOURCE]), _chain_index(base, descriptor[TARGET])
     affected = np.empty(0, dtype=np.int64)
@@ -658,73 +952,6 @@ def prepare_candidate_attempt(workspace, program, quality, descriptors, index, p
             return result(status)
         changed_ids = np.empty(0, dtype=np.int64)  # Split helper sets authorized target period.
         group_periods = True
-    elif action == CUT:
-        status, found, affected = _cut_candidate(workspace, descriptor, source)
-        if status != OK or not found:
-            return result(status)
-        changed_ids, group_periods = np.empty(0, dtype=np.int64), False
-    elif action == ORDER:
-        position = int(descriptor[POSITION])
-        if target < 0 or not 0 <= position < workspace.chain_count or base.ids[position] != descriptor[TARGET]:
-            return result(INVALID)
-        if policy.same_period_order and base.periods[source] != base.periods[target]:
-            return result()
-        affected = chain_rows(base, source) if policy.record_order_rows else affected
-        status = _move_order(workspace, source, position)
-        if status != OK:
-            return result(status)
-        changed_ids, group_periods = np.empty(0, dtype=np.int64), False
-    elif action in (FILL, RECLAIM):
-        status, found, virtual_sequence, affected = _local_resource_edit(
-            workspace, program, descriptor, source, policy, virtual_sequence)
-        if status != OK or not found:
-            return result(status)
-        changed_ids, group_periods = np.array((descriptor[SOURCE],), dtype=np.int64), True
-    else:
-        status, parts, indices = _parts(base, _base_nodes(workspace.task), descriptor)
-        if status != OK:
-            return result(status)
-        if action in (INTRA, NODE_MOVE, NODE_SWAP, BLOCK_MOVE, BLOCK_SWAP):
-            if not _parts_have_real(base, task_columns(workspace.task), parts, indices.size):
-                return result()
-            if action != INTRA:
-                source_rows = chain_rows(base, source)[descriptor[START]:descriptor[STOP]]
-                if not _has_real(task_columns(workspace.task), source_rows):
-                    return result()
-                if action in (NODE_SWAP, BLOCK_SWAP) and not _has_real(task_columns(workspace.task),
-                        chain_rows(base, target)[descriptor[OTHER_START]:descriptor[OTHER_STOP]]):
-                    return result()
-            parts, removed = _trim_parts(base, _base_nodes(workspace.task), parts, descriptor[VARIANT] == 1)
-            cleaned = bool(removed.size)
-            if descriptor[VARIANT] == 1 and not cleaned:
-                return result()
-            if descriptor[VARIANT] == 0:
-                removed = removed[:0]
-        else:
-            if descriptor[VARIANT] != 0:
-                return result(INVALID)
-            removed = affected
-        actual_policy = policy if action != REAL_MOVE else CandidateCheckPolicy(0,
-            policy.maximum_changed_chain_weight, policy.reject_prohibited_kinds, policy.same_period_order)
-        status, found, virtual_sequence = _repair_parts(workspace, program, base, parts,
-            indices, actual_policy, virtual_sequence, allows_continue)
-        if status != OK or not found:
-            return result(status)
-        if action in (APPEND, PREPEND, INSERT):
-            # Original policy appends the merged target after all retained chains,
-            # before stable period grouping, rather than keeping its old slot.
-            status = _move_order(workspace, target, workspace.chain_count - 1)
-            source = _chain_index(workspace.view(), descriptor[SOURCE])
-            status = _move_order(workspace, source, workspace.chain_count - 1)
-            workspace.chain_count -= 1
-            affected = np.arange(workspace.task.nodes.weight.size,
-                workspace.task.nodes.weight.size + workspace.node_count, dtype=np.int64)
-        elif action == REAL_MOVE:
-            affected = np.array((descriptor[NODE],), dtype=np.int64)
-        else:
-            affected = _affected_parts(base, parts, removed, workspace.task.nodes.weight.size, workspace.node_count)
-        changed_ids = base.ids[indices]
-        group_periods = True
     status, found = _finalize_map(workspace.view(), _columns(workspace), changed_ids,
         policy.maximum_changed_chain_weight, group_periods)
     if status != OK or not found:
@@ -738,9 +965,16 @@ def compute_candidate_attempt(workspace, program, quality, descriptors, index, p
                               evaluation_context=None):
     """Unique complete attempt; optionally resume at the original split quota boundary."""
     if preparation is None:
+        if not isinstance(workspace, NumericCandidateWorkspace):
+            raise NumericValueError("candidate", "matching numeric workspace required")
+        if evaluation_context is None:
+            evaluation_context = NumericEvaluationContext(workspace.task, program, quality,
+                workspace.plan, previous_evaluation)
+        evaluation_context.require_current(workspace, program, quality, previous_evaluation)
         preparation = prepare_candidate_attempt(workspace, program, quality, descriptors, index, policy,
             virtual_sequence=virtual_sequence, split_sequence=split_sequence,
-            split_decision=split_decision, allows_continue=allows_continue)
+            split_decision=split_decision, allows_continue=allows_continue, evaluation_context=evaluation_context,
+            _complete=True)
     else:
         if (not isinstance(preparation, NumericCandidateAttempt)
                 or type(index) is not int or not 0 <= index < descriptors.values.shape[0]):
@@ -753,6 +987,27 @@ def compute_candidate_attempt(workspace, program, quality, descriptors, index, p
             raise NumericValueError("candidate.resume", "matching unfinished preparation required")
     if preparation.status != OK or not preparation.prepared:
         return preparation
+    if preparation.native_state is not None:
+        data, frame, native_policy = preparation.native_state
+        if evaluation_context is None:
+            evaluation_context = NumericEvaluationContext(workspace.task, program, quality,
+                workspace.plan, previous_evaluation)
+        evaluation_context.require_current(workspace, program, quality, previous_evaluation)
+        data = native_candidate_input(evaluation_context)
+        if not frame.control[_NC_EVALUATED]:
+            if allows_continue is not None and not allows_continue():
+                return replace(preparation, status=CANCELLED, prepared=False, native_state=None)
+            native_candidate_complete_step(data, frame, preparation.descriptor, native_policy)
+        _sync_native_frame(workspace, frame, policy)
+        c = frame.control
+        if c[_NC_ERROR] == _ERROR_ACTIVE_CHAINS:
+            raise NumericValueError("evaluation_view", "active chains and task periods must match")
+        if c[_NC_ERROR] == _ERROR_TIMING:
+            raise NumericValueError("delivery", "task has no production start and duration input")
+        if not c[_NC_PREPARED]:
+            return replace(preparation, status=int(c[_NC_STATUS]), prepared=False, native_state=None)
+        return replace(preparation, summary=native_candidate_summary(frame),
+            admissible=bool(c[_NC_ADMISSIBLE]), native_state=None)
     base_groups = PrivateSplitColumns(*(getattr(workspace.task.split_groups, name)
                                          for name in PrivateSplitColumns._fields))
     if not _split_periods_match(workspace.view(), _base_nodes(workspace.task), workspace.nodes,

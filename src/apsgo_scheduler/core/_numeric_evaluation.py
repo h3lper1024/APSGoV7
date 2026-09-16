@@ -463,9 +463,14 @@ class NumericEvaluationContext:
     rules: object = field(init=False)
     objectives: object = field(init=False)
     reuse: object = field(init=False)
+    base_view: object = field(init=False)
+    base_nodes: object = field(init=False)
+    base_derived: object = field(init=False)
+    base_groups: object = field(init=False)
 
     def __post_init__(self):
         from ._numeric_kernel import task_columns, rule_tables
+        from ._numeric_state import PrivateNodeColumns, PrivateDerivedColumns, PrivateSplitColumns
         _validate_evaluation_inputs(self.task, self.program, self.quality, self.plan)
         reuse = None if self.previous_evaluation is None else _validated_reuse(
             self.task, self.program, self.quality, self.task, self.program,
@@ -474,6 +479,15 @@ class NumericEvaluationContext:
         object.__setattr__(self, "rules", rule_tables(self.program.rules))
         object.__setattr__(self, "objectives", _objective_order(self.quality.objectives))
         object.__setattr__(self, "reuse", reuse)
+        plan, task = self.plan, self.task
+        private = np.zeros(plan.chain_ids.size, np.bool_)
+        private.setflags(write=False)
+        object.__setattr__(self, "base_view", NumericChainView(plan.node_rows, plan.node_rows[:0],
+            plan.chain_offsets[:-1], plan.chain_offsets[1:], private, plan.chain_ids,
+            plan.chain_periods, plan.chain_ids.size, 0))
+        for field_name, column_type, source in (("base_nodes", PrivateNodeColumns, task.nodes),
+                ("base_derived", PrivateDerivedColumns, task), ("base_groups", PrivateSplitColumns, task.split_groups)):
+            object.__setattr__(self, field_name, column_type(*(getattr(source, name) for name in column_type._fields)))
 
     def require_current(self, workspace, program, quality, previous_evaluation):
         if (workspace.task is not self.task or workspace.plan is not self.plan

@@ -328,9 +328,12 @@ def test_native_splice_scan_resume_keeps_selection_fields_and_resource_events(mo
 
     monkeypatch.setattr(candidate, "repair_parts_step", bounded)
     monkeypatch.setattr(resources, "prepare_private_bridge", forbidden)
-    result = candidate.compute_candidate_attempt(workspace, program, quality, values, 0,
-        candidate.CandidateCheckPolicy())
-    assert result.prepared and result.virtual_sequence == 2
+    base = candidate._base_view(workspace)
+    code, parts, indices = candidate._parts(base, candidate._base_nodes(workspace.task), values.values[0])
+    assert code == OK
+    code, found, sequence = candidate._repair_parts(workspace, program, base, parts,
+        indices, candidate.CandidateCheckPolicy(), 0, None)
+    assert code == OK and found and sequence == 2
     assert_resources(workspace, expected.task)
     assert workspace.event_count == 1 and workspace.event_node_ends[0] == 2
     assert workspace.event_group_ends[0] == 0
@@ -345,6 +348,37 @@ def test_native_splice_sequence_overflow_retains_original_boundary_error():
         candidate.compute_candidate_attempt(workspace, program, quality, values, 0,
             candidate.CandidateCheckPolicy(), virtual_sequence=(1 << 63) - 2)
     assert workspace.node_count == workspace.event_count == 0
+
+
+def test_complete_candidate_uses_native_repair_and_evaluation_and_reuses_private_frame(monkeypatch):
+    workspace, program, quality = case()
+    values = descriptor(workspace, A.WHOLE_CHAIN_PREPEND)
+    reference_evaluator = candidate.evaluate_numeric_view
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("complete native candidate cannot call Python repair/evaluation")
+
+    monkeypatch.setattr(candidate, "_repair_parts", forbidden)
+    monkeypatch.setattr(candidate, "evaluate_numeric_view", forbidden)
+    first = candidate.compute_candidate_attempt(workspace, program, quality, values, 0,
+        candidate.CandidateCheckPolicy())
+    assert first.prepared and first.summary is not None
+    frame = workspace.native_frame
+    assert frame.control[candidate._NC_EVALUATED] == 1
+    assert candidate.native_candidate_complete_step.nopython_signatures
+    expected = reference_evaluator(workspace, program, quality)
+    for name in expected._fields:
+        np.testing.assert_array_equal(getattr(first.summary, name), getattr(expected, name), err_msg=name)
+    snapshot = tuple(array.copy() for array in first.summary)
+    second = candidate.compute_candidate_attempt(workspace, program, quality, values, 0,
+        candidate.CandidateCheckPolicy())
+    assert workspace.native_frame.control is frame.control
+    assert workspace.native_frame.output is frame.output
+    for actual, before in zip(second.summary, snapshot):
+        np.testing.assert_array_equal(actual, before)
+        assert not actual.flags.writeable
+    with pytest.raises(NumericValueError, match="expired"):
+        workspace.require_view(first.view)
 
 
 def test_descriptor_staleness_and_action_specific_domains_are_checked_before_editing():

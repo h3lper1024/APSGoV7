@@ -972,6 +972,7 @@ class NumericCandidateWorkspace:
     group_count: int = 0
     event_count: int = 0
     epoch: int = 0
+    native_frame: object = None
 
     @classmethod
     def allocate(cls, task, plan, *, changed_capacity, chain_capacity,
@@ -1073,4 +1074,9 @@ class NumericCandidateWorkspace:
         arrays = (self.changed_rows, self.starts, self.stops, self.private, self.ids,
                   self.periods, self.templates, self.event_node_ends, self.event_group_ends,
                   *self.nodes, *self.derived, *self.split_groups)
-        return sum(array.nbytes for array in arrays)
+        size = sum(array.nbytes for array in arrays)
+        if self.native_frame is not None:
+            f = self.native_frame
+            size += sum(array.nbytes for array in (f.control, f.parts, f.indices,
+                f.removed, f.affected, f.progress, f.cursor, *f.output))
+        return size

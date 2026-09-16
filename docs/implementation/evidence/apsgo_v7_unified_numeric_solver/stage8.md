@@ -79,3 +79,31 @@ cmp diagnostics/unified_numeric_solver/stage61_reference_01/search_prefix.json d
 退出均为 0。前缀及窗口 JSON 字节一致，SHA-256 `da2f5a753580bfcab57c258cf31a940e2d11aa7d417e89d0823d662b1d1e5f1d`；共 154226 检查/6688 完整评价/460 接受，窗口新增 5560 完整评价/18 接受，出口身份和九级与上节窗口一致。两类拆单各 1、唯一重放 1；没有把窗口结果冒充全量最终排程。
 
 本次为首次编译并带轨迹的正确性诊断，开始阶段与必要测试有短时重叠；附带 115.381378 秒墙钟/114.878869 秒 CPU 不作正式性能比较。源码逐文件摘要在该目录 `identity.json`；无扩大忽略项、无改原期望。下一项整候选原生计算仍待实施，之后才进入实际线程筛查。
+
+## 8.2.2 整候选有界原生计算
+
+实施前 `64ea669`。普通结构候选统一调用 `native_candidate_complete_step()`：数值描述、切合链/移动交换/换序/回收、桥接修复、私有资源、期锁和完整评价都在原生数组上执行。阶段仍负责原枚举和消费；同一描述的两个修复变体保持依赖，拆单保留准备后扣额再评价的独立边界，底层修复/资源/评价原语不复制。
+
+### 实际实现及保留边界
+
+- 接线原生阶段控制并删除已替代的普通候选 Python 分支、局部资源编辑及切链包装。所有动作继续调用既有权威链/资源/评分函数，不重写公式。
+- 一份代次上下文借用只读原链映射、节点/派生列、拆分组、规则及评价复用数据；每个候选工作区独有数值控制、配方、游标和输出缓冲。原生调用期间控制数组拥有有效计数，返回主线程后同步工作区有效长度，不建立第二份正式任务/方案。
+- 控制与结果缓冲随工作区复用，扩容重试后重新分配；返回只读有效视图，旧候选在下一次重置时失效。结果缓冲也计入工作区保留字节诊断，不把新计数字段冒充旧输入缓冲数值不变。
+- 评价前单独返回取消边界；整数溢出、无排产起点、非法链映射、期锁、容量重试和延迟错误保持。线程依然不能提交资源/状态，本项尚未使用多线程。
+
+### 必要验证及首个差异
+
+初次编译发现 Numba 对命名元组字段 `view` 的名称冲突，改为明确的 `chains` 字段；初步六种合链/反向案例随后通过。扩展回归 107 项通过后，架构检查拒绝裸数字错误码，改为具名数值错误码，未放宽检查；独立 60 项架构检查通过。这些是实现/检查问题，不是算法结果差异。
+
+最终共享必要范围 **205 项通过，220.08 秒，退出 0**。范围为 `tests/core/test_numeric_candidate_kernel.py`、`test_numeric_candidate_publication.py`、`test_numeric_refinement_common.py`、`test_numeric_batch.py`、`test_numeric_state.py`、`test_numeric_view_evaluation.py`，以及 `tests/app/test_unified_numeric_flow.py` 和 `tests/architecture`；使用项目 Conda、`PYTHONDONTWRITEBYTECODE=1`、`pytest -q -x -p no:cacheprovider`。完整原生入口的实际无对象编译签名已验证；把 Python 修复/评价包装换成失败桩后仍能完成双材候选，所有输出字段与权威评价逐项相等，缓冲复用及旧视图失效通过。精确树同范围、目录和耗时见本项 Git 提交正文。
+
+测试成功后在**同一进程**运行以下工具参数，避免重复支付首次编译成本；这是正确性诊断，不是冷启动或正式热性能组：
+
+```sh
+tools/verify_unified_numeric_search_prefix.py --source-root /Users/miles/dev/dev-py/APSGOV7 --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json --through-split --refinement-checks 20000 --output-dir diagnostics/unified_numeric_solver/stage822_window_01
+cmp diagnostics/unified_numeric_solver/stage61_reference_01/search_prefix.json diagnostics/unified_numeric_solver/stage822_window_01/search_prefix.json
+```
+
+退出均为 0，JSON 字节一致，SHA-256 仍为 `da2f5a753580bfcab57c258cf31a940e2d11aa7d417e89d0823d662b1d1e5f1d`。154226 次检查/6688 完整评价/460 接受；两类拆单各 1、唯一重放 1、入口/出口身份和窗口九级均不变。运行逐源码摘要在 `identity.json`。其既有 `mode` 名称含 `cold`，**本次实际已由上述测试预热**；附带 31.365581 秒墙钟/31.237831 秒 CPU 只能作为诊断，不与上一单元首次计时作提速比值，不称一分钟全量通过。
+
+保护的用户文件、配置/库、原输入与历史交期问题不变。下一项新 8.2.3，使用同一个原生入口对独立候选进行线程筛查，不能用最后评分阶段的单独并行代替整候选。
