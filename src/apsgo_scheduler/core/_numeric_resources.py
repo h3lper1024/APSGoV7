@@ -454,6 +454,60 @@ def prepare_private_separator(workspace, program, left, right, *, sequence, grou
         left, right, VirtualPurpose.SPLIT_SEPARATOR, sequence, group_index)
 
 
+def materialize_private_resources(workspace, program, quality):
+    """Acceptance boundary: replay original extension events, never cache failures."""
+    if (not isinstance(workspace, NumericCandidateWorkspace)
+            or not isinstance(program, NumericRuleProgram)
+            or not isinstance(quality, NumericQualityProgram)
+            or program.task_fingerprint != workspace.task.fingerprint
+            or quality.task_fingerprint != workspace.task.fingerprint
+            or quality.rule_program_fingerprint != program.fingerprint):
+        raise NumericValueError("publish.resources", "matching private resource context required")
+    if workspace.capacity_status(changed_rows=workspace.changed_count, chains=workspace.chain_count,
+            nodes=workspace.node_count, groups=workspace.group_count, events=workspace.event_count) != OK:
+        raise NumericValueError("publish.resources", "private resource lengths exceed capacity")
+    node_start = group_start = 0
+    for event in range(workspace.event_count):
+        node_end, group_end = int(workspace.event_node_ends[event]), int(workspace.event_group_ends[event])
+        if (not node_start < node_end <= workspace.node_count
+                or not group_start <= group_end <= min(group_start + 1, workspace.group_count)):
+            raise NumericValueError("publish.resources", "ordered nonempty extension events required")
+        node_start, group_start = node_end, group_end
+    if (node_start, group_start) != (workspace.node_count, workspace.group_count):
+        raise NumericValueError("publish.resources", "extension events must cover all private resources")
+    task, node_start, group_start = workspace.task, 0, 0
+    columns = workspace.nodes
+    for event in range(workspace.event_count):
+        node_end, group_end = int(workspace.event_node_ends[event]), int(workspace.event_group_ends[event])
+        group = None if group_end == group_start else NumericSplitGroup(
+            *(int(column[group_start]) for column in workspace.split_groups))
+        nodes = []
+        for row in range(node_start, node_end):
+            sequence, piece = int(columns.accepted_sequence[row]), int(columns.piece_index[row])
+            identity = (f"virtual-{sequence:06d}" if columns.role[row] == _GENERATED_VIRTUAL
+                        else f"split-{sequence:06d}:piece:{piece:04d}")
+            nodes.append(NumericDynamicNode(identity, int(workspace.templates[row]),
+                int(columns.weight[row]), int(columns.duration_ms[row]), int(columns.role[row]),
+                int(columns.source[row]), int(columns.resource[row]), int(columns.source_period[row]),
+                int(columns.prototype[row]), int(columns.purpose[row]), int(columns.split_group[row]),
+                piece, int(columns.piece_count[row]), sequence,
+                int(columns.min_temperature[row]), int(columns.max_temperature[row]),
+                bool(columns.present[row, _MIN_TEMPERATURE_PRESENT]), bool(columns.present[row, _MAX_TEMPERATURE_PRESENT])))
+        # No LRU candidate-task insertion before atomic state publication.
+        task = extend_numeric_task(task, tuple(nodes), split_group=group)
+        program = program.rebind(task)
+        quality = quality.rebind(task, program)
+        node_start, group_start = node_end, group_end
+    start = workspace.task.nodes.weight.size
+    for name in _NODE_FIELDS:
+        if not np.array_equal(getattr(task.nodes, name)[start:], getattr(columns, name)[:workspace.node_count]):
+            raise NumericValueError("publish.resources", f"private and formal node fields differ: {name}")
+    for name in _DERIVED_FIELDS:
+        if not np.array_equal(getattr(task, name)[:, start:], getattr(workspace.derived, name)[:, :workspace.node_count]):
+            raise NumericValueError("publish.resources", f"private and formal derived fields differ: {name}")
+    return NumericResourceExtension(task, program, quality, tuple(range(start, task.nodes.weight.size)))
+
+
 def _temperature(task, rows, column):
     present_column = (
         _MIN_TEMPERATURE_PRESENT if column == "min_temperature" else _MAX_TEMPERATURE_PRESENT

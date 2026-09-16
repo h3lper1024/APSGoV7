@@ -20,7 +20,10 @@ from ._numeric_resources import (
     split_group,
     split_piece_node,
     virtual_node,
+    materialize_private_resources,
 )
+from . import _numeric_candidate_kernel as common_candidate
+from ._numeric_chain_ops import chain_rows
 from ._numeric_rules import (
     NumericMetricKind,
     NumericRuleKind,
@@ -29,7 +32,7 @@ from ._numeric_rules import (
     evaluate_numeric_split,
     numeric_edge_allowed,
 )
-from ._numeric_state import NumericPlan, NumericTask, NumericSearchAction, split_target_periods_match
+from ._numeric_state import NumericPlan, NumericTask, NumericSearchAction, split_target_periods_match, OK, CANCELLED
 from ._numeric_units import (
     NumericValueError,
     allocate_piece_milliseconds,
@@ -599,6 +602,124 @@ def apply_numeric_candidate(task, plan, edit):
 
 def _quality(evaluation):
     return tuple(int(value) for value in evaluation.quality_key)
+
+
+@dataclass(frozen=True, slots=True)
+class NumericDeferredCandidateFailure:
+    view: object
+    error: NumericValueError
+
+
+def capture_candidate_result(workspace, program, quality, descriptors, index, policy, **options):
+    """Speculative errors are inert until their original ordered consumption."""
+    try:
+        return common_candidate.compute_candidate_attempt(
+            workspace, program, quality, descriptors, index, policy, **options)
+    except NumericValueError as error:
+        return NumericDeferredCandidateFailure(workspace.view(), error)
+
+
+def _common_candidate_edit(state, descriptor, sequence):
+    action = tuple(NumericSearchAction)[int(descriptor[common_candidate.ACTION])]
+    values = dict(task_fingerprint=state.task.fingerprint, plan_fingerprint=state.plan.fingerprint,
+        generation=state.plan.generation, sequence=sequence, action=action,
+        source_chain_id=int(descriptor[common_candidate.SOURCE]),
+        target_chain_id=int(descriptor[common_candidate.TARGET]))
+    if action in {NumericSearchAction.WHOLE_CHAIN_APPEND, NumericSearchAction.WHOLE_CHAIN_PREPEND,
+                  NumericSearchAction.WHOLE_CHAIN_INSERTION}:
+        values.update(target_position=int(descriptor[common_candidate.POSITION]),
+            source_reversed=bool(descriptor[common_candidate.REVERSE_SOURCE]),
+            target_reversed=bool(descriptor[common_candidate.REVERSE_TARGET]))
+    elif action in {NumericSearchAction.REAL_NODE_RELOCATION, NumericSearchAction.CONTROLLED_ORDER_SPLIT}:
+        values.update(node_row=int(descriptor[common_candidate.NODE]))
+        if action is NumericSearchAction.REAL_NODE_RELOCATION:
+            values.update(target_position=int(descriptor[common_candidate.POSITION]))
+    elif action in {NumericSearchAction.CHAIN_ORDER_RELOCATION, NumericSearchAction.VIRTUAL_WEIGHT_FILL}:
+        values.update(target_position=int(descriptor[common_candidate.POSITION]))
+    elif action in {NumericSearchAction.DELIVERY_INTRA_MOVE, NumericSearchAction.NODE_MOVE, NumericSearchAction.BLOCK_MOVE}:
+        values.update(target_position=int(descriptor[common_candidate.POSITION]),
+            source_start=int(descriptor[common_candidate.START]), source_stop=int(descriptor[common_candidate.STOP]))
+    elif action in {NumericSearchAction.NODE_EXCHANGE, NumericSearchAction.BLOCK_EXCHANGE, NumericSearchAction.CHAIN_CUT}:
+        values.update(source_start=int(descriptor[common_candidate.START]),
+            source_stop=int(descriptor[common_candidate.STOP]),
+            target_start=int(descriptor[common_candidate.OTHER_START]), target_stop=int(descriptor[common_candidate.OTHER_STOP]))
+    else:
+        values.update(source_start=int(descriptor[common_candidate.START]), source_stop=int(descriptor[common_candidate.STOP]))
+    return NumericCandidateEdit(**values)
+
+
+def publish_accepted_candidate(state, workspace, result, edit):
+    """Materialize and verify locally; commit is the only mutation of live state."""
+    workspace.require_current(state.task, state.plan)
+    workspace.require_view(result.view)
+    if result.program is not state.program or result.quality_program is not state.quality:
+        raise NumericValueError("candidate.publish", "candidate rules changed before publication")
+    if not result.prepared or not result.admissible or not tuple(result.summary.quality) < _quality(state.evaluation):
+        raise NumericValueError("candidate.publish", "admissible strict improvement required")
+    virtual_count = sum(int(role) == _GENERATED_VIRTUAL for role in workspace.nodes.role[:workspace.node_count])
+    if (result.virtual_sequence != state.virtual_sequence + virtual_count
+            or result.split_sequence != state.split_sequence + workspace.group_count):
+        raise NumericValueError("candidate.publish", "resource sequences do not extend the current state")
+    virtual_sequence = state.virtual_sequence
+    for row in range(workspace.node_count):
+        if int(workspace.nodes.role[row]) == _GENERATED_VIRTUAL:
+            virtual_sequence += 1
+            if int(workspace.nodes.accepted_sequence[row]) != virtual_sequence:
+                raise NumericValueError("candidate.publish", "virtual resource order changed")
+    for group in range(workspace.group_count):
+        if int(workspace.split_groups.accepted_sequence[group]) != state.split_sequence + group + 1:
+            raise NumericValueError("candidate.publish", "split resource order changed")
+    extension = materialize_private_resources(workspace, state.program, state.quality)
+    chains = tuple(chain_rows(result.view, i) for i in range(result.view.count))
+    candidate = _build_plan(extension.task, state.plan, chains,
+        workspace.ids[:workspace.chain_count], workspace.periods[:workspace.chain_count], group_periods=False)
+    if not split_target_periods_match(extension.task, chains, candidate.chain_periods):
+        raise NumericValueError("candidate.publish", "split target period changed before publication")
+    evaluation = materialize_numeric_evaluation(extension.task, extension.program,
+        extension.quality, candidate, result.summary)
+    state.commit(extension.task, extension.program, extension.quality, candidate, evaluation,
+        edit, tuple(map(int, result.affected_rows)), virtual_sequence=result.virtual_sequence,
+        split_sequence=result.split_sequence)
+
+
+def consume_candidate_result(state, budget, workspace, result):
+    """Consume one already charged attempt; do not pull or charge a later one."""
+    workspace.require_current(state.task, state.plan)
+    workspace.require_view(result.view)
+    if isinstance(result, NumericDeferredCandidateFailure):
+        raise result.error
+    if result.program is not state.program or result.quality_program is not state.quality:
+        raise NumericValueError("candidate.consume", "candidate rules changed before consumption")
+    if result.status == CANCELLED:
+        return False
+    if result.status != OK:
+        raise NumericValueError("candidate.compute", f"numeric candidate status {result.status}; capacity must retry before consumption")
+    if not result.prepared:
+        return False
+    if budget.candidate_check_count <= 0:
+        raise NumericValueError("candidate.consume", "candidate must consume its original logical check first")
+    state.complete_candidate_evaluation_count += 1
+    if not result.admissible or not budget.allows_search() or not tuple(result.summary.quality) < _quality(state.evaluation):
+        return False
+    edit = _common_candidate_edit(state, result.descriptor, budget.candidate_check_count)
+    publish_accepted_candidate(state, workspace, result, edit)
+    return True
+
+
+def consume_candidate_attempts(state, budget, attempts):
+    """First check belongs to the caller; each subsequent repair keeps one check.
+
+    Pulling happens only after rejection. This preserves the original preparation
+    before second-check point while preventing unused suffix errors from firing.
+    """
+    position = 0
+    for workspace, result in attempts:
+        if position and not budget.consume_candidate_check():
+            return False
+        position += 1
+        if consume_candidate_result(state, budget, workspace, result):
+            return True
+    return False
 
 
 def _try_prepared_candidate(

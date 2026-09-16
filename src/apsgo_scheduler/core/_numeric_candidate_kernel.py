@@ -43,12 +43,14 @@ class CandidateCheckPolicy:
     maximum_changed_chain_weight: int = -1
     reject_prohibited_kinds: tuple = ()
     same_period_order: bool = False
+    record_order_rows: bool = True
 
     def __post_init__(self):
         if (type(self.maximum_bridge_nodes) is not int or not 0 <= self.maximum_bridge_nodes <= 2
                 or type(self.maximum_changed_chain_weight) is not int
                 or self.maximum_changed_chain_weight < -1
                 or type(self.same_period_order) is not bool
+                or type(self.record_order_rows) is not bool
                 or not isinstance(self.reject_prohibited_kinds, tuple)
                 or any(not isinstance(k, NumericRuleKind) for k in self.reject_prohibited_kinds)):
             raise NumericValueError("candidate.policy", "explicit original-stage checks required")
@@ -610,7 +612,7 @@ def compute_candidate_attempt(workspace, program, quality, descriptors, index, p
             return result(INVALID)
         if policy.same_period_order and base.periods[source] != base.periods[target]:
             return result()
-        affected = chain_rows(base, source)
+        affected = chain_rows(base, source) if policy.record_order_rows else affected
         status = _move_order(workspace, source, position)
         if status != OK:
             return result(status)
