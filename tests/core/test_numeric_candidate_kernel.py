@@ -1,5 +1,8 @@
 """Common attempts preserve stage preparation, private resources and evaluation."""
 
+from tests.core import numeric_reference_refinement as reference_refinement
+from tests.core import numeric_reference_resources as reference_resources
+from tests.core import numeric_reference_search as reference_search
 from dataclasses import fields
 
 import numpy as np
@@ -88,7 +91,7 @@ def test_whole_chain_private_attempt_matches_existing_candidate(action, position
     values = NumericCandidateDescriptors(state.task, state.plan, readonly(raw, np.int64))
     edit = search.NumericCandidateEdit(state.task.fingerprint, state.plan.fingerprint, 0, 1,
         action, 10, 20, target_position=position, source_reversed=reverse, target_reversed=reverse)
-    expected = search.apply_numeric_candidate(state.task, state.plan, edit)
+    expected = reference_search.apply_numeric_candidate(state.task, state.plan, edit)
     result = candidate.compute_candidate_attempt(workspace, state.program, state.quality,
         values, 0, candidate.CandidateCheckPolicy(), previous_evaluation=state.evaluation)
     assert result.status == OK and result.prepared and result.admissible
@@ -104,7 +107,7 @@ def test_real_node_direct_only_and_order_match_existing_candidates():
         workspace = workspace_for(state)
         edit = search.NumericCandidateEdit(state.task.fingerprint, state.plan.fingerprint, 0, 1,
                                             action, 10, 20, **kwargs)
-        expected = search.apply_numeric_candidate(state.task, state.plan, edit)
+        expected = reference_search.apply_numeric_candidate(state.task, state.plan, edit)
         result = candidate.compute_candidate_attempt(workspace, state.program, state.quality,
             descriptor(workspace, action, **kwargs), 0, candidate.CandidateCheckPolicy(same_period_order=True))
         assert result.status == OK and result.prepared
@@ -120,7 +123,7 @@ def test_refinement_preparation_uses_shared_array_operations(action, start, stop
     state = standard_state()
     target = 10 if action is A.DELIVERY_INTRA_MOVE else 21 if action is A.CHAIN_CUT else 20
     recipe = (action, 10, target, start, stop, other_start, other_stop)
-    expected = list(refinement._prepare_recipe(state, recipe, 2))[-1]
+    expected = list(reference_refinement._prepare_recipe(state, recipe, 2))[-1]
     assert expected is not None
     workspace = workspace_for(state)
     values = descriptor(workspace, action, target=target, source_start=start, source_stop=stop,
@@ -141,7 +144,7 @@ def test_private_double_bridge_keeps_resource_fields_and_order():
         evaluate_numeric_plan(workspace.task, program, quality, workspace.plan))
     edit = search.NumericCandidateEdit(state.task.fingerprint, state.plan.fingerprint, 0, 1,
         A.WHOLE_CHAIN_PREPEND, 10, 20, target_position=0)
-    expected, plan, sequence = search._resource_whole_chain_candidate(state, edit, (0,), (1,), 2)
+    expected, plan, sequence = reference_search._resource_whole_chain_candidate(state, edit, (0,), (1,), 2)
     result = candidate.compute_candidate_attempt(workspace, program, quality,
         descriptor(workspace, A.WHOLE_CHAIN_PREPEND), 0, candidate.CandidateCheckPolicy())
     assert result.status == OK and result.prepared and result.virtual_sequence == sequence == 2
@@ -156,7 +159,7 @@ def test_split_is_one_private_candidate_with_original_group_and_separator_events
     workspace, program, quality, decision = split_case("1200", period)
     state = search.NumericSearchState(workspace.task, program, quality, workspace.plan,
         evaluate_numeric_plan(workspace.task, program, quality, workspace.plan))
-    expected, plan, _, sequence, split_sequence, affected = search._prepare_numeric_split(state, 0, 0, decision, 2)
+    expected, plan, _, sequence, split_sequence, affected = reference_search._prepare_numeric_split(state, 0, 0, decision, 2)
     result = candidate.compute_candidate_attempt(workspace, program, quality,
         descriptor(workspace, A.CONTROLLED_ORDER_SPLIT, target=11, node_row=0), 0,
         candidate.CandidateCheckPolicy(), split_decision=decision)
@@ -193,10 +196,10 @@ def test_rejected_candidate_does_not_call_stage_or_formal_preparation(monkeypatc
         raise AssertionError("formal candidate or stage preparation called")
 
     monkeypatch.setattr(NumericPlan, "build", forbidden)
-    monkeypatch.setattr(search, "_layout", forbidden)
-    monkeypatch.setattr(search, "_resource_whole_chain_candidate", forbidden)
-    monkeypatch.setattr(refinement, "_prepare_recipe", forbidden)
-    monkeypatch.setattr(resources, "extend_resource_workspace", forbidden)
+    monkeypatch.setattr(reference_search, "_layout", forbidden)
+    monkeypatch.setattr(reference_search, "_resource_whole_chain_candidate", forbidden)
+    monkeypatch.setattr(reference_refinement, "_prepare_recipe", forbidden)
+    monkeypatch.setattr(reference_resources, "extend_resource_workspace", forbidden)
     result = candidate.compute_candidate_attempt(workspace, state.program, state.quality,
         values, 0, candidate.CandidateCheckPolicy(maximum_changed_chain_weight=1))
     assert result.status == OK and not result.prepared
@@ -207,9 +210,9 @@ def test_explicit_weight_fill_keeps_selected_prototype_and_original_edges(positi
     task, program, quality = construction_case(widths=("1000", "1000"))
     state = state_for(task, program, quality, (0, 1), (0, 2), (10,), (0,))
     workspace = workspace_for(state)
-    node = resources.virtual_node(task, 0, max(0, position - 1), min(1, position),
+    node = reference_resources.virtual_node(task, 0, max(0, position - 1), min(1, position),
                                    purpose=VirtualPurpose.WEIGHT_FILL, sequence=1)
-    expected = resources.extend_resource_workspace(task, program, quality, (node,))
+    expected = reference_resources.extend_resource_workspace(task, program, quality, (node,))
     row = expected.rows[0]
     order = (0, 1)
     order = order[:position] + (row,) + order[position:]
@@ -225,9 +228,9 @@ def test_explicit_weight_fill_keeps_selected_prototype_and_original_edges(positi
 
 def bridge_state():
     task, program, quality = construction_case(weights=("100",) * 4, widths=("1000",) * 4)
-    nodes = tuple(resources.virtual_node(task, 0, 0, 1, purpose=VirtualPurpose.EDGE_BRIDGE,
+    nodes = tuple(reference_resources.virtual_node(task, 0, 0, 1, purpose=VirtualPurpose.EDGE_BRIDGE,
                                          sequence=i + 1) for i in range(2))
-    extension = resources.extend_resource_workspace(task, program, quality, nodes)
+    extension = reference_resources.extend_resource_workspace(task, program, quality, nodes)
     a, b = extension.rows
     state = state_for(extension.task, extension.program, extension.quality,
         (0, a, 1, b, 2, 3), (0, 5, 6), (10, 20), (0, 0))
@@ -239,7 +242,7 @@ def bridge_state():
 def test_cleaned_and_original_repairs_keep_removed_order_and_only_requested_variant(variant):
     state = bridge_state()
     recipe = (A.NODE_MOVE, 10, 20, 2, 3, 0, 0)
-    old = list(refinement._prepare_recipe(state, recipe, 2))
+    old = list(reference_refinement._prepare_recipe(state, recipe, 2))
     assert len(old) == 2 and all(item is not None for item in old)
     expected = old[0 if variant else 1]
     workspace = workspace_for(state)
@@ -255,7 +258,7 @@ def test_cleaned_and_original_repairs_keep_removed_order_and_only_requested_vari
 def test_bridge_reclaim_keeps_protected_resources_and_direct_only_semantics():
     state = bridge_state()
     recipe = (A.BRIDGE_RECLAMATION, 10, 10, 1, 2, -1, -1)
-    expected = refinement._prepare_reclaim(state, recipe)
+    expected = reference_refinement._prepare_reclaim(state, recipe)
     workspace = workspace_for(state)
     result = candidate.compute_candidate_attempt(workspace, state.program, state.quality,
         descriptor(workspace, A.BRIDGE_RECLAMATION, target=10, source_start=1, source_stop=2),
@@ -314,7 +317,7 @@ def test_capacity_retry_and_cancelled_later_splice_keep_the_same_candidate():
 def test_native_splice_scan_resume_keeps_selection_fields_and_resource_events(monkeypatch, chunk):
     workspace, program, quality = case()
     values = descriptor(workspace, A.WHOLE_CHAIN_PREPEND)
-    expected = resources.choose_virtual_bridge(workspace.task, program, quality, 0, 1,
+    expected = reference_resources.choose_virtual_bridge(workspace.task, program, quality, 0, 1,
         max_nodes=2, first_sequence=1)
     native = candidate.repair_parts_step
     calls = []
@@ -404,7 +407,7 @@ def test_merge_keeps_original_retained_order_before_stable_period_grouping(sourc
     workspace = workspace_for(state)
     edit = search.NumericCandidateEdit(task.fingerprint, state.plan.fingerprint, 0, 1,
         A.WHOLE_CHAIN_PREPEND, source, target, target_position=0)
-    expected = search.apply_numeric_candidate(task, state.plan, edit)
+    expected = reference_search.apply_numeric_candidate(task, state.plan, edit)
     result = candidate.compute_candidate_attempt(workspace, program, quality,
         descriptor(workspace, A.WHOLE_CHAIN_PREPEND, source=source, target=target), 0,
         candidate.CandidateCheckPolicy())

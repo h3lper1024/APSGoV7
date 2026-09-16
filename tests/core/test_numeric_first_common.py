@@ -36,7 +36,7 @@ def test_all_first_actions_accept_with_old_object_preparation_disabled(action, m
 
     for name in ("_layout", "_variants", "_resource_whole_chain_candidate", "apply_numeric_candidate",
                  "_try_prepared_candidate", "extend_resource_workspace", "numeric_rows_prohibited_profile"):
-        monkeypatch.setattr(search, name, forbidden)
+        assert not hasattr(search, name)
     function(task, program, quality, state, budget(candidate_limit=100), **arguments)
     assert state.accepted_move_count >= 1
     if action == "order":
@@ -50,8 +50,9 @@ def test_first_rejected_candidate_does_not_build_or_extend_formal_state(monkeypa
     def forbidden(*args, **kwargs):
         raise AssertionError("rejected candidate constructed formal state")
 
-    for name in ("_build_plan", "materialize_private_resources", "materialize_numeric_evaluation",
-                 "_resource_whole_chain_candidate", "extend_resource_workspace"):
+    for name in ("_resource_whole_chain_candidate", "extend_resource_workspace"):
+        assert not hasattr(search, name)
+    for name in ("_build_plan", "materialize_private_resources", "materialize_numeric_evaluation"):
         monkeypatch.setattr(search, name, forbidden)
     runtime = budget(candidate_limit=1)
     search.improve_numeric_whole_chain(task, program, quality, state, runtime,

@@ -1,4 +1,5 @@
 """All refinement actions consume the shared private candidate computation."""
+from tests.core import numeric_reference_refinement as reference_refinement
 from dataclasses import replace
 
 import numpy as np
@@ -29,7 +30,7 @@ def test_refinement_attempts_match_original_charge_state_and_identity(action, ar
     value = scan.description(action, *args)
     before, after = budget(candidate_limit=10), budget(candidate_limit=10)
     before.consume_candidate_check()
-    expected = refinement._try_recipe(old, before, recipe(value), 2)
+    expected = reference_refinement._try_recipe(old, before, recipe(value), 2)
     accepted, _ = refinement._scan_family(new, after, iter((value,)), _batch_size=batch_size)
     assert accepted == expected
     assert after.candidate_check_count == before.candidate_check_count
@@ -43,8 +44,8 @@ def test_production_refinement_rejects_all_old_preparation_paths(monkeypatch):
     for name in ("_prepare_recipe", "_prepare_segment_recipe", "_prepare_repaired_parts",
                  "_prepare_recipe_batch", "_prepare_chain_cut", "_prepare_order",
                  "_prepare_reclaim", "_candidate_overlay", "_try_overlay_candidate"):
-        monkeypatch.setattr(refinement, name, forbidden)
-    monkeypatch.setattr(refinement.NumericRefinementIndex, "build", forbidden)
+        assert not hasattr(refinement, name)
+    monkeypatch.setattr(reference_refinement.NumericRefinementIndex, "build", forbidden)
     runtime = budget(candidate_limit=100)
     refinement.improve_numeric_refinement(state, runtime)
     assert runtime.candidate_check_count > 0

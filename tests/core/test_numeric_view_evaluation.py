@@ -1,5 +1,6 @@
 """Formal and base/private candidates use one rule and scoring implementation."""
 
+from tests.core import numeric_reference_resources as reference_resources
 from dataclasses import replace
 
 import numpy as np
@@ -62,7 +63,7 @@ def test_formal_zero_change_and_two_changed_chains_reuse_the_same_native_rules()
                                               (('1000', '600'), ('800',))))
 def test_virtual_private_tail_matches_materialized_summary_and_every_detail(widths, prototypes):
     workspace, program, quality = case(widths, prototypes)
-    formal = resources.choose_virtual_bridge(workspace.task, program, quality, 0, 1,
+    formal = reference_resources.choose_virtual_bridge(workspace.task, program, quality, 0, 1,
                                                max_nodes=2, first_sequence=1)
     status, connected, rows = resources.prepare_private_bridge(workspace, program, 0, 1,
         max_nodes=2, first_sequence=1)
@@ -83,7 +84,7 @@ def test_private_split_clock_original_completion_and_rule_details_match(period):
     status, created, rows = resources.prepare_private_split(workspace, 0, decision, 0, sequence=1)
     assert status == OK and created
     left, right = map(int, rows)
-    formal = resources.choose_split_separator(formal.task, formal.program, formal.quality,
+    formal = reference_resources.choose_split_separator(formal.task, formal.program, formal.quality,
                                                left, right, sequence=1, group_index=0)
     status, found, separator = resources.prepare_private_separator(workspace, program, left, right,
         sequence=1, group_index=0)
@@ -126,7 +127,7 @@ def test_view_evaluation_does_not_flatten_or_create_formal_candidates(monkeypatc
 
     monkeypatch.setattr(evaluation, "_kernel_inputs", forbidden)
     monkeypatch.setattr(NumericPlan, "build", forbidden)
-    monkeypatch.setattr(resources, "extend_resource_workspace", forbidden)
+    monkeypatch.setattr(reference_resources, "extend_resource_workspace", forbidden)
     actual = evaluation.evaluate_numeric_view(workspace, program, quality, detail=True)
     assert_same(actual, expected, detail=True)
     from apsgo_scheduler.core._numeric_kernel import evaluate_view_kernel

@@ -1,4 +1,5 @@
 """Native descriptors keep the frozen structural ownership and traversal order."""
+from tests.core import numeric_reference_refinement as reference_refinement
 from itertools import islice
 import gc
 import weakref
@@ -32,14 +33,14 @@ def test_native_family_descriptors_match_order_and_shared_chain_ownership(family
     state = make_state()
     columns = task_columns(state.task)
     x = scan.build_scan(state, columns)
-    index = old.NumericRefinementIndex.build(state)
-    critical = frozenset(old._critical_sources(state, index))
+    index = reference_refinement.NumericRefinementIndex.build(state)
+    critical = frozenset(reference_refinement._critical_sources(state, index))
     index = index.with_critical_sources(state, critical)
-    ordered = (*old._critical_sources(state, index),
-               *(i for i in old._delivery_sources(state) if i not in critical))
+    ordered = (*reference_refinement._critical_sources(state, index),
+               *(i for i in reference_refinement._delivery_sources(state) if i not in critical))
     np.testing.assert_array_equal(x.sources, ordered)
     np.testing.assert_array_equal(x.critical, index.critical_prefix)
-    expected = list(old._family_stream(state, family, {family: previous}, ordered,
+    expected = list(reference_refinement._family_stream(state, family, {family: previous}, ordered,
         critical, lane, budget(), index=index, defer_cursor=True))
     actual = list(scan.family_stream(x, columns, rule_tables(state.program.rules), family, previous, lane, budget()))
     assert [(int(value[11]), recipe(value)) for value in actual] == expected
@@ -79,10 +80,10 @@ def test_mixed_critical_positions_match_native_structural_ownership(family, lane
     columns = task_columns(state.task)
     x = scan.build_scan(state, columns)
     critical = frozenset((0, 3, 7))
-    index = old.NumericRefinementIndex.build(state, critical)
+    index = reference_refinement.NumericRefinementIndex.build(state, critical)
     x = x._replace(critical=index.critical_prefix)
     sources = tuple(map(int, x.sources))
-    expected = list(old._family_stream(state, family, {family: None}, sources, critical,
+    expected = list(reference_refinement._family_stream(state, family, {family: None}, sources, critical,
         lane, budget(), index=index, defer_cursor=True))
     actual = list(scan.family_stream(x, columns, rule_tables(state.program.rules),
         family, None, lane, budget()))
@@ -95,7 +96,7 @@ def test_production_refinement_does_not_call_old_descriptor_generators(monkeypat
         raise AssertionError("old Python descriptor enumeration reached")
     for name in ("_critical_sources", "_delivery_sources", "_family_stream",
                  "_source_recipe_stream", "_structural_ownership", "_reclamation_stream"):
-        monkeypatch.setattr(old, name, forbidden)
+        assert not hasattr(old, name)
     old.improve_numeric_refinement(state, budget(candidate_limit=20))
 
 

@@ -1,4 +1,5 @@
 """Flat serial batches preserve every numeric output and private resource boundary."""
+from tests.core import numeric_reference_refinement as reference_refinement
 from dataclasses import replace
 from itertools import permutations
 
@@ -8,12 +9,12 @@ import pytest
 from apsgo_scheduler.core import _numeric_refinement as refinement
 from apsgo_scheduler.core import _numeric_refinement_scan as scan
 from apsgo_scheduler.core._numeric_search import NumericDeferredCandidateFailure
-from apsgo_scheduler.core._numeric_batch import (
-    evaluate_numeric_batch, numeric_batch_result, pack_numeric_candidates, NumericCandidateBatchWorkspace,
-)
+from tests.core.numeric_reference_batch import evaluate_numeric_batch, numeric_batch_result, pack_numeric_candidates
+from apsgo_scheduler.core._numeric_batch import NumericCandidateBatchWorkspace
 from apsgo_scheduler.core._numeric_evaluation import summarize_numeric_candidate
-from apsgo_scheduler.core._numeric_kernel import CANCELLED, STALE, evaluate_batch_kernel
-from apsgo_scheduler.core._numeric_resources import extend_resource_workspace, virtual_node
+from apsgo_scheduler.core._numeric_kernel import CANCELLED, STALE
+from tests.core.numeric_reference_batch import evaluate_batch_kernel
+from tests.core.numeric_reference_resources import extend_resource_workspace, virtual_node
 from apsgo_scheduler.core._numeric_state import NumericPlanOverlay, readonly
 from apsgo_scheduler.core._numeric_units import NumericValueError
 from apsgo_scheduler.core.contracts import SearchStopReason
@@ -176,7 +177,7 @@ def test_candidate_private_virtual_rows_are_disjoint_without_reserving_formal_id
 
 
 def test_private_split_metadata_and_completion_are_preserved():
-    from apsgo_scheduler.core._numeric_resources import split_piece_node
+    from tests.core.numeric_reference_resources import split_piece_node
     from apsgo_scheduler.core._numeric_state import NumericSplitGroup
     from apsgo_scheduler.core._numeric_units import allocate_piece_milliseconds
     state = sample()
@@ -317,18 +318,18 @@ def test_cancellation_after_precompute_consumes_nothing(monkeypatch):
 
 def test_legacy_packing_capacity_retains_single_kernel_preparation(monkeypatch):
     state = sample()
-    recipe = (refinement.NumericSearchAction.CHAIN_ORDER_RELOCATION, 10, 20, -1, -1, 1, -1)
+    recipe = (reference_refinement.NumericSearchAction.CHAIN_ORDER_RELOCATION, 10, 20, -1, -1, 1, -1)
     calls = []
-    original = refinement.pack_numeric_candidates
+    original = reference_refinement.pack_numeric_candidates
 
     def small_capacity(*args, **kwargs):
         calls.append(len(args[5]))
         return original(*args, **kwargs, max_bytes=1)
 
-    monkeypatch.setattr(refinement, "pack_numeric_candidates", small_capacity)
+    monkeypatch.setattr(reference_refinement, "pack_numeric_candidates", small_capacity)
     diagnostics = refinement.NumericRefinementDiagnostics()
     runtime = budget(candidate_limit=2)
-    prepared = refinement._prepare_recipe_batch(state, runtime, [recipe, recipe], 2,
+    prepared = reference_refinement._prepare_recipe_batch(state, runtime, [recipe, recipe], 2,
         None, diagnostics, "test")
     assert calls == [2, 1, 1]
     assert runtime.candidate_check_count == 0

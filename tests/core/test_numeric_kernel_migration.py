@@ -71,7 +71,7 @@ def test_native_all_rules_runs_virtual_endpoints_late_period_and_priorities():
     from tests.core.test_numeric_evaluation import numeric_quality_spec
     from apsgo_scheduler.core._numeric_evaluation import NumericQualityProgram
     from apsgo_scheduler.core._numeric_rules import NumericRuleProgram
-    from apsgo_scheduler.core._numeric_resources import extend_resource_workspace, virtual_node
+    from tests.core.numeric_reference_resources import extend_resource_workspace, virtual_node
     from apsgo_scheduler.core.model import VirtualPurpose
     orders = tuple(make_order(
         i, weight=Decimal("300"), width=Decimal(w), source_period="P0",

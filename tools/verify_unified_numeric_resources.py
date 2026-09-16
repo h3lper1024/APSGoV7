@@ -30,6 +30,9 @@ def main():
     from tools.profile_solver_search import load_request
     from tools.verify_solver_diagnostics import _write_json
 
+    if not args.private and not hasattr(resources, "choose_virtual_bridge"):
+        parser.error("object resource reference was retired; use --private for the current source "
+                     "or --source-root pointing to the frozen pre-unification export")
     args.output_dir.mkdir(parents=True, exist_ok=False)
     request = derive_numeric_request(load_request(args.prepared_request))
     rule_set = load_rule_set(request.rule_set_spec)
@@ -45,7 +48,8 @@ def main():
             chain_capacity=2, node_capacity=32, group_capacity=1, event_capacity=32)
     if args.splits:
         from apsgo_scheduler.core._numeric_rules import evaluate_numeric_split
-        from apsgo_scheduler.core._numeric_search import _split_piece_weights
+        if not args.private:
+            from apsgo_scheduler.core._numeric_search import _split_piece_weights
         from apsgo_scheduler.core._numeric_units import allocate_piece_milliseconds
         samples = []
         for parent in range(count):
@@ -53,13 +57,13 @@ def main():
                 decision = evaluate_numeric_split(task, program, parent, origin, 0)
                 if not decision.eligible:
                     continue
-                weights = _split_piece_weights(int(task.nodes.weight[parent]), decision)
                 if args.private:
                     workspace.reset()
                     status, created, pieces = resources.prepare_private_split(workspace, parent, decision, origin, sequence=1)
                     if status != OK:
                         raise AssertionError((parent, origin, status))
                 else:
+                    weights = _split_piece_weights(int(task.nodes.weight[parent]), decision)
                     created, pieces = bool(weights), ()
                     result = None
                     if created:

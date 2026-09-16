@@ -21,6 +21,19 @@ def test_digest_is_order_sensitive_and_retains_only_bounded_examples():
     assert result["sha256"] != backward.snapshot()["sha256"]
 
 
+def test_retired_object_probe_fails_before_creating_a_run(monkeypatch, tmp_path, capsys):
+    from tools.verify_numeric_kernel_migration import main
+
+    destination = tmp_path / "must-not-be-created"
+    monkeypatch.setattr("sys.argv", ["migration", "--prepared-request", "unused.json",
+        "--output-dir", str(destination)])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert "object candidate probing is retired" in capsys.readouterr().err
+    assert not destination.exists()
+
+
 def test_trace_preserves_acceptance_quota_and_restores_hooks():
     original = search.improve_numeric_whole_chain
 
@@ -100,7 +113,7 @@ def test_baseline_two_material_bridge_keeps_prototype_order():
     from decimal import Decimal
     from apsgo_scheduler.core._numeric_rules import NumericRuleProgram
     from apsgo_scheduler.core._numeric_evaluation import NumericQualityProgram
-    from apsgo_scheduler.core._numeric_resources import choose_virtual_bridge
+    from tests.core.numeric_reference_resources import choose_virtual_bridge
     from tests.app.test_input_normalizer import make_order, make_prototype
     from tests.core.test_numeric_evaluation import numeric_quality_spec
     from tests.core.test_numeric_rules import attributes, build

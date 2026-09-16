@@ -1,5 +1,6 @@
 """Private splits keep the existing resource fields, event order and exact clock."""
 
+from tests.core import numeric_reference_resources as reference_resources
 from dataclasses import fields, replace
 from decimal import Decimal
 from random import Random
@@ -12,7 +13,7 @@ from apsgo_scheduler.core._numeric_rules import evaluate_numeric_split
 from apsgo_scheduler.core._numeric_rules import NumericRuleProgram
 from apsgo_scheduler.core._numeric_evaluation import NumericQualityProgram
 from apsgo_scheduler.app.rule_set_loader import fingerprint_rule_set_spec
-from apsgo_scheduler.core._numeric_search import _split_piece_weights
+from tests.core.numeric_reference_search import _split_piece_weights
 from apsgo_scheduler.core._numeric_state import (
     NumericCandidateWorkspace, NumericPlan, NumericNodeColumns, NumericSplitGroups,
     OK, CAPACITY, CANCELLED,
@@ -44,11 +45,11 @@ def formal_split(workspace, program, quality, decision):
     weights = _split_piece_weights(int(task.nodes.weight[0]), decision)
     durations = allocate_piece_milliseconds(int(task.nodes.weight[0]), int(task.nodes.duration_ms[0]),
                                             weights, "test")
-    group = resources.split_group(task, 0, decision, 0, 1)
-    nodes = tuple(resources.split_piece_node(task, 0, group_index=0, piece_index=i,
+    group = reference_resources.split_group(task, 0, decision, 0, 1)
+    nodes = tuple(reference_resources.split_piece_node(task, 0, group_index=0, piece_index=i,
         piece_count=len(weights), weight=w, duration_ms=d, accepted_sequence=1)
         for i, (w, d) in enumerate(zip(weights, durations), 1))
-    return resources.extend_resource_workspace(task, program, quality, nodes, split_group=group)
+    return reference_resources.extend_resource_workspace(task, program, quality, nodes, split_group=group)
 
 
 def assert_all_private_fields(workspace, task):
@@ -77,7 +78,7 @@ def test_private_split_and_separator_match_original_fields_and_extension_events(
     assert workspace.split_groups.target_period[0] == (0 if period == "P0" else 1)
     pieces = list(map(int, rows))
     for sequence, (left, right) in enumerate(zip(pieces, pieces[1:]), 1):
-        expected = resources.choose_split_separator(expected.task, expected.program, expected.quality,
+        expected = reference_resources.choose_split_separator(expected.task, expected.program, expected.quality,
             left, right, sequence=sequence, group_index=0)
         assert expected is not None
         status, found, selected = resources.prepare_private_separator(workspace, program,
@@ -150,7 +151,8 @@ def test_split_and_separator_work_with_formal_objects_and_extension_disabled(mon
         raise AssertionError("formal resource path used")
 
     for name in ("split_piece_node", "split_group", "virtual_node", "extend_resource_workspace"):
-        monkeypatch.setattr(resources, name, forbidden)
+        assert not hasattr(resources, name)
+        monkeypatch.setattr(reference_resources, name, forbidden)
     status, found, rows = resources.prepare_private_split(workspace, 0, decision, 0, sequence=1)
     assert status == OK and found
     assert resources.prepare_private_separator(workspace, program, int(rows[0]), int(rows[1]),

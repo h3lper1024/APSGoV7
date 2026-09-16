@@ -1,5 +1,7 @@
 """Only ordered accepted attempts materialize identities and mutate search state."""
 
+from tests.core import numeric_reference_resources as reference_resources
+from tests.core import numeric_reference_search as reference_search
 import pytest
 
 from apsgo_scheduler.core import _numeric_search as search
@@ -47,11 +49,11 @@ def test_acceptance_matches_old_plan_fingerprints_trace_and_resource_events(brid
     edit = search.NumericCandidateEdit(task.fingerprint, old.plan.fingerprint, 0, 1,
         A.WHOLE_CHAIN_PREPEND, 10, 20, target_position=0)
     if bridge:
-        extension, plan, sequence = search._resource_whole_chain_candidate(old, edit, (0,), (1,), 2)
-        accepted = search._try_prepared_candidate(old, old_budget, edit, extension.task,
+        extension, plan, sequence = reference_search._resource_whole_chain_candidate(old, edit, (0,), (1,), 2)
+        accepted = reference_search._try_prepared_candidate(old, old_budget, edit, extension.task,
             extension.program, extension.quality, plan, extension.rows, virtual_sequence=sequence)
     else:
-        accepted = search._try_candidate(task, program, quality, old, old_budget, edit)
+        accepted = reference_search._try_candidate(task, program, quality, old, old_budget, edit)
     assert accepted
     workspace = workspace_for(new)
     result = compute(new, workspace, descriptor(workspace, A.WHOLE_CHAIN_PREPEND))
@@ -70,10 +72,10 @@ def test_split_publication_preserves_all_ancestor_event_identities(period):
     old_budget, new_budget = budget(candidate_limit=10), budget(candidate_limit=10)
     old_budget.consume_candidate_check()
     new_budget.consume_candidate_check()
-    extension, expected, new_id, sequence, split_sequence, affected = search._prepare_numeric_split(old, 0, 0, decision, 2)
+    extension, expected, new_id, sequence, split_sequence, affected = reference_search._prepare_numeric_split(old, 0, 0, decision, 2)
     edit = search.NumericCandidateEdit(task.fingerprint, plan.fingerprint, 0, 1,
         A.CONTROLLED_ORDER_SPLIT, 10, new_id, node_row=0)
-    assert search._try_prepared_candidate(old, old_budget, edit, extension.task,
+    assert reference_search._try_prepared_candidate(old, old_budget, edit, extension.task,
         extension.program, extension.quality, expected, affected, virtual_sequence=sequence,
         split_sequence=split_sequence, reject_prohibited_kinds=(NumericRuleKind.VIRTUAL_RATIO,))
     result = compute(new, workspace, descriptor(workspace, A.CONTROLLED_ORDER_SPLIT,
@@ -117,14 +119,14 @@ def test_publication_failure_keeps_solution_and_extension_cache_unchanged(monkey
     else:
         workspace.event_node_ends[0] = 0
     previous = (state.task, state.program, state.quality, state.plan, state.evaluation)
-    cache = resources.extend_resource_workspace.cache_info()
+    cache = reference_resources.extend_resource_workspace.cache_info()
     runtime = budget(candidate_limit=10)
     runtime.consume_candidate_check()
     with pytest.raises(NumericValueError):
         search.consume_candidate_result(state, runtime, workspace, result)
     assert previous == (state.task, state.program, state.quality, state.plan, state.evaluation)
     assert state.accepted_moves == () and state.virtual_sequence == state.split_sequence == 0
-    assert resources.extend_resource_workspace.cache_info() == cache
+    assert reference_resources.extend_resource_workspace.cache_info() == cache
 
 
 def test_first_acceptance_does_not_pull_suffix_or_fire_its_error():
@@ -198,7 +200,7 @@ def test_first_search_order_keeps_its_original_empty_row_trace():
     new_budget.consume_candidate_check()
     edit = search.NumericCandidateEdit(task.fingerprint, old.plan.fingerprint, 0, 1,
         A.CHAIN_ORDER_RELOCATION, 20, 10, target_position=0)
-    assert search._try_candidate(task, program, quality, old, old_budget, edit)
+    assert reference_search._try_candidate(task, program, quality, old, old_budget, edit)
     workspace = workspace_for(new)
     result = candidate.compute_candidate_attempt(workspace, program, quality,
         descriptor(workspace, A.CHAIN_ORDER_RELOCATION, source=20, target=10, target_position=0),

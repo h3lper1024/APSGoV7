@@ -29,7 +29,7 @@ def test_split_modes_and_unique_replay_use_no_old_object_candidate_path(period, 
 
     for name in ("_layout", "_prepare_numeric_split", "_try_prepared_candidate",
                  "extend_resource_workspace", "split_piece_node", "choose_split_separator"):
-        monkeypatch.setattr(search, name, forbidden)
+        assert not hasattr(search, name)
     runtime = budget(candidate_limit=1000)
     search.improve_numeric_controlled_split(state, runtime, pair_scan_slack_weight=0)
     assert state.split_sequence == state.replay_count == 1

@@ -6,24 +6,10 @@ import pytest
 
 from apsgo_scheduler.core._numeric_construction import NumericInitialSolution
 from apsgo_scheduler.core._numeric_evaluation import evaluate_numeric_plan
-from apsgo_scheduler.core._numeric_resources import (
-    choose_virtual_bridge,
-    extend_resource_workspace,
-    virtual_node,
-)
+from tests.core.numeric_reference_resources import choose_virtual_bridge, extend_resource_workspace, virtual_node
 from apsgo_scheduler.core._numeric_rules import NumericRuleKind
-from apsgo_scheduler.core._numeric_search import (
-    NumericCandidateEdit,
-    NumericSearchAction,
-    NumericSearchState,
-    apply_numeric_candidate,
-    improve_numeric_chain_order,
-    improve_numeric_real_node_relocation,
-    improve_numeric_virtual_weight_fill,
-    improve_numeric_whole_chain,
-    run_numeric_first_search_prefix,
-    run_numeric_search_with_split_replay,
-)
+from apsgo_scheduler.core._numeric_search import NumericCandidateEdit, NumericSearchAction, NumericSearchState, improve_numeric_chain_order, improve_numeric_real_node_relocation, improve_numeric_virtual_weight_fill, improve_numeric_whole_chain, run_numeric_first_search_prefix, run_numeric_search_with_split_replay
+from tests.core.numeric_reference_search import apply_numeric_candidate
 from apsgo_scheduler.core._numeric_state import NumericPlan
 from apsgo_scheduler.core._numeric_units import NumericValueError
 from apsgo_scheduler.core.contracts import SearchStopReason

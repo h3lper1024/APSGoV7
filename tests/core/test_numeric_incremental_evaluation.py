@@ -10,7 +10,7 @@ from apsgo_scheduler.core._numeric_evaluation import (
     evaluate_numeric_candidate,
     evaluate_numeric_plan,
 )
-from apsgo_scheduler.core._numeric_resources import extend_resource_workspace, virtual_node
+from tests.core.numeric_reference_resources import extend_resource_workspace, virtual_node
 from apsgo_scheduler.core._numeric_state import NumericPlan, readonly
 from apsgo_scheduler.core._numeric_units import NumericValueError
 from apsgo_scheduler.core.model import VirtualPurpose

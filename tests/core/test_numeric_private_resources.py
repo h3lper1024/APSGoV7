@@ -1,5 +1,6 @@
 """Private numeric bridges preserve the original adapter's choices and fields."""
 
+from tests.core import numeric_reference_resources as reference_resources
 from dataclasses import replace, fields
 from decimal import Decimal
 
@@ -58,7 +59,7 @@ def test_private_single_double_and_stable_ties_match_formal_adapter(widths, prot
         program = replace(program, rules=tuple(replace(rule, flags=(False, False))
             if rule.kind is NumericRuleKind.TEMPERATURE else rule for rule in program.rules))
         quality = replace(quality, rule_program_fingerprint=program.fingerprint)
-    expected = resources.choose_virtual_bridge(workspace.task, program, quality, 0, 1,
+    expected = reference_resources.choose_virtual_bridge(workspace.task, program, quality, 0, 1,
                                                 max_nodes=2, first_sequence=1)
     assert expected is not None
     status, connected, rows = resources.prepare_private_bridge(workspace, program, 0, 1,
@@ -105,8 +106,8 @@ def test_private_rows_can_anchor_a_later_bridge_without_formal_task_extension(mo
     def forbidden(*a, **kw):
         raise AssertionError("formal object/extension path is forbidden")
 
-    monkeypatch.setattr(resources, "extend_resource_workspace", forbidden)
-    monkeypatch.setattr(resources, "virtual_node", forbidden)
+    monkeypatch.setattr(reference_resources, "extend_resource_workspace", forbidden)
+    monkeypatch.setattr(reference_resources, "virtual_node", forbidden)
     status, connected, rows = resources.prepare_private_bridge(workspace, program, 0, 1,
         max_nodes=2, first_sequence=1)
     assert status == OK and connected

@@ -208,9 +208,14 @@ class WholeFlowTrace:
             bind(SolveRuntimeBudget, "permit", permit)
             bind(search.NumericCandidateEdit, "__post_init__", edit)
             bind(search.NumericSearchState, "commit", commit)
-            bind(search, "_try_prepared_candidate", attempt)
-            bind(refinement, "_try_overlay_candidate", attempt)
-            bind(refinement, "_try_recipe", proposal)
+            # These hooks only exist in the separately frozen old source tree.
+            for owner, name, factory in (
+                (search, "_try_prepared_candidate", attempt),
+                (refinement, "_try_overlay_candidate", attempt),
+                (refinement, "_try_recipe", proposal),
+            ):
+                if hasattr(owner, name):
+                    bind(owner, name, factory)
             bind(refinement, "_try_descriptor", proposal)
             for owner in (search, refinement):
                 bind(owner, "consume_candidate_result", consume)

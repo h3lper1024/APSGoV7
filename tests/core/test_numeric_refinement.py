@@ -1,28 +1,14 @@
 """Post-search numeric refinement keeps actions, resources and shared quota coherent."""
 
+from tests.core import numeric_reference_refinement as reference_refinement
 import numpy as np
+import pytest
 
 import apsgo_scheduler.core._numeric_refinement as refinement
 from apsgo_scheduler.core._numeric_evaluation import evaluate_numeric_plan
-from apsgo_scheduler.core._numeric_refinement import (
-    NumericRefinementDiagnostics,
-    NumericRefinementIndex,
-    _critical_sources,
-    _delivery_sources,
-    _direct_slots,
-    _family_stream,
-    _recipe_real_sources,
-    _round_robin,
-    _scan_family,
-    _source_recipe_stream,
-    improve_numeric_refinement,
-    run_numeric_serial_search,
-)
-from apsgo_scheduler.core._numeric_resources import (
-    extend_resource_workspace,
-    split_piece_node,
-    virtual_node,
-)
+from apsgo_scheduler.core._numeric_refinement import NumericRefinementDiagnostics, _scan_family, improve_numeric_refinement, run_numeric_serial_search
+from tests.core.numeric_reference_refinement import NumericRefinementIndex, _critical_sources, _delivery_sources, _direct_slots, _family_stream, _recipe_real_sources, _round_robin, _source_recipe_stream
+from tests.core.numeric_reference_resources import extend_resource_workspace, split_piece_node, virtual_node
 from apsgo_scheduler.core._numeric_search import NumericSearchAction, NumericSearchState
 from apsgo_scheduler.core._numeric_state import NumericPlan, NumericSplitGroup, readonly
 from apsgo_scheduler.core._numeric_units import allocate_piece_milliseconds
@@ -304,8 +290,8 @@ def test_block_family_builds_shared_structural_ownership_once(monkeypatch):
     state = _state(task, program, quality, range(6), (0, 3, 6), (10, 20), (0, 0))
     index = NumericRefinementIndex.build(state)
     sources = _delivery_sources(state)
-    original = refinement._structural_ownership
-    original_chain_order = refinement._chain_order
+    original = reference_refinement._structural_ownership
+    original_chain_order = reference_refinement._chain_order
     calls = []
     chain_order_calls = []
 
@@ -317,8 +303,8 @@ def test_block_family_builds_shared_structural_ownership_once(monkeypatch):
         chain_order_calls.append((args, kwargs))
         return original_chain_order(*args, **kwargs)
 
-    monkeypatch.setattr(refinement, "_structural_ownership", counted)
-    monkeypatch.setattr(refinement, "_chain_order", counted_chain_order)
+    monkeypatch.setattr(reference_refinement, "_structural_ownership", counted)
+    monkeypatch.setattr(reference_refinement, "_chain_order", counted_chain_order)
     recipes = tuple(
         _family_stream(
             state,
@@ -466,21 +452,21 @@ def test_refinement_rejects_split_piece_outside_authorized_target_period(monkeyp
         readonly((2, count), np.int64),
         readonly((count + 1, 1), np.int64),
     )
-    overlay = refinement._candidate_overlay(
+    overlay = reference_refinement._candidate_overlay(
         state.task, state.plan, chains, (10, 20), (0, 1), group_periods=False
     )
-    edit = refinement._edit_for(
+    edit = reference_refinement._edit_for(
         state,
         (NumericSearchAction.NODE_MOVE, 20, 10, 0, 1, 1, -1),
         runtime.candidate_check_count,
     )
     monkeypatch.setattr(
-        refinement,
+        reference_refinement,
         "summarize_numeric_candidate",
         lambda *args, **kwargs: pytest.fail("invalid split candidate must not be evaluated"),
     )
 
-    assert not refinement._try_overlay_candidate(
+    assert not reference_refinement._try_overlay_candidate(
         state,
         runtime,
         edit,
@@ -664,7 +650,7 @@ def test_rejected_refinement_overlay_does_not_materialize_formal_plan(monkeypatc
         -1,
     )
     monkeypatch.setattr(
-        refinement,
+        reference_refinement,
         "_build_plan",
         lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError()),
     )
@@ -675,7 +661,7 @@ def test_rejected_refinement_overlay_does_not_materialize_formal_plan(monkeypatc
                 evaluation.NumericViolation, evaluation.NumericMetric):
         monkeypatch.setattr(cls, "__post_init__", reject_detail_object)
 
-    assert not refinement._try_recipe(
+    assert not reference_refinement._try_recipe(
         state,
         runtime,
         recipe,
