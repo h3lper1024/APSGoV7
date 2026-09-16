@@ -9,7 +9,11 @@ from time import perf_counter
 import numpy as np
 from numba import njit
 
-from ._numeric_kernel import task_columns, rule_tables, edge_node, all_edges_allowed_values
+from ._numeric_kernel import (
+    task_columns, rule_tables, edge_node, all_edges_allowed_values,
+    evaluate_chain_kernel, _add,
+)
+from ._numeric_chain_ops import bind_base_chain, flatten_view, reorder_chains
 from ._numeric_state import OK, INVALID, CAPACITY, MORE_WORK
 
 from ._numeric_evaluation import (
@@ -20,11 +24,9 @@ from ._numeric_evaluation import (
 from ._numeric_rules import (
     NumericRuleKind,
     NumericRuleProgram,
-    numeric_rows_prohibited_profile,
-    numeric_edge_allowed,
 )
-from ._numeric_state import NumericPlan, NumericTask, readonly
-from ._numeric_units import NumericValueError, checked_sum, int64
+from ._numeric_state import NumericPlan, NumericTask, NumericChainView, readonly
+from ._numeric_units import NumericValueError, int64
 from .budget import SolveRuntimeBudget
 from .contracts import SearchStopReason, fingerprint
 
@@ -595,6 +597,85 @@ class NumericInitialSolution:
         return self.stop_reason is None
 
 
+@njit
+def _cover_edges_valid(positions, adjacency_offsets, adjacency_rows, offsets, rows):
+    for path in range(offsets.size - 1):
+        for i in range(offsets[path], offsets[path + 1] - 1):
+            left, right = positions[rows[i]], rows[i + 1]
+            found = False
+            for edge in range(adjacency_offsets[left], adjacency_offsets[left + 1]):
+                if adjacency_rows[edge] == right:
+                    found = True
+                    break
+            if not found:
+                return False
+    return True
+
+
+@njit
+def _initial_chain_slice(t, view, index, start, stop):
+    period = t.period[view.base_rows[start]]
+    for i in range(start + 1, stop):
+        period = min(period, t.period[view.base_rows[i]])
+    return bind_base_chain(view, index, start, stop, index, period)
+
+
+@njit
+def _initial_layout_step(t, rules, offsets, maximum, view, cursor, status, work_limit):
+    """Resume original append/cut policy on borrowed path slices, not objects."""
+    path, position, start, weight, valid, count, severity, chains = cursor
+    work = 0
+    while path < offsets.size - 1:
+        stop = offsets[path + 1]
+        while position < stop and work < work_limit:
+            row = view.base_rows[position]
+            node_weight = t.weight[row]
+            if maximum >= 0 and node_weight > maximum:
+                status[0], status[3] = INVALID, row
+                return INVALID
+            appended_weight = _add(weight, node_weight, status)
+            if status[0] != OK:
+                return status[0]
+            append = False
+            if position > start and (maximum < 0 or appended_weight <= maximum):
+                result = evaluate_chain_kernel(t, rules, view.base_rows[start:position + 1])
+                if result.status[0] != OK:
+                    status[:] = result.status
+                    return status[0]
+                if not valid:
+                    previous = evaluate_chain_kernel(t, rules, view.base_rows[start:position])
+                    if previous.status[0] != OK:
+                        status[:] = previous.status
+                        return status[0]
+                    count, severity = previous.scores[0, 0], previous.scores[0, 1]
+                next_count, next_severity = result.scores[0, 0], result.scores[0, 1]
+                append = next_count < count or (next_count == count and next_severity <= severity)
+                if append:
+                    count, severity, valid = next_count, next_severity, 1
+            if append:
+                weight = appended_weight
+            else:
+                if position > start:
+                    code = _initial_chain_slice(t, view, chains, start, position)
+                    if code != OK:
+                        return code
+                    chains += 1
+                start, weight, valid = position, node_weight, 0
+            position += 1
+            work += 1
+        if position == stop:
+            code = _initial_chain_slice(t, view, chains, start, stop)
+            if code != OK:
+                return code
+            chains += 1
+            path += 1
+            start, weight, valid = position, 0, 0
+        cursor[:] = (path, position, start, weight, valid, count, severity, chains)
+        if work >= work_limit:
+            return OK if path == offsets.size - 1 else MORE_WORK
+    return OK
+
+
 def construct_numeric_initial_plan(task, program, quality, graph, cover, budget):
     if (
         not isinstance(task, NumericTask)
@@ -623,20 +704,11 @@ def construct_numeric_initial_plan(task, program, quality, graph, cover, budget)
         raise NumericValueError("initial", "path cover rows do not match construction graph")
     graph_positions = np.empty(graph.ordered_rows.size, dtype=np.int64)
     graph_positions[graph.ordered_rows] = np.arange(graph.ordered_rows.size, dtype=np.int64)
-    for path_index in range(cover.path_count):
-        start = int(cover.path_offsets[path_index])
-        stop = int(cover.path_offsets[path_index + 1])
-        path = cover.path_rows[start:stop]
-        for left_value, right_value in zip(path[:-1], path[1:]):
-            left, right = int(left_value), int(right_value)
-            position = int(graph_positions[left])
-            targets = graph.adjacency_rows[
-                int(graph.adjacency_offsets[position]) : int(graph.adjacency_offsets[position + 1])
-            ]
-            if not np.any(targets == right):
-                raise NumericValueError("initial", "path cover contains an absent graph edge")
+    if not _cover_edges_valid(graph_positions, graph.adjacency_offsets,
+                              graph.adjacency_rows, cover.path_offsets, cover.path_rows):
+        raise NumericValueError("initial", "path cover contains an absent graph edge")
     weight_rules = program.for_kind(NumericRuleKind.CHAIN_WEIGHT)
-    maximum = weight_rules[0].values[1] if weight_rules else None
+    maximum = int(weight_rules[0].values[1]) if weight_rules else -1
 
     def interrupted():
         return NumericInitialSolution(
@@ -649,58 +721,34 @@ def construct_numeric_initial_plan(task, program, quality, graph, cover, budget)
             None,
         )
 
-    chains = []
-    chain_ids = []
-    periods = []
-    for path_index in range(cover.path_count):
+    capacity = cover.path_rows.size
+    view = NumericChainView(cover.path_rows, np.empty(0, np.int64),
+        np.empty(capacity, np.int64), np.empty(capacity, np.int64),
+        np.zeros(capacity, np.bool_), np.empty(capacity, np.int64),
+        np.empty(capacity, np.int64), capacity, 0)
+    cursor, status = np.zeros(8, np.int64), np.zeros(5, np.int64)
+    columns, rules = task_columns(task), rule_tables(program.rules)
+    while True:
         if not budget.allows_search():
             return interrupted()
-        start = int(cover.path_offsets[path_index])
-        stop = int(cover.path_offsets[path_index + 1])
-        current = []
-        current_weight = 0
-        current_profile = None
-        for row_value in cover.path_rows[start:stop]:
-            if not budget.allows_search():
-                return interrupted()
-            row = int(row_value)
-            weight = int(task.nodes.weight[row])
-            if maximum is not None and weight > maximum:
-                raise NumericValueError("initial", f"row {row} exceeds atomic chain maximum")
-            append = (*current, row)
-            appended_weight = checked_sum((current_weight, weight), "initial_chain_weight")
-            within_weight = maximum is None or appended_weight <= maximum
-            if current and within_weight:
-                direct_profile = numeric_rows_prohibited_profile(task, program, append)
-                if current_profile is None:
-                    current_profile = numeric_rows_prohibited_profile(task, program, current)
-                if direct_profile <= current_profile:
-                    current = list(append)
-                    current_weight = appended_weight
-                    current_profile = direct_profile
-                    continue
-            if current:
-                chains.append(tuple(current))
-                chain_ids.append(len(chain_ids))
-                periods.append(min(int(task.nodes.source_period[value]) for value in current))
-            current = [row]
-            current_weight = weight
-            current_profile = None
-        chains.append(tuple(current))
-        chain_ids.append(len(chain_ids))
-        periods.append(min(int(task.nodes.source_period[value]) for value in current))
+        code = _initial_layout_step(columns, rules, cover.path_offsets,
+                                    maximum, view, cursor, status, 256)
+        if code == MORE_WORK:
+            continue
+        if code == INVALID:
+            raise NumericValueError("initial", f"row {int(status[3])} exceeds atomic chain maximum")
+        if code != OK:
+            raise NumericValueError("initial", f"numeric construction failed: {int(code)} at {status.tolist()}")
+        break
     if not budget.allows_search():
         return interrupted()
+    view = view._replace(count=int(cursor[7]))
     if program.for_kind(NumericRuleKind.DELIVERY):
-        order = sorted(range(len(chains)), key=periods.__getitem__)
-        chains = [chains[index] for index in order]
-        chain_ids = [chain_ids[index] for index in order]
-        periods = [periods[index] for index in order]
-    rows = [row for chain in chains for row in chain]
-    offsets = [0]
-    for chain in chains:
-        offsets.append(offsets[-1] + len(chain))
-    plan = NumericPlan.build(task, rows, offsets, chain_ids, periods)
+        order = np.argsort(view.periods[:view.count], kind="stable")
+        if reorder_chains(view, order) != OK:
+            raise NumericValueError("initial", "invalid initial chain order")
+    rows, offsets = flatten_view(view)
+    plan = NumericPlan.build(task, rows, offsets, view.ids[:view.count], view.periods[:view.count])
     evaluation = evaluate_numeric_plan(task, program, quality, plan)
     if not budget.allows_search():
         return interrupted()

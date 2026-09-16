@@ -5,11 +5,124 @@ from itertools import combinations
 from random import Random
 
 import numpy as np
+import pytest
 
 from apsgo_scheduler.core import _numeric_construction as construction
 from apsgo_scheduler.core._numeric_kernel import task_columns, rule_tables
 from apsgo_scheduler.core._numeric_state import readonly, OK, CAPACITY, MORE_WORK
 from tests.core.test_numeric_construction import construction_case, budget
+
+
+def reference_initial_layout(task, program, cover):
+    from apsgo_scheduler.core._numeric_rules import NumericRuleKind, numeric_rows_prohibited_profile
+    chains, ids, periods = [], [], []
+    weights = program.for_kind(NumericRuleKind.CHAIN_WEIGHT)
+    maximum = weights[0].values[1] if weights else None
+
+    def finish(current):
+        chains.append(tuple(current))
+        ids.append(len(ids))
+        periods.append(min(int(task.nodes.source_period[row]) for row in current))
+
+    for p in range(cover.path_count):
+        current, weight, profile = [], 0, None
+        for value in cover.path_rows[cover.path_offsets[p]:cover.path_offsets[p + 1]]:
+            row = int(value)
+            appended = (*current, row)
+            added_weight = weight + int(task.nodes.weight[row])
+            if current and (maximum is None or added_weight <= maximum):
+                candidate = numeric_rows_prohibited_profile(task, program, appended)
+                if profile is None:
+                    profile = numeric_rows_prohibited_profile(task, program, current)
+                if candidate <= profile:
+                    current, weight, profile = list(appended), added_weight, candidate
+                    continue
+            if current:
+                finish(current)
+            current, weight, profile = [row], int(task.nodes.weight[row]), None
+        finish(current)
+    if program.for_kind(NumericRuleKind.DELIVERY):
+        order = sorted(range(len(chains)), key=periods.__getitem__)
+        chains, ids, periods = ([values[i] for i in order] for values in (chains, ids, periods))
+    return chains, ids, periods
+
+
+@pytest.mark.parametrize("seed", range(8))
+def test_native_initial_layout_matches_reference_cuts_period_grouping_and_identity(seed, monkeypatch):
+    from apsgo_scheduler.core import _numeric_rules as old_rules
+    from apsgo_scheduler.core._numeric_state import NumericPlan
+    rng = Random(seed)
+    task, program, quality = construction_case(
+        weights=tuple(str(rng.choice((100, 400, 600))) for _ in range(12)),
+        widths=tuple(str(rng.choice((1000, 980, 960))) for _ in range(12)),
+        source_periods=tuple(rng.choice(("P0", "P1")) for _ in range(12)))
+    graph = construction.build_numeric_construction_graph(task, program, budget(), seed=seed)
+    cover = construction.numeric_minimum_path_cover(graph, budget())
+    chains, ids, periods = reference_initial_layout(task, program, cover)
+    expected = NumericPlan.build(task, [r for chain in chains for r in chain],
+        np.concatenate(([0], np.cumsum([len(chain) for chain in chains]))), ids, periods)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("object chain wrapper re-entered")
+
+    monkeypatch.setattr(old_rules, "numeric_rows_prohibited_profile", forbidden)
+    runtime = budget()
+    actual = construction.construct_numeric_initial_plan(task, program, quality, graph, cover, runtime)
+    assert actual.complete and actual.plan.fingerprint == expected.fingerprint
+    assert runtime.candidate_check_count == 0
+    assert construction._initial_layout_step.nopython_signatures
+
+
+def test_initial_chunk_continuation_and_arithmetic_failure_have_no_partial_publication():
+    from apsgo_scheduler.core._numeric_state import NumericChainView, INVALID, NUMERIC_ERROR
+    task, program, quality = construction_case(weights=("100",) * 6, widths=("1000",) * 6)
+    graph = construction.build_numeric_construction_graph(task, program, budget(), seed=7)
+    cover = construction.numeric_minimum_path_cover(graph, budget())
+    columns, rules = task_columns(task), rule_tables(program.rules)
+    single_weight = int(columns.weight[0])
+
+    def build_view():
+        return NumericChainView(cover.path_rows, np.empty(0, np.int64),
+            np.zeros(6, np.int64), np.zeros(6, np.int64), np.zeros(6, np.bool_),
+            np.zeros(6, np.int64), np.zeros(6, np.int64), 6, 0)
+
+    snapshots = []
+    for limit in (1, 2, 256):
+        view, cursor, status = build_view(), np.zeros(8, np.int64), np.zeros(5, np.int64)
+        while True:
+            code = construction._initial_layout_step(columns, rules, cover.path_offsets, single_weight * 2,
+                view, cursor, status, limit)
+            if code != MORE_WORK:
+                break
+        assert code == OK
+        snapshots.append((view.starts[:cursor[7]].tolist(), view.stops[:cursor[7]].tolist()))
+    assert snapshots[0] == snapshots[1] == snapshots[2]
+    view, cursor, status = build_view(), np.zeros(8, np.int64), np.zeros(5, np.int64)
+    assert construction._initial_layout_step(columns, rules, cover.path_offsets, single_weight - 1,
+        view, cursor, status, 256) == INVALID
+    assert cursor[7] == 0
+    huge = columns._replace(weight=np.full(6, (1 << 63) - 1, np.int64))
+    cursor, status = np.zeros(8, np.int64), np.zeros(5, np.int64)
+    assert construction._initial_layout_step(huge, rules, cover.path_offsets, -1,
+        view, cursor, status, 256) == NUMERIC_ERROR
+
+
+def test_initial_mid_chunk_cancel_does_not_publish_any_plan():
+    task, program, quality = construction_case(weights=("100",) * 300, widths=("1000",) * 300)
+    graph = construction.build_numeric_construction_graph(task, program, budget(), seed=7)
+    cover = construction.numeric_minimum_path_cover(graph, budget())
+
+    class CancelAfter:
+        calls = 0
+
+        def is_cancelled(self):
+            self.calls += 1
+            return self.calls > 1
+
+    runtime = budget(cancellation=CancelAfter())
+    initial = construction.construct_numeric_initial_plan(task, program, quality, graph, cover, runtime)
+    assert not initial.complete and initial.plan is None and initial.fingerprint is None
+    assert runtime.candidate_check_count == 0
 
 
 def reference_matching(ordered, adjacency):

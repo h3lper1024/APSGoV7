@@ -59,6 +59,17 @@ def check_source(source, path, package):
         for node in tree.body:
             if ast.dump(node) == ast.dump(shape):
                 approved_shape_numbers.update(item for item in ast.walk(node) if isinstance(item, ast.Constant))
+        # Existing native status column 3 locates a failing row; this is not a
+        # benchmark count. Only allow that exact access in its two owners.
+        location = ast.parse("status[3]", mode="eval").body
+        for definition in tree.body:
+            if isinstance(definition, ast.FunctionDef) and definition.name in (
+                "_initial_layout_step", "construct_numeric_initial_plan"
+            ):
+                for node in ast.walk(definition):
+                    if isinstance(node, ast.Subscript) and ast.dump(node.slice) == ast.dump(location.slice):
+                        if isinstance(node.value, ast.Name) and node.value.id == "status":
+                            approved_shape_numbers.add(node.slice)
     if module == "apsgo_scheduler.core._candidate_edit":
         shape = ast.parse('guard != "width_optimization" or len(indices) != 3', mode="eval").body
         for definition in tree.body:

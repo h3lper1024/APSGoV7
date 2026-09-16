@@ -21,6 +21,30 @@ def chain_rows(view, chain):
 
 
 @njit
+def bind_base_chain(view, chain, start, stop, identity, period):
+    """Attach an existing slice; callers own the active metadata length."""
+    if (chain < 0 or chain >= view.ids.size or start < 0 or stop <= start
+            or stop > view.base_rows.size or identity < 0 or period < 0):
+        return INVALID
+    view.starts[chain], view.stops[chain] = start, stop
+    view.private[chain] = False
+    view.ids[chain], view.periods[chain] = identity, period
+    return OK
+
+
+@njit
+def flatten_view(view):
+    """Materialize once at a formal plan boundary, never for rejected attempts."""
+    offsets = np.zeros(view.count + 1, np.int64)
+    for chain in range(view.count):
+        offsets[chain + 1] = offsets[chain] + view.stops[chain] - view.starts[chain]
+    rows = np.empty(offsets[-1], np.int64)
+    for chain in range(view.count):
+        rows[offsets[chain]:offsets[chain + 1]] = chain_rows(view, chain)
+    return rows, offsets
+
+
+@njit
 def write_parts(view, parts, extra, used):
     """Append ordered slices atomically; chain -1 denotes the explicit extra array.
 

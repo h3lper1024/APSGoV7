@@ -20,6 +20,26 @@ def chains(value):
     return [ops.chain_rows(value.view(), i).tolist() for i in range(value.chain_count)]
 
 
+def test_base_binding_and_formal_flatten_share_slices_until_final_boundary():
+    value = workspace()
+    view = value.view()
+    assert ops.bind_base_chain(view, 0, 2, 5, 99, 1) == OK
+    assert value.ids[0] == 99 and value.periods[0] == 1 and not value.private[0]
+    assert np.shares_memory(ops.chain_rows(view, 0), value.plan.node_rows)
+    before = (value.starts.copy(), value.stops.copy(), value.ids.copy())
+    for args in ((-1, 0, 1, 1, 0), (0, 2, 2, 1, 0), (0, 0, 8, 1, 0), (0, 0, 1, -1, 0)):
+        assert ops.bind_base_chain(view, *args) == INVALID
+    for actual, expected in zip((value.starts, value.stops, value.ids), before):
+        np.testing.assert_array_equal(actual, expected)
+    status, value.changed_count = ops.reverse_chain(view, 1, 0)
+    assert status == OK
+    rows, offsets = ops.flatten_view(value.view())
+    assert rows.tolist() == [2, 3, 4, 4, 3, 5, 6]
+    assert offsets.tolist() == [0, 3, 5, 7]
+    assert not np.shares_memory(rows, value.plan.node_rows)
+    assert ops.bind_base_chain.nopython_signatures and ops.flatten_view.nopython_signatures
+
+
 def test_slice_reverse_insert_delete_and_append_use_only_changed_storage():
     value = workspace()
     base = value.plan.node_rows.copy()
