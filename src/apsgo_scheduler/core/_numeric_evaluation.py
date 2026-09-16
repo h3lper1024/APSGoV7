@@ -18,7 +18,6 @@ from ._numeric_rules import (
 from ._numeric_state import NumericPlan, NumericPlanOverlay, NumericTask, readonly
 from ._numeric_units import (
     NumericValueError,
-    checked_product,
     checked_sum,
     int64,
     score_seconds,
@@ -309,66 +308,55 @@ def _delivery(task, plan, previous_plan=None, previous=None):
     prefix = suffix = 0
     if previous_plan is not None and previous is not None:
         limit = min(rows.size, previous_plan.node_rows.size)
-        while prefix < limit and rows[prefix] == previous_plan.node_rows[prefix]:
-            prefix += 1
-        while (
-            suffix < limit - prefix
-            and rows[rows.size - suffix - 1]
-            == previous_plan.node_rows[previous_plan.node_rows.size - suffix - 1]
-        ):
-            suffix += 1
+        differences = np.flatnonzero(rows[:limit] != previous_plan.node_rows[:limit])
+        prefix = int(differences[0]) if differences.size else limit
+        remaining = limit - prefix
+        if remaining:
+            differences = np.flatnonzero(
+                rows[-remaining:][::-1] != previous_plan.node_rows[-remaining:][::-1]
+            )
+            suffix = int(differences[0]) if differences.size else remaining
+
+    def accumulate(start, stop, clock):
+        if start == stop:
+            return clock
+        durations = task.nodes.duration_ms[rows[start:stop]]
+        final = checked_sum((clock, sum(map(int, durations))), "production_clock")
+        ends[start:stop] = np.cumsum(durations, dtype=np.int64)
+        if clock:
+            ends[start:stop] += clock
+        return final
+
     clock = int(previous.node_end_ms[prefix - 1]) if prefix else 0
     if prefix:
         ends[:prefix] = previous.node_end_ms[:prefix]
     middle_stop = rows.size - suffix
-    for position in range(prefix, middle_stop):
-        clock = checked_sum(
-            (clock, int(task.nodes.duration_ms[int(rows[position])])), "production_clock"
-        )
-        ends[position] = clock
+    clock = accumulate(prefix, middle_stop, clock)
     if suffix:
         previous_start = previous_plan.node_rows.size - suffix
         previous_entry = int(previous.node_end_ms[previous_start - 1]) if previous_start else 0
         if clock == previous_entry:
             ends[middle_stop:] = previous.node_end_ms[previous_start:]
         else:
-            for position in range(middle_stop, rows.size):
-                clock = checked_sum(
-                    (clock, int(task.nodes.duration_ms[int(rows[position])])),
-                    "production_clock",
-                )
-                ends[position] = clock
+            accumulate(middle_stop, rows.size, clock)
     if isinstance(plan, NumericPlan):
-        completion = [int(ends[int(position)]) for position in plan.source_last_position]
+        completion = ends[plan.source_last_position]
     else:
-        completion_values = np.zeros(task.originals.weight.size, dtype=np.int64)
+        completion = np.zeros(task.originals.weight.size, dtype=np.int64)
         owners = task.nodes.source[rows]
         real = owners >= 0
-        np.maximum.at(completion_values, owners[real], ends[real])
-        completion = [int(value) for value in completion_values]
+        np.maximum.at(completion, owners[real], ends[real])
     due = task.originals.due_ms
-    late = [
-        int(due[index]) > 0 and completion[index] > int(due[index])
-        for index in range(len(completion))
-    ]
-    waits = [
-        score_seconds(max(0, completion[index] - max(0, int(due[index]))), "delivery_wait")
-        for index in range(len(completion))
-    ]
-    late_weight = checked_sum(
-        (int(task.originals.weight[index]) for index, value in enumerate(late) if value),
-        "newly_late_weight",
-    )
-    old_completion = max(
-        (completion[index] for index, value in enumerate(task.originals.old_backlog) if value),
-        default=0,
-    )
+    late = (due > 0) & (completion > due)
+    delayed_ms = np.maximum(completion - np.maximum(due, 0), 0)
+    waits = delayed_ms // 1000 + (delayed_ms % 1000 >= 500)
+    weights = task.originals.weight
+    late_weight = int(weights[late].sum(dtype=np.int64))
+    old = completion[task.originals.old_backlog]
+    old_completion = int(old.max()) if old.size else 0
     clearance = score_seconds(old_completion, "old_backlog_last_completion")
-    burden = checked_sum(
-        (
-            checked_product(int(task.originals.weight[index]), wait, "delivery_wait_burden")
-            for index, wait in enumerate(waits)
-        ),
+    burden = int64(
+        sum(int(weight) * int(wait) for weight, wait in zip(weights, waits)),
         "delivery_wait_burden",
     )
     return NumericDeliveryEvaluation(

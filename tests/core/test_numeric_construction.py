@@ -41,6 +41,7 @@ def construction_case(
     temperatures=None,
     grade_class="ordinary",
     source_periods=None,
+    duration_hours=None,
 ):
     temperatures = temperatures or (("700", "800"),) * len(weights)
     source_periods = source_periods or ("P0",) * len(weights)
@@ -66,11 +67,12 @@ def construction_case(
     spec = numeric_quality_spec()
     request = make_request(rule_set_spec=spec, orders=orders)
     due_dates = due_dates or ("2026-06-30",) * len(orders)
+    duration_hours = duration_hours or ("1",) * len(orders)
     timing = DeliveryTimingInput(
         "2026-06-01T00:00:00+08:00",
         tuple(
-            OrderTimingInput(order.source_order_id, due_date, D("1"))
-            for order, due_date in zip(orders, due_dates)
+            OrderTimingInput(order.source_order_id, due_date, D(duration))
+            for order, due_date, duration in zip(orders, due_dates, duration_hours)
         ),
         {prototype.prototype_id: D("0.1") for prototype in request.virtual_prototypes},
     )

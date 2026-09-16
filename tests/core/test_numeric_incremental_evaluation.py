@@ -95,6 +95,22 @@ def test_chain_reorder_reuses_unchanged_chain_results_and_matches_full(monkeypat
     _assert_same(incremental, full)
 
 
+def test_delivery_clock_vectorization_keeps_half_up_second_rounding():
+    task, program, quality = construction_case(
+        weights=("100",) * 3,
+        widths=("1000", "900", "800"),
+        due_dates=("2026-05-31",) * 3,
+        duration_hours=("0.00041666666666666667",) * 3,
+    )
+    plan = NumericPlan.build(task, (0, 1, 2), (0, 3), (10,), (0,))
+
+    result = evaluate_numeric_plan(task, program, quality, plan)
+
+    assert result.delivery.node_end_ms.tolist() == [1500, 3000, 4500]
+    assert result.delivery.wait_seconds.tolist() == [2, 3, 5]
+    assert result.delivery.old_backlog_last_completion_seconds == 5
+
+
 def test_only_changed_chains_are_recomputed_and_result_matches_full(monkeypatch):
     task, program, quality = construction_case(
         weights=("100", "100", "100", "100"),
