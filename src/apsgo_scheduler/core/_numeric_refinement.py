@@ -9,6 +9,9 @@ from types import MappingProxyType
 
 import numpy as np
 
+from . import _numeric_refinement_scan as numeric_scan
+from ._numeric_kernel import task_columns, rule_tables
+
 from ._numeric_evaluation import (
     summarize_numeric_candidate,
     materialize_numeric_evaluation,
@@ -1352,7 +1355,7 @@ def _scan_family(
         before_computed = diagnostics.numeric_precomputed.get(diagnostic_key, 0) if diagnostics else 0
         before_consumed = diagnostics.numeric_consumed.get(diagnostic_key, 0) if diagnostics else 0
         prepared = _prepare_recipe_batch(
-            state, budget, [item[1] if cursor is not None else item for item in batch],
+            state, budget, [_descriptor_recipe(item[1] if cursor is not None else item) for item in batch],
             maximum_virtual_bridge_nodes, index, diagnostics, diagnostic_key,
         ) if _batch_size > 1 else [None] * len(batch)
 
@@ -1366,6 +1369,7 @@ def _scan_family(
 
         for position, item in enumerate(batch):
             owner, recipe = item if cursor is not None else (None, item)
+            recipe = _descriptor_recipe(recipe)
             if not budget.consume_candidate_check():
                 stopped = len(batch) - position
                 if diagnostics is not None:
@@ -1416,6 +1420,23 @@ def _scan_family(
     return False, False
 
 
+def _descriptor_recipe(value):
+    """Temporary metadata adapter until the preparation boundary moves in 6.2."""
+    if not isinstance(value, np.ndarray):
+        return value
+    return (tuple(NumericSearchAction)[int(value[0])],
+            *(int(value[i]) for i in (1, 2, 5, 6, 7, 8)))
+
+
+def _descriptor_family_stream(scan, columns, rules, family, cursor, lane, budget, diagnostics):
+    key = f"{'critical' if lane else 'regular'}:{family}"
+    for value in numeric_scan.family_stream(scan, columns, rules, family, cursor[family], lane, budget):
+        if diagnostics is not None:
+            for name in ("raw_combinations", "unique_combinations", "routed_combinations"):
+                diagnostics.record(name, key)
+        yield int(value[numeric_scan.OWNER]), value
+
+
 def improve_numeric_refinement(
     state,
     budget,
@@ -1440,33 +1461,20 @@ def improve_numeric_refinement(
     next_family, next_lane = [0, 0], 0
     first_cleanup = True
     while budget.allows_search():
+        columns, rules = task_columns(state.task), rule_tables(state.program.rules)
+        scan = numeric_scan.build_scan(state, columns)
         index = NumericRefinementIndex.build(state)
-        critical_order = _critical_sources(state, index)
-        critical = frozenset(critical_order)
-        index = index.with_critical_sources(state, critical)
-        ordered_sources = (
-            *critical_order,
-            *(source for source in _delivery_sources(state) if source not in critical),
-        )
+        index = replace(index, critical_prefix=scan.critical)
         streams = [
             [
-                _family_stream(
-                    state,
-                    family,
-                    cursors[lane],
-                    ordered_sources,
-                    critical,
-                    lane == 0,
-                    budget,
-                    diagnostics,
-                    index,
-                    defer_cursor=True,
-                )
+                _descriptor_family_stream(scan, columns, rules, family, cursors[lane],
+                    lane == 0, budget, diagnostics)
                 for family in _FAMILIES[: _CRITICAL_FAMILY_COUNT if lane == 0 else -1]
             ]
             for lane in range(2)
         ]
-        cleanup = iter(_reclamation_stream(state, diagnostics, index, budget))
+        cleanup = numeric_scan.bounded(numeric_scan.reclaim(scan, state.task.nodes.role,
+            state.task.nodes.purpose, state.task.nodes.split_group), budget)
         streams[1].append(cleanup)
         sizes = (_CRITICAL_FAMILY_COUNT, _REGULAR_FAMILY_COUNT)
         pending = [

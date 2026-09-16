@@ -1,4 +1,4 @@
-"""Compare first search (optionally split/replay), without entering refinement."""
+"""Compare search prefixes and an optional bounded refinement window."""
 
 import argparse
 from dataclasses import fields
@@ -16,7 +16,10 @@ def main():
     parser.add_argument("--prepared-request", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--through-split", action="store_true")
+    parser.add_argument("--refinement-checks", type=int, default=0)
     args = parser.parse_args()
+    if args.refinement_checks < 0 or (args.refinement_checks and not args.through_split):
+        parser.error("nonnegative refinement window requires --through-split")
     root = args.source_root.resolve()
     sys.path[:0] = [str(root / "src"), str(root)]
     from apsgo_scheduler.app.input_normalizer import normalize_input
@@ -100,6 +103,33 @@ def main():
             search.improve_numeric_controlled_split(state, runtime, pair_scan_slack_weight=slack,
                 maximum_virtual_bridge_nodes=request.policy.maximum_virtual_bridge_nodes)
             data["phases"].append(snapshot())
+        if args.refinement_checks:
+            from apsgo_scheduler.core import _numeric_refinement as refinement
+            import numpy as np
+            phase = "refinement_window"
+            runtime.candidate_check_limit = min(runtime.candidate_check_limit,
+                runtime.candidate_check_count + args.refinement_checks)
+            generate_digest, generate_count = hashlib.sha256(), 0
+            original_scan = refinement._scan_family
+            def scan(current, budget, recipes, *a, **kw):
+                def observed():
+                    nonlocal generate_count
+                    for item in recipes:
+                        owner, value = item if kw.get("cursor") is not None else (None, item)
+                        if isinstance(value, np.ndarray):
+                            value = (tuple(search.NumericSearchAction)[value[0]],
+                                *(int(value[i]) for i in (1, 2, 5, 6, 7, 8)))
+                        record = (kw.get("diagnostic_key"), owner, value[0].value, *value[1:])
+                        generate_digest.update(json.dumps(record, separators=(",", ":")).encode() + b"\n")
+                        generate_count += 1
+                        yield item
+                return original_scan(current, budget, observed(), *a, **kw)
+            with patch.object(refinement, "_scan_family", scan):
+                refinement.improve_numeric_refinement(state, runtime,
+                    maximum_virtual_bridge_nodes=request.policy.maximum_virtual_bridge_nodes)
+            data["phases"].append(snapshot())
+            data.update(refinement_descriptions=generate_count,
+                refinement_description_sha256=generate_digest.hexdigest())
     data.update(quota_count=quota_count, quota_sha256=digest.hexdigest(), final=snapshot(),
         node_ids=state.task.node_ids, ancestors=state.task.ancestor_fingerprints,
         rows=state.plan.node_rows.tolist(), offsets=state.plan.chain_offsets.tolist(),

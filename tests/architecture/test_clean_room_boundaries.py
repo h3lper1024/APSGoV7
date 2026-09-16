@@ -148,6 +148,7 @@ def check_source(source, path, package):
                         or (module == "apsgo_scheduler.core._numeric_construction" and top in {"numpy", "numba"})
                         or (module == "apsgo_scheduler.core._numeric_audit" and top == "numpy")
                         or (module == "apsgo_scheduler.core._numeric_refinement" and top == "numpy")
+                        or (module == "apsgo_scheduler.core._numeric_refinement_scan" and top in {"numpy", "numba"})
                         or (module == "apsgo_scheduler.core._numeric_batch" and top == "numpy")
                         or (module == "apsgo_scheduler.core._numeric_resources" and top == "numpy")
                     )
@@ -469,6 +470,16 @@ def test_numeric_first_search_dependency_exception_is_exact():
             check_source(source, PACKAGE / "core" / "_numeric_search.py", PACKAGE)
     with pytest.raises(AssertionError):
         check_source("import numpy", PACKAGE / "core" / "_numeric_search_extra.py", PACKAGE)
+
+
+def test_numeric_refinement_scan_dependency_exception_is_exact():
+    for source in ("import numpy", "from numba import njit"):
+        check_source(source, PACKAGE / "core" / "_numeric_refinement_scan.py", PACKAGE)
+    for source in ("import pandas", "import scipy"):
+        with pytest.raises(AssertionError):
+            check_source(source, PACKAGE / "core" / "_numeric_refinement_scan.py", PACKAGE)
+    with pytest.raises(AssertionError):
+        check_source("import numpy", PACKAGE / "core" / "_numeric_refinement_scan_extra.py", PACKAGE)
 
 
 def test_candidate_recipe_arity_is_not_a_benchmark_constant():
