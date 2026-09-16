@@ -292,3 +292,42 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m 
 另以 64 项容量运行相同对照，耗时 35.708884 秒、CPU 35.623137 秒、峰值 137166848 字节、实际资源工作区构造 8007 次。与 128 项相比只减少约 6 MB 峰值，却增加约 0.58 秒，因此当前保留 128 项固定上限。
 
 128 项结果的结果指纹、确定性运行指纹、轨迹指纹、九级评分、候选/完整评价/接受/拆单/链数全部计数和双审计与无复用样本一致；交期报告 SHA-256 逐字节一致。数值专项 99 项、共享树及干净导出累计各 3866 项通过。本次正式证据目录为 `diagnostics/numpy_numeric_search_and_calculation/stage5_resource_workspace_cache_profile_150000_01/`；64 项容量对照保存在 `stage5_resource_workspace_cache64_profile_150000_01/`。
+
+## 步骤 5.5 收口：固定 40 万次完整串行质量、重复性与热点
+
+实施提交为 `aba0cce`。在相同代码、准备请求、种子 `590531`、九级目标、9999 秒搜索上限和 400000 次逻辑候选额度下完成三次独立预热运行。前两次保存在 `diagnostics/numpy_numeric_search_and_calculation/stage5_serial_400000_01/`，第三次保存在 `stage5_serial_400000_repeat_03/`。完整计时不启用逐函数剖析；热点函数排名复用同一代码树的 15 万次 `solver.pstats`，避免用剖析开销污染完整样本。
+
+```bash
+/Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/profile_numeric_solver.py \
+  --prepared-request diagnostics/numpy_numeric_search_and_calculation/stage5_direct_lane_profile_150000_01/run_01/prepared_request.json \
+  --output-dir diagnostics/numpy_numeric_search_and_calculation/stage5_serial_400000_01 \
+  --repeat 2 \
+  --candidate-check-limit 400000
+
+/Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/profile_numeric_solver.py \
+  --prepared-request diagnostics/numpy_numeric_search_and_calculation/stage5_direct_lane_profile_150000_01/run_01/prepared_request.json \
+  --output-dir diagnostics/numpy_numeric_search_and_calculation/stage5_serial_400000_repeat_03 \
+  --repeat 1 \
+  --candidate-check-limit 400000
+```
+
+### 三次完整结果
+
+| 指标 | 第 1 次 | 第 2 次 | 第 3 次 | 中位数 / 结论 |
+|---|---:|---:|---:|---:|
+| 经过时间 | 234.085026 秒 | 235.305340 秒 | 233.441435 秒 | 234.085026 秒 |
+| CPU 时间 | 233.470224 秒 | 234.431700 秒 | 232.777976 秒 | 233.470224 秒 |
+| 数值串行搜索 | 231.543583 秒 | 232.759033 秒 | 230.916864 秒 | 231.543583 秒 |
+| CPU / 经过时间 | 99.74% | 99.63% | 99.72% | 单进程计算持续占用一个逻辑核心 |
+| 峰值常驻内存 | 174456832 字节 | 200589312 字节 | 200491008 字节 | 200491008 字节 |
+| 候选检查 | 400000 | 400000 | 400000 | 一致 |
+| 完整候选评价 | 78775 | 78775 | 78775 | 一致 |
+| 接受结构调整 | 486 | 486 | 486 | 一致 |
+| 同期间 / 未来借入拆单 | 1 / 1 | 1 / 1 | 1 / 1 | 一致 |
+| 最终链数 / 虚拟重量 | 22 / 360 吨 | 22 / 360 吨 | 22 / 360 吨 | 一致 |
+
+三次结果指纹均为 `f1f7678e13998a8945a5c887aa91388e6276a0fbcc1e21989e5666a8b881072a`，确定性运行指纹均为 `75cfc758e02df70a38a3bddfaed61f3e147831f7db24b59b83e02a83eeef35a6`，轨迹指纹均为 `f3ede707b7025900166709ac533556ab873b6d80fa6d66b8889691485352fed1`。去除仅反映真实计时的 `stage_duration_seconds` 后，三份响应规范摘要 SHA-256 均为 `f16fc932acfe04e250e0680f4c8be835c67b09ce6b2b35ae34491dde732c9227`；交期报告字节 SHA-256 均为 `7e2feba832de905b58318f40782cc39449f0758ef3d3b21ce5a2067cb4e152d4`。核心和应用双审计全部通过，状态可发布，停止原因为按计划耗尽候选额度。
+
+九级质量为 `(0,0,0,0,541.2236111111111111111111111,1181514.034911111111111111111,11606,360,22)`：零禁止、零欠重；96 个旧欠订单共 5386.03 吨，最后一单于 2026-06-23 13:13:24.885 完成；本月新增晚交 24 单、1182.86 吨。与同树 15 万次样本相比，旧欠全部完成用时从 541.952222 小时降到 541.223611 小时，累计等待与延期负担从 1183921.162958 降到 1181514.034911 吨·小时，链间宽差从 11611 降到 11606；新增晚交数量/重量、虚拟重量和链数不变。因此增加搜索额度带来逐级质量改善，没有用更多虚拟材或更多链换取结果。
+
+三次完整运行中，数值串行搜索占经过时间约 98.9%，一分钟目标未达到；234.085026 秒中位数约为目标的 3.9 倍。同树最近一次 15 万次剖析显示，剩余累计热点依次为后置结构精修候选扫描、完整数值候选评价、首轮局部搜索及虚拟桥选择；函数时间相互包含，不能相加。结合 40 万次的 78775 次完整评价，阶段 6 应先执行 6.1 的有界有序候选批次，验证同序、额度、接受和结果后再决定是否开启线程。步骤 5.5 至此完成；本节不宣称一分钟性能目标通过，也不提前宣称并行有效。
