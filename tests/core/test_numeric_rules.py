@@ -141,8 +141,9 @@ def test_compiler_covers_registry_without_skips():
     rules, task = build((make_order(0, rule_attributes=attributes()),
                          make_order(1, rule_attributes=attributes())))
     program = NumericRuleProgram.compile(task, rules)
-    assert len(program.rules) == len(rules.rules) == len(NumericRuleKind) == 20
-    assert {rule.kind for rule in program.rules} == set(NumericRuleKind)
+    assert len(program.rules) == len(rules.rules) == 20
+    assert len(NumericRuleKind) == 21
+    assert {rule.kind for rule in program.rules} == set(NumericRuleKind) - {NumericRuleKind.EARLIEST_START}
     assert program.fingerprint == NumericRuleProgram.compile(task, rules).fingerprint
     expected = lambda identity: fingerprint(
         {

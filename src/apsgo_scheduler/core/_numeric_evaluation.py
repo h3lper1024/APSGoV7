@@ -339,22 +339,27 @@ def evaluate_numeric_overlay_candidate(task, rule_program, quality_program, plan
     return materialize_numeric_evaluation(task, rule_program, quality_program, plan, summary)
 
 
-def preview_numeric_chain_order_quality(task, quality_program, plan, evaluation, chain_order):
-    from ._numeric_kernel import chain_order_kernel, task_columns
+def preview_numeric_chain_order_quality(task, program, quality_program, plan, evaluation, chain_order):
+    from ._numeric_kernel import chain_order_kernel, task_columns, rule_tables
     if (
         not isinstance(task, NumericTask) or not isinstance(quality_program, NumericQualityProgram)
         or not isinstance(plan, NumericPlan) or not isinstance(evaluation, NumericPlanEvaluation)
         or quality_program.task_fingerprint != task.fingerprint
         or plan.task_fingerprint != task.fingerprint
         or evaluation.plan_fingerprint != plan.fingerprint
+        or not isinstance(program, NumericRuleProgram)
+        or quality_program.rule_program_fingerprint != program.fingerprint
     ):
         raise NumericValueError("chain_order_preview", "matching numeric state required")
     order = np.asarray(chain_order, dtype=np.int64)
     count = int(plan.chain_ids.size)
     if order.shape != (count,) or not np.array_equal(np.sort(order), np.arange(count)):
         raise NumericValueError("chain_order_preview", "complete chain permutation required")
+    early = evaluation.kernel_result.violations[:evaluation.kernel_result.counts[0]]
+    early = early[early[:, 1] == 17]
     output = chain_order_kernel(task_columns(task), plan.node_rows, plan.chain_offsets,
-                                order, evaluation.quality_key, _objective_order(quality_program.objectives))
+        order, evaluation.quality_key, _objective_order(quality_program.objectives),
+        rule_tables(program.rules), early.shape[0], int(early[:, 5].sum()))
     _check_kernel_status(output)
     return tuple(map(int, output.quality))
 

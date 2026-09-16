@@ -72,6 +72,7 @@ _REASON_CODES = {
     NumericReason.CONSECUTIVE_REVERSE_WIDTH: "consecutive_reverse_width",
     NumericReason.LATE_PERIOD: "late_original_due_period_move",
     NumericReason.VIRTUAL_RATIO: "virtual_budget",
+    NumericReason.EARLY_START: "earliest_process_start_violated",
 }
 
 _WEIGHT_METRICS = frozenset(
@@ -286,12 +287,19 @@ def _violation(task, program, plan, value):
         else f"{chain_id}:{rule.rule_id}:{value.start_position}-{value.end_position}"
     )
     reason = _REASON_CODES[value.reason]
+    message = f"{rule.rule_id} 数值规则违规：{reason}。"
+    if value.reason is NumericReason.EARLY_START:
+        row = int(plan.node_rows[int(plan.chain_offsets[value.chain_index]) + value.start_position])
+        subject = task.node_ids[row]
+        source = task.source_ids[int(task.nodes.source[row])]
+        message = (f"节点 {subject}（来源订单 {source}）的计算开始时间比当前工序最早开始时间"
+                   f"提前 {_divide(value.severity, SEVERITY_SCALE)} 秒，禁止发布。")
     return RuleViolation(
         rule.rule_id,
         rule.scope,
         subject,
         reason,
-        f"{rule.rule_id} 数值规则违规：{reason}。",
+        message,
         RuleDisposition.PROHIBITED
         if value.prohibited
         else RuleDisposition.ALLOWED_FINAL_DEVIATION,

@@ -587,15 +587,32 @@ def _plan_rules_view(t, r, view, out, detail):
 
 
 @njit
-def _clock_view(t, view, out):
+def _clock_view(t, view, out, r=None, detail=False):
     s, clock, pos = out.status, 0, 0
     _location(s, -2, -1, -1)
+    check_earliest = False
+    if r is not None:
+        for i in range(r.meta.shape[0]):
+            check_earliest = check_earliest or r.meta[i, 0] == 20
     for c in range(view.count):
+        position = 0
         for row in chain_rows(view, c):
+            source = column_value(t.source, row)
+            if check_earliest and source >= 0:
+                if not t.has_earliest_start[source]:
+                    _error(s, INVALID)
+                    return
+                if clock < t.earliest_start[source]:
+                    for i in range(r.meta.shape[0]):
+                        if r.meta[i, 0] == 20:
+                            _location(s, i, c, position)
+                            early = _sub(t.earliest_start[source], clock, s)
+                            _violation(out, detail, i, 17, c, position, position,
+                                       _mul(early, 1000, s), plan_rule=True)
             clock = _add(clock, column_value(t.duration, row), s)
             out.ends[pos] = clock
             pos += 1
-            source = column_value(t.source, row)
+            position += 1
             if source >= 0:
                 out.completion[source] = max(out.completion[source], clock)
     old = 0
@@ -731,7 +748,7 @@ def evaluate_view_kernel(t, r, view, objective_order, detail=False,
         if out.status[0] != OK and out.status[0] != CAPACITY:
             return out
     _plan_rules_view(t, r, view, out, detail)
-    _clock_view(t, view, out)
+    _clock_view(t, view, out, r, detail)
     for i in range(r.meta.shape[0]):
         if r.meta[i, 0] == 19:
             for k in range(3):
@@ -790,8 +807,10 @@ def edges_allowed_kernel(t, r, left, right):
 
 
 @njit
-def chain_order_kernel(t, rows, offsets, order, current_quality, objective_order):
-    out = allocate_result(order.size, 0, rows.size, t.original_weight.size)
+def chain_order_kernel(t, rows, offsets, order, current_quality, objective_order,
+                       rules=None, old_early_count=0, old_early_severity=0):
+    out = allocate_result(order.size, 0 if rules is None else rules.meta.shape[0],
+                          rows.size, t.original_weight.size)
     ordered = np.empty_like(rows)
     boundaries = np.zeros_like(offsets)
     position = 0
@@ -801,11 +820,18 @@ def chain_order_kernel(t, rows, offsets, order, current_quality, objective_order
             ordered[position] = rows[p]
             position += 1
         boundaries[c + 1] = position
-    _clock(t, ordered, out)
+    _clock_view(t, flat_chain_view(ordered, boundaries, np.zeros(order.size, np.int64)),
+                out, rules)
     gap = _inter_width_gap(t, ordered, boundaries, out.status)
     out.quality[:] = current_quality
     for i in range(objective_order.size):
-        if objective_order[i] == 4:
+        if objective_order[i] == 0:
+            out.quality[i] = _add(_sub(current_quality[i], old_early_count, out.status),
+                                  out.scores[-1, 0], out.status)
+        elif objective_order[i] == 1:
+            out.quality[i] = _add(_sub(current_quality[i], old_early_severity, out.status),
+                                  out.scores[-1, 1], out.status)
+        elif objective_order[i] == 4:
             out.quality[i] = out.totals[4]
         elif objective_order[i] == 5:
             out.quality[i] = out.totals[5]

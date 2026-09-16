@@ -33,6 +33,28 @@ WEIGHT_EPSILON = Decimal("0.000001")
 
 
 @dataclass(frozen=True, slots=True)
+class EarliestProcessStartRule(Rule):
+    """Release-time constraint evaluated by the authoritative numeric clock."""
+
+    supported_scope = RuleScope.PLAN
+
+    def __post_init__(self):
+        Rule.__post_init__(self)
+        if self.enabled and self.parameters:
+            raise ValueError("earliest process start accepts no parameters")
+
+    def required_fields(self):
+        return ()
+
+    def evaluate(self, subject, context):
+        if not isinstance(subject, PlanRuleSubject):
+            raise UnsupportedRuleSubjectError(type(subject))
+        if not self.enabled:
+            return RuleContribution((), ())
+        raise ValueError("earliest process start requires the integer numeric clock")
+
+
+@dataclass(frozen=True, slots=True)
 class DeliveryDuePerformanceRule(Rule):
     supported_scope = RuleScope.PLAN
 

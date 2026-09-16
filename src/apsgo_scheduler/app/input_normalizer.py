@@ -8,13 +8,16 @@ from ..core.contracts import (
     DiagnosticIssue,
     DiagnosticPhase,
     DiagnosticSeverity,
+    INTEGER_NUMERIC_SEMANTICS_KEY,
     RuleScope,
     fingerprint,
     sum_weights,
 )
 from ..core.model import Node, SchedulingProblem, VirtualMaterialPrototype
 from ..core.delivery_timing import normalize_delivery_timing
-from ..core.rules.concrete import WEIGHT_EPSILON, ChainWeightRangeRule, DeliveryDuePerformanceRule
+from ..core.rules.concrete import (
+    WEIGHT_EPSILON, ChainWeightRangeRule, DeliveryDuePerformanceRule, EarliestProcessStartRule,
+)
 from ..core.rules.rule_set import ProcessRuleSet
 from .rule_set_loader import RuleSetLoadError, load_rule_set
 
@@ -236,6 +239,21 @@ def normalize_input(
             )
     if any(isinstance(rule, DeliveryDuePerformanceRule) for rule in verified_rules) and normalized.delivery_timing is None:
         issue("missing_delivery_timing", "delivery_timing", "启用交期目标必须提供完整计时输入。")
+    if any(isinstance(rule, EarliestProcessStartRule) for rule in verified_rules):
+        if normalized.policy.numeric_semantics_key != INTEGER_NUMERIC_SEMANTICS_KEY:
+            issue("unsupported_earliest_start_mode", "policy.numeric_semantics_key",
+                  "最早开工规则要求使用整数毫秒数值求解。")
+        if not any(isinstance(rule, DeliveryDuePerformanceRule) and rule.second_precision for rule in verified_rules):
+            issue("unsupported_earliest_start_clock", "rule_set_spec.rules",
+                  "当前最早开工规则需要已有的秒级九项交期评价与时间轴，不能在旧执行模式中启用。")
+        if normalized.delivery_timing is None:
+            issue("missing_earliest_start_timing", "delivery_timing",
+                  "启用最早开工规则必须提供本次开始时间及逐单完整计时输入。")
+        else:
+            for index, timing in enumerate(normalized.delivery_timing.orders):
+                if timing.earliest_start_at is None:
+                    issue("missing_earliest_start", f"delivery_timing.orders[{index}].earliest_start_at",
+                          "启用最早开工规则必须提供本单当前工序的最早开始时间。", timing.source_order_id)
     if issues:
         raise InputNormalizationError(tuple(issues))
 

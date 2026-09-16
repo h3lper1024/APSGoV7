@@ -26,6 +26,7 @@ from .rules.concrete import (
     ContinuousNarrowSteelWeightRule,
     ControlledOrderSplitRule,
     DeliveryDuePerformanceRule,
+    EarliestProcessStartRule,
     FutureFillWeightTargetRule,
     HighSurfaceRunCountRule,
     InterChainWidthGapRule,
@@ -65,6 +66,7 @@ class NumericRuleKind(IntEnum):
     FUTURE_FILL = 17
     CONTROLLED_SPLIT = 18
     DELIVERY = 19
+    EARLIEST_START = 20
 
 
 class NumericReason(IntEnum):
@@ -85,6 +87,7 @@ class NumericReason(IntEnum):
     CONSECUTIVE_REVERSE_WIDTH = 14
     LATE_PERIOD = 15
     VIRTUAL_RATIO = 16
+    EARLY_START = 17
 
 
 class NumericMetricKind(IntEnum):
@@ -284,6 +287,7 @@ _RULE_KINDS = {
     FutureFillWeightTargetRule: NumericRuleKind.FUTURE_FILL,
     ControlledOrderSplitRule: NumericRuleKind.CONTROLLED_SPLIT,
     DeliveryDuePerformanceRule: NumericRuleKind.DELIVERY,
+    EarliestProcessStartRule: NumericRuleKind.EARLIEST_START,
 }
 
 _TEXT_FIELDS = ('grade', 'hot_roll_grade', 'soft_hard_class', 'grade_class', 'surface_grade')
@@ -389,6 +393,9 @@ def _compile_rule(task, index, rule):
         if not rule.second_precision:
             raise NumericValueError(rule.rule_id, 'only second-precision delivery scoring is supported')
         flags = (rule.include_backlog_clearance, rule.second_precision)
+    elif kind is NumericRuleKind.EARLIEST_START:
+        if task.start_ms is None or not task.originals.has_earliest_start.all():
+            raise NumericValueError(rule.rule_id, 'earliest start requires complete original timing')
     return CompiledNumericRule(index, rule.rule_id, kind, rule.scope, values, flags, bands)
 
 

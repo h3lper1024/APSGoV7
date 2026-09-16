@@ -1010,7 +1010,7 @@ def improve_numeric_chain_order(task, program, quality, state, budget):
                     order[position + 1:source_index + 1] = order[position:source_index]
                 order[position] = source_index
                 if not preview_numeric_chain_order_quality(
-                    task, quality, plan, state.evaluation, order
+                    task, program, quality, plan, state.evaluation, order
                 ) < _quality(state.evaluation):
                     continue
                 description = _first_description(workspace, common_candidate.ORDER,

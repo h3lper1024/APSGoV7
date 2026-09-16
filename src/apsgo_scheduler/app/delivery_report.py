@@ -228,6 +228,14 @@ def numeric_delivery_plan_report(
                     completion_at=at(clock),
                 )
             )
+            if node.virtual_lineage is None:
+                earliest = inputs[node.source_order_id].earliest_start_at
+                if earliest is not None:
+                    lower = start_milliseconds(earliest, "earliest_start_at") - start_ms
+                    early = max(0, lower - before)
+                    node_rows[-1].update(source_order_id=node.source_order_id,
+                        earliest_start_at=earliest, earliest_start_milliseconds=lower,
+                        early_start_milliseconds=early, early_start_seconds=ratio(early, 1000))
     if set(completion) != set(timing.orders):
         raise ValueError("numeric delivery report does not complete every original order")
 
@@ -298,6 +306,11 @@ def numeric_delivery_plan_report(
         summary["old_backlog_last_completion_hours"] = hours(
             score_seconds(old_completion, "delivery_report.old_backlog") * 1000
         )
+    if any(item.earliest_start_at is not None for item in inputs.values()):
+        early_rows = [row for row in node_rows if row.get("early_start_milliseconds", 0) > 0]
+        summary.update(early_start_node_count=len(early_rows),
+            early_start_original_count=len({row["source_order_id"] for row in early_rows}),
+            early_start_total_seconds=ratio(sum(row["early_start_milliseconds"] for row in early_rows), 1000))
     for name, field in (
         ("old_backlog", "was_backlog_at_start"),
         ("newly_late", "newly_late"),

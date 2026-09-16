@@ -170,7 +170,7 @@ def test_chain_order_preview_matches_complete_candidate_evaluation():
     )
 
     assert preview_numeric_chain_order_quality(
-        task, quality, plan, current, (1, 0)
+        task, program, quality, plan, current, (1, 0)
     ) == tuple(int(value) for value in complete.quality_key)
 
 
