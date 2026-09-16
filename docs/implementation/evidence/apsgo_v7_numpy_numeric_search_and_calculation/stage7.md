@@ -29,3 +29,16 @@
 - `PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m pytest -q -p no:cacheprovider tests/core/test_numeric_kernel_migration.py`：1 项通过，内含 24 个完整方案。
 - 同环境执行 `tools/verify_numeric_kernel_migration.py --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json --output-dir diagnostics/numpy_numeric_search_and_calculation/stage7_reference_window_01`：退出 0，256 个真实完整候选逐项一致。
 - 本项未改生产求解器，不宣称内核或性能完成。共享残留仍为已登记的 8 项缺失；正式配置/数据库和 4 份外部改动文件保持不动。
+
+## 7.2 权威编译内核（实施前 a3e9e8a）
+
+新增私有 `_numeric_kernel.py`：编译规则表只准备一次；同一组原语处理边、链、方案规则、资源、原单末片完成时钟和九级评分。Numba 实际以无 Python 对象模式运行，测试断言 `evaluate_kernel.nopython_signatures` 非空。输入全部为原生只读列/标量，返回固定数值数组；NumPy/Numba 架构例外只加入这个精确私有模块。
+
+内核原生循环中显式检查整数加、减、乘、绝对值越界；四舍五入使用商和余数，欠重先除精确倍率，避免无意义的中间乘积溢出。无效结构、数值错误、取消、容量不足使用不同状态。汇总与明细调用同原语，明细不足只报告所需容量，不丢弃违规。完整九项按原声明顺序输出，不额外裁决。
+
+必要验证：
+
+- 小型迁移测试扩展至 8 项：24 个候选排列/分链、24 个多规则排列、连续虚拟端点/延后期、5 种软硬缺值策略、相对厚度首命中及开闭边界、半入舍入、整数越界与状态。
+- 小样例逐项核对全部评分、逐链事实、时钟数组、违规顺序/定位/严重度和全部指标分子分母；汇总与明细完全一致。
+- `tools/verify_numeric_kernel_migration.py ... --native` 正常运行前缀并再次核对 256 个真实后置精修候选，退出 0；保存于 `diagnostics/numpy_numeric_search_and_calculation/stage7_native_window_01/window.json`。首次编译包含在诊断运行内，不据此宣称性能收益。
+- 未接入生产，下一项 7.3 处理数值汇总适配、接受后明细映射和未变链缓存。

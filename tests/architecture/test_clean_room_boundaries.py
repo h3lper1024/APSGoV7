@@ -86,6 +86,13 @@ def check_source(source, path, package):
                 approved_shape_numbers.update(
                     item for item in ast.walk(definition) if isinstance(item, ast.Constant)
                 )
+    if module == "apsgo_scheduler.core._numeric_kernel":
+        # Native table column/rule ordinals use 3, just like NumericRuleKind.
+        # Other historical benchmark values remain forbidden in this module.
+        approved_shape_numbers.update(
+            item for item in ast.walk(tree)
+            if isinstance(item, ast.Constant) and type(item.value) is int and item.value == 3
+        )
     sys_aliases = {"sys"}
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
@@ -94,6 +101,7 @@ def check_source(source, path, package):
                 top = target.partition(".")[0]
                 numeric_dependency = (
                     (module == "apsgo_scheduler.core._bridge_numeric" and top in {"numpy", "numba"})
+                    or (module == "apsgo_scheduler.core._numeric_kernel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._delivery_parallel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._search_numeric" and top == "numpy")
                         or (module == "apsgo_scheduler.core._numeric_state" and top == "numpy")

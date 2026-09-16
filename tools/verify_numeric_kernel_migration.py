@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--prepared-request", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--count", type=int, default=256)
+    parser.add_argument("--native", action="store_true")
     args = parser.parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=False)
     request = derive_numeric_request(load_request(args.prepared_request))
@@ -39,6 +40,16 @@ def main():
             expected = reference.evaluate_numeric_overlay_candidate(*inputs)
             actual = refinement.evaluate_numeric_overlay_candidate(*inputs)
             _assert_same(actual, expected)
+            if args.native:
+                import numpy as np
+                from apsgo_scheduler.core._numeric_state import NumericPlan
+                from tests.core.test_numeric_kernel_migration import assert_kernel_matches
+                lengths = np.array([len(chain) for chain in overlay.chains], dtype=np.int64)
+                plan = NumericPlan.build(
+                    task, np.concatenate(overlay.chains), np.r_[0, np.cumsum(lengths)],
+                    overlay.chain_ids, overlay.chain_periods, generation=overlay.generation,
+                )
+                assert_kernel_matches(task, rules, quality, plan)
             samples.append({
                 "logical_candidate": budget.candidate_check_count,
                 "generation": state.plan.generation,
