@@ -233,13 +233,20 @@ def test_block_family_builds_shared_structural_ownership_once(monkeypatch):
     index = NumericRefinementIndex.build(state)
     sources = _delivery_sources(state)
     original = refinement._structural_ownership
+    original_chain_order = refinement._chain_order
     calls = []
+    chain_order_calls = []
 
     def counted(*args, **kwargs):
         calls.append((args, kwargs))
         return original(*args, **kwargs)
 
+    def counted_chain_order(*args, **kwargs):
+        chain_order_calls.append((args, kwargs))
+        return original_chain_order(*args, **kwargs)
+
     monkeypatch.setattr(refinement, "_structural_ownership", counted)
+    monkeypatch.setattr(refinement, "_chain_order", counted_chain_order)
     recipes = tuple(
         _family_stream(
             state,
@@ -256,6 +263,7 @@ def test_block_family_builds_shared_structural_ownership_once(monkeypatch):
     assert recipes
     assert len(calls) == 1
     assert calls[0][1] == {"include_intervals": True}
+    assert len(chain_order_calls) == 1
 
 
 def test_block_interval_is_owned_once_when_one_order_has_multiple_pieces():

@@ -96,11 +96,13 @@ def check_source(source, path, package):
                     (module == "apsgo_scheduler.core._bridge_numeric" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._delivery_parallel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._search_numeric" and top == "numpy")
-                    or (module == "apsgo_scheduler.core._numeric_state" and top == "numpy")
-                    or (module == "apsgo_scheduler.core._numeric_evaluation" and top == "numpy")
-                    or (module == "apsgo_scheduler.core._numeric_construction" and top == "numpy")
-                    or (module == "apsgo_scheduler.core._numeric_audit" and top == "numpy")
-                )
+                        or (module == "apsgo_scheduler.core._numeric_state" and top == "numpy")
+                        or (module == "apsgo_scheduler.core._numeric_evaluation" and top == "numpy")
+                        or (module == "apsgo_scheduler.core._numeric_construction" and top == "numpy")
+                        or (module == "apsgo_scheduler.core._numeric_audit" and top == "numpy")
+                        or (module == "apsgo_scheduler.core._numeric_refinement" and top == "numpy")
+                        or (module == "apsgo_scheduler.core._numeric_resources" and top == "numpy")
+                    )
                 assert top in sys.stdlib_module_names or top == "apsgo_scheduler" or (
                     numeric_dependency
                 ), (

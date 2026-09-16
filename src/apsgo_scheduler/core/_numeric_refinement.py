@@ -463,6 +463,7 @@ def _source_recipe_stream(
     index=None,
     budget=None,
     ownership=None,
+    ranked_chains=None,
 ):
     plan = state.plan
     index = index or NumericRefinementIndex.build(state)
@@ -470,8 +471,6 @@ def _source_recipe_stream(
     positions = tuple(reversed(index.source_positions[source]))
     ordered_sources = ordered_sources or _delivery_sources(state)
     owner_sources = owner_sources or ordered_sources
-    ranked_chains = _chain_order(state, index)
-
     def belongs_to_lane(is_critical):
         return critical_lane is None or is_critical is critical_lane
 
@@ -551,6 +550,7 @@ def _source_recipe_stream(
         return
 
     if family == "block":
+        ranked_chains = ranked_chains or _chain_order(state, index)
         _, interval_ranks, interval_owner_slots = ownership or _structural_ownership(
             index, ordered_sources, include_intervals=True
         )
@@ -684,6 +684,7 @@ def _family_stream(
         if family in {"node", "block"}
         else None
     )
+    ranked_chains = _chain_order(state, index) if family == "block" else None
     chain_recipe_streams = None
     if family in {"cut", "order"}:
         chain_recipe_streams = {}
@@ -709,6 +710,7 @@ def _family_stream(
             index=index,
             budget=budget,
             ownership=ownership,
+            ranked_chains=ranked_chains,
         ):
             if not budget.allows_search():
                 return
