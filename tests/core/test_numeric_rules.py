@@ -21,6 +21,7 @@ from apsgo_scheduler.core._numeric_rules import (
     evaluate_numeric_edge,
     evaluate_numeric_split,
     evaluate_numeric_static_plan_rules,
+    numeric_edge_allowed,
 )
 from apsgo_scheduler.core._numeric_state import NumericPlan, NumericTask
 from apsgo_scheduler.core._numeric_units import SEVERITY_SCALE, NumericValueError
@@ -206,6 +207,26 @@ def test_edge_rules_use_exact_thresholds_and_physical_severity():
                     min_temperature=D('700'), rule_attributes=attributes())
     rules, task = build((orders[0], equal))
     assert evaluate_numeric_edge(task, NumericRuleProgram.compile(task, rules), 0, 1).violations == ()
+
+
+def test_fast_edge_permission_matches_detailed_results_for_every_task_row_pair():
+    orders = (
+        make_order(0, width=D("1000"), rule_attributes=attributes()),
+        make_order(
+            1,
+            width=D("1025"),
+            rule_attributes=attributes(soft_hard_class="hard"),
+        ),
+    )
+    rules, task = build(orders)
+    program = NumericRuleProgram.compile(task, rules)
+
+    for left in range(task.nodes.weight.size):
+        for right in range(task.nodes.weight.size):
+            detailed = evaluate_numeric_edge(task, program, left, right)
+            assert numeric_edge_allowed(task, program, left, right) is not any(
+                value.prohibited for value in detailed.violations
+            )
 
 
 def test_virtual_edge_uses_absolute_width_limit_and_adaptive_temperature():

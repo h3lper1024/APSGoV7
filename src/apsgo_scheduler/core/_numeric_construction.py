@@ -17,8 +17,8 @@ from ._numeric_evaluation import (
 from ._numeric_rules import (
     NumericRuleKind,
     NumericRuleProgram,
-    evaluate_numeric_edge,
     evaluate_numeric_rows,
+    numeric_edge_allowed,
 )
 from ._numeric_state import NumericPlan, NumericTask, readonly
 from ._numeric_units import NumericValueError, checked_sum, int64
@@ -211,9 +211,8 @@ def build_numeric_construction_graph(task, program, budget, *, seed):
         for right in ordered[left_position + 1 :]:
             if not budget.allows_search():
                 return freeze_result()
-            result = evaluate_numeric_edge(task, program, left, right)
             checked += 1
-            if any(value.prohibited for value in result.violations):
+            if not numeric_edge_allowed(task, program, left, right):
                 continue
             if (
                 task.nodes.present[left, 0]

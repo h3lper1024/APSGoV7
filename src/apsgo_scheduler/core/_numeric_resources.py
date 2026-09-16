@@ -8,8 +8,8 @@ from ._numeric_evaluation import NumericQualityProgram
 from ._numeric_rules import (
     NumericRuleKind,
     NumericRuleProgram,
-    evaluate_numeric_edge,
     evaluate_numeric_rows,
+    numeric_edge_allowed,
 )
 from ._numeric_state import (
     NumericDynamicNode,
@@ -148,9 +148,7 @@ def extend_resource_workspace(task, program, quality, nodes, *, split_group=None
 
 
 def _allowed(task, program, left, right):
-    return not any(
-        value.prohibited for value in evaluate_numeric_edge(task, program, left, right).violations
-    )
+    return numeric_edge_allowed(task, program, left, right)
 
 
 def _smoothness(task, rows):

@@ -25,9 +25,9 @@ from ._numeric_rules import (
     NumericMetricKind,
     NumericRuleKind,
     NumericRuleProgram,
-    evaluate_numeric_edge,
     evaluate_numeric_rows,
     evaluate_numeric_split,
+    numeric_edge_allowed,
 )
 from ._numeric_state import NumericPlan, NumericTask, split_target_periods_match
 from ._numeric_units import (
@@ -697,9 +697,7 @@ def _variants(task, program, rows):
 
 
 def _edge_allowed(task, program, left, right):
-    return not any(
-        value.prohibited for value in evaluate_numeric_edge(task, program, left, right).violations
-    )
+    return numeric_edge_allowed(task, program, left, right)
 
 
 def _join_is_direct(task, program, edit, source, target):

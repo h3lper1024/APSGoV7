@@ -495,6 +495,85 @@ def _violation(rule, reason, chain, start, end, severity, *, prohibited=True):
     )
 
 
+def _edge_rule_allowed(task, rule, left, right):
+    nodes = task.nodes
+    if rule.kind is NumericRuleKind.SYNTHETIC_WIDTH:
+        return bool(
+            nodes.present[left, 0]
+            and nodes.present[right, 0]
+            and max(0, int(nodes.width[right]) - int(nodes.width[left])) <= rule.values[0]
+        )
+    if rule.kind is NumericRuleKind.SOFT_HARD:
+        roles = (int(nodes.role[left]), int(nodes.role[right]))
+        if _GENERATED_VIRTUAL in roles:
+            return rule.flags[0]
+        if _ACTUAL_TRANSITION in roles:
+            return rule.flags[1]
+        left_class, right_class = int(nodes.soft_hard_class[left]), int(
+            nodes.soft_hard_class[right]
+        )
+        empty_class, empty_hot = rule.values[1:]
+        if left_class != empty_class and right_class != empty_class:
+            return left_class == right_class
+        if rule.values[0] == NumericMissingGradePolicy.FALLBACK_SAME_HOT_ROLL_GRADE:
+            left_hot, right_hot = int(nodes.hot_roll_grade[left]), int(
+                nodes.hot_roll_grade[right]
+            )
+            return left_hot != empty_hot and right_hot != empty_hot and left_hot == right_hot
+        return rule.values[0] in (
+            NumericMissingGradePolicy.ALLOW,
+            NumericMissingGradePolicy.PASS,
+            NumericMissingGradePolicy.IGNORE,
+        )
+    if rule.kind is NumericRuleKind.TEMPERATURE:
+        if rule.flags[0] or (
+            rule.flags[1]
+            and _GENERATED_VIRTUAL in (int(nodes.role[left]), int(nodes.role[right]))
+        ):
+            return True
+        if not nodes.present[left, 2:].all() or not nodes.present[right, 2:].all():
+            return True
+        overlap = min(int(nodes.max_temperature[left]), int(nodes.max_temperature[right])) - max(
+            int(nodes.min_temperature[left]), int(nodes.min_temperature[right])
+        )
+        return overlap >= rule.values[0]
+    if rule.kind is NumericRuleKind.THICKNESS:
+        if not nodes.present[left, 1] or not nodes.present[right, 1]:
+            return True
+        a, b = int(nodes.thickness[left]), int(nodes.thickness[right])
+        basis = max(a, b) if rule.values[0] else min(a, b)
+        numerator, denominator = rule.values[1], rule.values[2]
+        for band in rule.bands:
+            lower = not band.has_minimum or (
+                basis >= band.minimum if band.include_minimum else basis > band.minimum
+            )
+            upper = not band.has_maximum or (
+                basis <= band.maximum if band.include_maximum else basis < band.maximum
+            )
+            if lower and upper:
+                numerator, denominator = (
+                    (
+                        checked_product(basis, band.tolerance_numerator, rule.rule_id),
+                        band.tolerance_denominator,
+                    )
+                    if band.relative
+                    else (band.tolerance_numerator, 1)
+                )
+                break
+        return checked_product(abs(a - b), denominator, rule.rule_id) <= numerator
+    if rule.kind is NumericRuleKind.WIDTH:
+        if not nodes.present[left, 0] or not nodes.present[right, 0]:
+            return False
+        virtual = _GENERATED_VIRTUAL in (int(nodes.role[left]), int(nodes.role[right]))
+        delta = (
+            abs(int(nodes.width[right]) - int(nodes.width[left]))
+            if virtual
+            else int(nodes.width[right]) - int(nodes.width[left])
+        )
+        return delta <= rule.values[1 if virtual else 0]
+    return True
+
+
 def _edge_rule(task, rule, left, right, chain, position):
     nodes = task.nodes
     if rule.kind is NumericRuleKind.SYNTHETIC_WIDTH:
@@ -502,37 +581,16 @@ def _edge_rule(task, rule, left, right, chain, position):
             return NumericRuleResult((_violation(rule, NumericReason.MISSING_WIDTH, chain, position, position + 1, SEVERITY_SCALE),))
         increase = max(0, int(nodes.width[right]) - int(nodes.width[left]))
         excess = increase - rule.values[0]
-        violations = () if excess <= 0 else (_violation(
+        violations = () if _edge_rule_allowed(task, rule, left, right) else (_violation(
             rule, NumericReason.SYNTHETIC_WIDTH_INCREASE, chain, position, position + 1,
             _physical_severity(excess, task.units.width, rule.rule_id)),)
         return NumericRuleResult(violations, (NumericMetric(rule.index, NumericMetricKind.SYNTHETIC_WIDTH_INCREASE, increase),))
     if rule.kind is NumericRuleKind.SOFT_HARD:
-        roles = (int(nodes.role[left]), int(nodes.role[right]))
-        if _GENERATED_VIRTUAL in roles:
-            allowed = rule.flags[0]
-        elif _ACTUAL_TRANSITION in roles:
-            allowed = rule.flags[1]
-        else:
-            left_class, right_class = int(nodes.soft_hard_class[left]), int(nodes.soft_hard_class[right])
-            empty_class, empty_hot = rule.values[1:]
-            if left_class != empty_class and right_class != empty_class:
-                allowed = left_class == right_class
-            elif rule.values[0] == NumericMissingGradePolicy.FALLBACK_SAME_HOT_ROLL_GRADE:
-                left_hot, right_hot = int(nodes.hot_roll_grade[left]), int(nodes.hot_roll_grade[right])
-                allowed = left_hot != empty_hot and right_hot != empty_hot and left_hot == right_hot
-            else:
-                allowed = rule.values[0] in (
-                    NumericMissingGradePolicy.ALLOW,
-                    NumericMissingGradePolicy.PASS,
-                    NumericMissingGradePolicy.IGNORE,
-                )
+        allowed = _edge_rule_allowed(task, rule, left, right)
         return NumericRuleResult(() if allowed else (_violation(
             rule, NumericReason.SOFT_HARD, chain, position, position + 1, SEVERITY_SCALE),))
     if rule.kind is NumericRuleKind.TEMPERATURE:
-        if rule.flags[0] or (rule.flags[1] and _GENERATED_VIRTUAL in
-                             (int(nodes.role[left]), int(nodes.role[right]))):
-            return NumericRuleResult()
-        if not nodes.present[left, 2:].all() or not nodes.present[right, 2:].all():
+        if _edge_rule_allowed(task, rule, left, right):
             return NumericRuleResult()
         overlap = min(int(nodes.max_temperature[left]), int(nodes.max_temperature[right])) - max(
             int(nodes.min_temperature[left]), int(nodes.min_temperature[right]))
@@ -542,7 +600,7 @@ def _edge_rule(task, rule, left, right, chain, position):
         severity = _severity_ratio(minimum - overlap, max(minimum, task.units.temperature), rule.rule_id)
         return NumericRuleResult((_violation(rule, NumericReason.TEMPERATURE, chain, position, position + 1, severity),))
     if rule.kind is NumericRuleKind.THICKNESS:
-        if not nodes.present[left, 1] or not nodes.present[right, 1]:
+        if _edge_rule_allowed(task, rule, left, right):
             return NumericRuleResult()
         a, b = int(nodes.thickness[left]), int(nodes.thickness[right])
         basis = max(a, b) if rule.values[0] else min(a, b)
@@ -564,8 +622,6 @@ def _edge_rule(task, rule, left, right, chain, position):
                 break
         difference = abs(a - b)
         scaled_difference = checked_product(difference, tolerance_denominator, rule.rule_id)
-        if scaled_difference <= tolerance_numerator:
-            return NumericRuleResult()
         excess = int64(scaled_difference - tolerance_numerator, rule.rule_id)
         severity = (SEVERITY_SCALE if tolerance_numerator == 0 else
                     _severity_ratio(excess, tolerance_numerator, rule.rule_id))
@@ -577,7 +633,7 @@ def _edge_rule(task, rule, left, right, chain, position):
         delta = (abs(int(nodes.width[right]) - int(nodes.width[left])) if virtual
                  else int(nodes.width[right]) - int(nodes.width[left]))
         limit = rule.values[1 if virtual else 0]
-        if delta <= limit:
+        if _edge_rule_allowed(task, rule, left, right):
             return NumericRuleResult()
         severity = _severity_ratio(delta - limit, max(limit, task.units.width), rule.rule_id)
         return NumericRuleResult((_violation(rule, NumericReason.WIDTH_TRANSITION, chain, position, position + 1, severity),))
@@ -596,6 +652,20 @@ def evaluate_numeric_edge(task, program, left_row, right_row, *, chain_index=-1,
     return NumericRuleResult(
         tuple(v for result in results for v in result.violations),
         tuple(m for result in results for m in result.metrics),
+    )
+
+
+def numeric_edge_allowed(task, program, left_row, right_row):
+    if program.task_fingerprint != task.fingerprint:
+        raise NumericValueError("rules", "program belongs to another numeric task")
+    size = task.nodes.weight.size
+    for value, name in ((left_row, "left_row"), (right_row, "right_row")):
+        if type(value) is not int or not 0 <= value < size:
+            raise NumericValueError(name, "row is outside numeric task")
+    return all(
+        _edge_rule_allowed(task, rule, left_row, right_row)
+        for rule in program.rules
+        if rule.scope is RuleScope.EDGE
     )
 
 
