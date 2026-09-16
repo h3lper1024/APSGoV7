@@ -6,6 +6,8 @@ import numpy as np
 import pytest
 
 from apsgo_scheduler.core import _numeric_refinement as refinement
+from apsgo_scheduler.core import _numeric_refinement_scan as scan
+from apsgo_scheduler.core._numeric_search import NumericDeferredCandidateFailure
 from apsgo_scheduler.core._numeric_batch import (
     evaluate_numeric_batch, numeric_batch_result, pack_numeric_candidates,
 )
@@ -177,13 +179,16 @@ def test_batch_refuses_misaligned_sequence_and_unrelated_task():
 
 def test_second_variant_still_attempts_quota_and_error_only_when_consumed(monkeypatch):
     state = sample()
-    recipe = (refinement.NumericSearchAction.NODE_MOVE, 10, 20, 0, 1, 0, -1)
+    recipe = scan.description(scan.NODE_MOVE, 10, 20, 0, 1, 0, -1)
+    original = refinement._descriptor_attempts
 
     def variants(*args):
-        yield None
-        raise NumericValueError("second_variant", "deferred failure")
+        workspace, result = next(original(*args))
+        yield workspace, replace(result, prepared=False, summary=None)
+        yield workspace, NumericDeferredCandidateFailure(workspace.view(),
+            NumericValueError("second_variant", "deferred failure"))
 
-    monkeypatch.setattr(refinement, "_prepare_recipe", variants)
+    monkeypatch.setattr(refinement, "_descriptor_attempts", variants)
     for size in (1, 8):
         runtime = budget(candidate_limit=1)
         # Size 1 has not prefetched StopIteration; size 8 has. Neither accepts.
@@ -196,15 +201,17 @@ def test_second_variant_still_attempts_quota_and_error_only_when_consumed(monkey
 
 def test_first_accept_discards_later_errors_without_allocating_formal_ids(monkeypatch):
     state = sample()
-    recipe = (refinement.NumericSearchAction.CHAIN_ORDER_RELOCATION, 10, 20, -1, -1, 1, -1)
-    original = refinement._prepare_recipe
+    recipe = scan.description(scan.ORDER, 10, 20, -1, -1, 1, -1)
+    original = refinement._descriptor_attempts
 
     def variants(*args):
-        yield from original(*args)
-        raise NumericValueError("unused", "must not propagate after first acceptance")
+        workspace, result = next(original(*args))
+        yield workspace, result
+        yield workspace, NumericDeferredCandidateFailure(workspace.view(),
+            NumericValueError("unused", "must not propagate after first acceptance"))
 
-    monkeypatch.setattr(refinement, "_prepare_recipe", variants)
-    monkeypatch.setattr(refinement, "_try_overlay_candidate", lambda *a, **kw: True)
+    monkeypatch.setattr(refinement, "_descriptor_attempts", variants)
+    monkeypatch.setattr(refinement, "consume_candidate_result", lambda *a, **kw: True)
     runtime = budget(candidate_limit=4)
     assert refinement._scan_family(state, runtime, iter([recipe]), _batch_size=8) == (True, False)
     assert runtime.candidate_check_count == 1
@@ -216,22 +223,22 @@ def test_cancellation_after_precompute_consumes_nothing(monkeypatch):
     flag = type("Flag", (), {"cancelled": False, "is_cancelled": lambda self: self.cancelled})()
     runtime = budget(candidate_limit=10, cancellation=flag)
     diagnostics = refinement.NumericRefinementDiagnostics()
-    recipe = (refinement.NumericSearchAction.CHAIN_ORDER_RELOCATION, 10, 20, -1, -1, 1, -1)
-    original = refinement.evaluate_numeric_batch
+    recipe = scan.description(scan.ORDER, 10, 20, -1, -1, 1, -1)
+    original = refinement.capture_candidate_result
 
-    def evaluate(*args):
-        output = original(*args)
+    def evaluate(*args, **kwargs):
+        output = original(*args, **kwargs)
         flag.cancelled = True
         return output
 
-    monkeypatch.setattr(refinement, "evaluate_numeric_batch", evaluate)
+    monkeypatch.setattr(refinement, "capture_candidate_result", evaluate)
     assert refinement._scan_family(state, runtime, iter([recipe]), diagnostics=diagnostics) == (False, False)
     assert runtime.stop_reason is SearchStopReason.USER_CANCELLED
     assert runtime.candidate_check_count == state.complete_candidate_evaluation_count == 0
     assert sum(diagnostics.numeric_precomputed.values()) == sum(diagnostics.numeric_discarded.values()) == 1
 
 
-def test_capacity_reduces_batch_then_uses_same_single_kernel(monkeypatch):
+def test_legacy_packing_capacity_retains_single_kernel_preparation(monkeypatch):
     state = sample()
     recipe = (refinement.NumericSearchAction.CHAIN_ORDER_RELOCATION, 10, 20, -1, -1, 1, -1)
     calls = []
@@ -244,8 +251,10 @@ def test_capacity_reduces_batch_then_uses_same_single_kernel(monkeypatch):
     monkeypatch.setattr(refinement, "pack_numeric_candidates", small_capacity)
     diagnostics = refinement.NumericRefinementDiagnostics()
     runtime = budget(candidate_limit=2)
-    refinement._scan_family(state, runtime, iter([recipe, recipe]), diagnostics=diagnostics)
+    prepared = refinement._prepare_recipe_batch(state, runtime, [recipe, recipe], 2,
+        None, diagnostics, "test")
     assert calls == [2, 1, 1]
-    assert runtime.candidate_check_count == 2
-    assert state.complete_candidate_evaluation_count == 2
+    assert runtime.candidate_check_count == 0
+    assert state.complete_candidate_evaluation_count == 0
+    assert all(summary is None for attempts in prepared for _, summary in attempts)
     assert diagnostics.numeric_batch_calls == 0

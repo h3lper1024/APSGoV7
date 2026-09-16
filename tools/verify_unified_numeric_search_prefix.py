@@ -2,6 +2,7 @@
 
 import argparse
 from dataclasses import fields
+from decimal import Decimal
 import hashlib
 import json
 from pathlib import Path
@@ -17,6 +18,7 @@ def main():
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--through-split", action="store_true")
     parser.add_argument("--refinement-checks", type=int, default=0)
+    parser.add_argument("--refinement-diagnostics", action="store_true")
     args = parser.parse_args()
     if args.refinement_checks < 0 or (args.refinement_checks and not args.through_split):
         parser.error("nonnegative refinement window requires --through-split")
@@ -125,8 +127,13 @@ def main():
                         yield item
                 return original_scan(current, budget, observed(), *a, **kw)
             with patch.object(refinement, "_scan_family", scan):
+                diagnostics = refinement.NumericRefinementDiagnostics() if args.refinement_diagnostics else None
                 refinement.improve_numeric_refinement(state, runtime,
-                    maximum_virtual_bridge_nodes=request.policy.maximum_virtual_bridge_nodes)
+                    maximum_virtual_bridge_nodes=request.policy.maximum_virtual_bridge_nodes,
+                    diagnostics=diagnostics)
+            if diagnostics is not None:
+                _write_json(args.output_dir / "refinement_diagnostics.json",
+                    json.loads(json.dumps(diagnostics.snapshot()), parse_float=Decimal))
             data["phases"].append(snapshot())
             data.update(refinement_descriptions=generate_count,
                 refinement_description_sha256=generate_digest.hexdigest())

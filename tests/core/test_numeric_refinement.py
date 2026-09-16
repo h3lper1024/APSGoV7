@@ -101,11 +101,11 @@ def test_refinement_keeps_four_proposals_per_source_and_sixty_four_per_family(
 
     monkeypatch.setattr(
         refinement,
-        "_try_recipe",
+        "_try_descriptor",
         lambda state, current, recipe, maximum_virtual_bridge_nodes, *args: False,
     )
     runtime = budget(candidate_limit=100)
-    monkeypatch.setattr(refinement, "_prepare_recipe_batch", lambda s, b, r, *a: [None] * len(r))
+    monkeypatch.setattr(refinement, "_prepare_descriptor_batch", lambda s, b, r, *a: [None] * len(r))
     accepted, exhausted = _scan_family(None, runtime, iter(range(100)))
     assert (accepted, exhausted) == (False, False)
     assert runtime.candidate_check_count == 64
@@ -115,8 +115,8 @@ def test_refinement_diagnostics_separate_generated_and_consumed_work(monkeypatch
     diagnostics = NumericRefinementDiagnostics()
     runtime = budget(candidate_limit=2)
     state = type("State", (), {"complete_candidate_evaluation_count": 0})()
-    monkeypatch.setattr(refinement, "_try_recipe", lambda *args: False)
-    monkeypatch.setattr(refinement, "_prepare_recipe_batch", lambda s, b, r, *a: [None] * len(r))
+    monkeypatch.setattr(refinement, "_try_descriptor", lambda *args: False)
+    monkeypatch.setattr(refinement, "_prepare_descriptor_batch", lambda s, b, r, *a: [None] * len(r))
 
     accepted, exhausted = _scan_family(
         state,
@@ -144,8 +144,8 @@ def test_serial_batch_consumes_in_order_and_discards_stale_descriptions(monkeypa
         consumed.append(recipe)
         return True
 
-    monkeypatch.setattr(refinement, "_try_recipe", accept_first)
-    monkeypatch.setattr(refinement, "_prepare_recipe_batch", lambda s, b, r, *a: [None] * len(r))
+    monkeypatch.setattr(refinement, "_try_descriptor", accept_first)
+    monkeypatch.setattr(refinement, "_prepare_descriptor_batch", lambda s, b, r, *a: [None] * len(r))
     accepted, exhausted = _scan_family(
         state,
         runtime,
@@ -181,8 +181,8 @@ def test_serial_batch_cancellation_does_not_consume_prefetched_descriptions(monk
         flag.cancelled = True
         return False
 
-    monkeypatch.setattr(refinement, "_try_recipe", cancel_after_first)
-    monkeypatch.setattr(refinement, "_prepare_recipe_batch", lambda s, b, r, *a: [None] * len(r))
+    monkeypatch.setattr(refinement, "_try_descriptor", cancel_after_first)
+    monkeypatch.setattr(refinement, "_prepare_descriptor_batch", lambda s, b, r, *a: [None] * len(r))
     accepted, exhausted = _scan_family(
         state,
         runtime,

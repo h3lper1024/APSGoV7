@@ -10,6 +10,7 @@ from types import MappingProxyType
 import numpy as np
 
 from . import _numeric_refinement_scan as numeric_scan
+from . import _numeric_candidate_kernel as common_candidate
 from ._numeric_kernel import task_columns, rule_tables
 
 from ._numeric_evaluation import (
@@ -37,8 +38,15 @@ from ._numeric_search import (
     _run_numeric_local_search,
     _validate_search_inputs,
     improve_numeric_controlled_split,
+    capture_candidate_result,
+    consume_candidate_result,
+    NumericDeferredCandidateFailure,
+    _grow_candidate_workspace,
 )
-from ._numeric_state import NumericPlanOverlay, readonly, split_target_periods_match
+from ._numeric_state import (
+    NumericPlanOverlay, readonly, split_target_periods_match,
+    NumericCandidateWorkspace, NumericCandidateDescriptors, CAPACITY,
+)
 from ._numeric_units import NumericValueError, checked_product
 from .budget import SolveRuntimeBudget
 from .contracts import SearchStopReason
@@ -1354,9 +1362,9 @@ def _scan_family(
             return False, exhausted
         before_computed = diagnostics.numeric_precomputed.get(diagnostic_key, 0) if diagnostics else 0
         before_consumed = diagnostics.numeric_consumed.get(diagnostic_key, 0) if diagnostics else 0
-        prepared = _prepare_recipe_batch(
-            state, budget, [_descriptor_recipe(item[1] if cursor is not None else item) for item in batch],
-            maximum_virtual_bridge_nodes, index, diagnostics, diagnostic_key,
+        prepared = _prepare_descriptor_batch(
+            state, budget, [item[1] if cursor is not None else item for item in batch],
+            maximum_virtual_bridge_nodes, diagnostics, diagnostic_key,
         ) if _batch_size > 1 else [None] * len(batch)
 
         def record_discarded():
@@ -1369,7 +1377,6 @@ def _scan_family(
 
         for position, item in enumerate(batch):
             owner, recipe = item if cursor is not None else (None, item)
-            recipe = _descriptor_recipe(recipe)
             if not budget.consume_candidate_check():
                 stopped = len(batch) - position
                 if diagnostics is not None:
@@ -1385,14 +1392,13 @@ def _scan_family(
                 diagnostics.record("candidate_checks", diagnostic_key)
                 diagnostics.record("batch_consumed", diagnostic_key)
             evaluations = state.complete_candidate_evaluation_count if state is not None else 0
-            accepted = _try_recipe(
+            accepted = _try_descriptor(
                 state,
                 budget,
                 recipe,
                 maximum_virtual_bridge_nodes,
                 diagnostics,
                 diagnostic_key,
-                index,
                 prepared[position],
             )
             if diagnostics is not None:
@@ -1420,12 +1426,91 @@ def _scan_family(
     return False, False
 
 
-def _descriptor_recipe(value):
-    """Temporary metadata adapter until the preparation boundary moves in 6.2."""
-    if not isinstance(value, np.ndarray):
-        return value
-    return (tuple(NumericSearchAction)[int(value[0])],
-            *(int(value[i]) for i in (1, 2, 5, 6, 7, 8)))
+def _descriptor_workspace(state):
+    plan = state.plan
+    return NumericCandidateWorkspace.allocate(state.task, plan,
+        changed_capacity=max(64, 2 * plan.node_rows.size + 16),
+        chain_capacity=plan.chain_ids.size + 1, node_capacity=8,
+        group_capacity=0, event_capacity=8)
+
+
+def _descriptor_attempts(state, budget, descriptor, maximum_virtual_bridge_nodes):
+    """Each yielded attempt has its own private view until consumed or discarded."""
+    segments = int(descriptor[common_candidate.ACTION]) in (
+        common_candidate.INTRA, common_candidate.NODE_MOVE, common_candidate.NODE_SWAP,
+        common_candidate.BLOCK_MOVE, common_candidate.BLOCK_SWAP)
+    maximum = _maximum_chain_weight(state) if segments else None
+    policy = common_candidate.CandidateCheckPolicy(maximum_virtual_bridge_nodes,
+        -1 if maximum is None else maximum, tuple(NumericRuleKind))
+    for variant in ((1, 0) if segments else (0,)):
+        workspace = _descriptor_workspace(state)
+        values = descriptor.reshape(1, -1).copy()
+        values[0, common_candidate.VARIANT] = variant
+        descriptions = NumericCandidateDescriptors(state.task, state.plan, readonly(values, np.int64))
+        while True:
+            result = capture_candidate_result(workspace, state.program, state.quality,
+                descriptions, 0, policy, virtual_sequence=state.virtual_sequence,
+                split_sequence=state.split_sequence, previous_evaluation=state.evaluation,
+                allows_continue=budget.allows_search)
+            if isinstance(result, NumericDeferredCandidateFailure) or result.status != CAPACITY:
+                break
+            _grow_candidate_workspace(workspace)
+        if isinstance(result, NumericDeferredCandidateFailure):
+            yield workspace, result
+            return
+        if variant and not result.cleaned_variant_exists and result.status == common_candidate.OK:
+            continue
+        yield workspace, result
+
+
+def _prepare_descriptor_batch(state, budget, descriptors, maximum_virtual_bridge_nodes, diagnostics, key):
+    """Bounded serial staging through the same single-candidate computation.
+
+    Flat native batch dispatch belongs to stage 8; this bridge never packs formal
+    tasks/plans or returns to the previous object-based preparation path.
+    """
+    started = perf_counter()
+    prepared, count, private_bytes = [], 0, 0
+    for descriptor in descriptors:
+        attempts = []
+        for workspace, result in _descriptor_attempts(state, budget, descriptor, maximum_virtual_bridge_nodes):
+            attempts.append((workspace, result))
+            private_bytes += workspace.allocated_bytes
+            if not isinstance(result, NumericDeferredCandidateFailure) and result.summary is not None:
+                count += 1
+            if not budget.allows_search():
+                break
+        prepared.append(attempts)
+        if not budget.allows_search():
+            prepared.extend([] for _ in range(len(descriptors) - len(prepared)))
+            break
+    if diagnostics is not None:
+        elapsed = perf_counter() - started
+        diagnostics.numeric_batch_prepare_seconds += elapsed
+        diagnostics.maximum_numeric_batch_bytes = max(diagnostics.maximum_numeric_batch_bytes, private_bytes)
+        diagnostics.maximum_numeric_batch_seconds = max(diagnostics.maximum_numeric_batch_seconds, elapsed)
+        if count:
+            diagnostics.numeric_batch_calls += 1
+            diagnostics.record("numeric_precomputed", key, count)
+    return prepared
+
+
+def _try_descriptor(state, budget, descriptor, maximum_virtual_bridge_nodes,
+                    diagnostics=None, diagnostic_key=None, prepared=None):
+    attempts = iter(prepared) if prepared is not None else _descriptor_attempts(
+        state, budget, descriptor, maximum_virtual_bridge_nodes)
+    for position, (workspace, result) in enumerate(attempts):
+        if position and not budget.consume_candidate_check():
+            return False
+        accepted = consume_candidate_result(state, budget, workspace, result)
+        if diagnostics is not None:
+            if prepared is not None and not isinstance(result, NumericDeferredCandidateFailure) and result.summary is not None:
+                diagnostics.record("numeric_consumed", diagnostic_key)
+            if accepted:
+                diagnostics.record("plan_materializations", diagnostic_key)
+        if accepted:
+            return True
+    return False
 
 
 def _descriptor_family_stream(scan, columns, rules, family, cursor, lane, budget, diagnostics):
@@ -1463,8 +1548,6 @@ def improve_numeric_refinement(
     while budget.allows_search():
         columns, rules = task_columns(state.task), rule_tables(state.program.rules)
         scan = numeric_scan.build_scan(state, columns)
-        index = NumericRefinementIndex.build(state)
-        index = replace(index, critical_prefix=scan.critical)
         streams = [
             [
                 _descriptor_family_stream(scan, columns, rules, family, cursors[lane],
@@ -1491,7 +1574,6 @@ def improve_numeric_refinement(
                 maximum_virtual_bridge_nodes,
                 diagnostics=diagnostics,
                 diagnostic_key="regular:reclaim",
-                index=index,
                 _batch_size=_batch_size,
             )
         while not accepted and any(pending) and budget.allows_search():
@@ -1506,7 +1588,6 @@ def improve_numeric_refinement(
                 maximum_virtual_bridge_nodes,
                 diagnostics=diagnostics,
                 diagnostic_key=f"{'critical' if lane == 0 else 'regular'}:{family_name}",
-                index=index,
                 cursor=cursor,
                 family=family_name if cursor is not None else None,
                 _batch_size=_batch_size,
