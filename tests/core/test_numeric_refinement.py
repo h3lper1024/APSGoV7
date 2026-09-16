@@ -16,9 +16,14 @@ from apsgo_scheduler.core._numeric_refinement import (
     improve_numeric_refinement,
     run_numeric_serial_search,
 )
-from apsgo_scheduler.core._numeric_resources import extend_resource_workspace, virtual_node
+from apsgo_scheduler.core._numeric_resources import (
+    extend_resource_workspace,
+    split_piece_node,
+    virtual_node,
+)
 from apsgo_scheduler.core._numeric_search import NumericSearchAction, NumericSearchState
-from apsgo_scheduler.core._numeric_state import NumericPlan
+from apsgo_scheduler.core._numeric_state import NumericPlan, NumericSplitGroup
+from apsgo_scheduler.core._numeric_units import allocate_piece_milliseconds
 from apsgo_scheduler.core.contracts import SearchStopReason
 from apsgo_scheduler.core.model import VirtualPurpose
 from tests.core.test_numeric_construction import budget, construction_case
@@ -44,8 +49,19 @@ def test_refinement_recipe_families_cover_all_structural_granularities():
     )
     state = _state(task, program, quality, range(6), (0, 3, 6), (10, 20), (0, 0))
 
+    sources = _delivery_sources(state)
     actions = {
-        family: {recipe[0] for recipe in _source_recipe_stream(state, 4, family)}
+        family: {
+            recipe[0]
+            for source in sources
+            for recipe in _source_recipe_stream(
+                state,
+                source,
+                family,
+                ordered_sources=sources,
+                owner_sources=sources,
+            )
+        }
         for family in ("intra", "node", "block", "cut", "order")
     }
 
@@ -153,7 +169,6 @@ def test_refinement_routes_each_recipe_once_and_polls_cancellation():
     base = NumericRefinementIndex.build(state)
     critical = frozenset(_critical_sources(state, base))
     index = base.with_critical_sources(state, critical)
-    seen = set()
     recipes = []
     for lane in (True, False):
         recipes.extend(
@@ -165,7 +180,6 @@ def test_refinement_routes_each_recipe_once_and_polls_cancellation():
                 critical,
                 lane,
                 budget(candidate_limit=1000),
-                diagnostic_seen=seen,
                 index=index,
             )
         )
@@ -183,13 +197,14 @@ def test_refinement_routes_each_recipe_once_and_polls_cancellation():
             frozenset(),
             False,
             budget(candidate_limit=1000),
-            diagnostics,
-            set(),
-            one_index,
+            diagnostics=diagnostics,
+            index=one_index,
         )
     )
-    assert len(cut_recipes) == len(set(cut_recipes))
-    assert sum(diagnostics.duplicate_filtered.values()) > 0
+    assert len(cut_recipes) == len(set(cut_recipes)) == 10
+    assert diagnostics.raw_combinations == {"regular:cut": 10}
+    assert diagnostics.unique_combinations == {"regular:cut": 10}
+    assert "duplicate_filtered" not in diagnostics.snapshot()
 
     class Cancelled:
         @staticmethod
@@ -199,6 +214,127 @@ def test_refinement_routes_each_recipe_once_and_polls_cancellation():
     runtime = budget(cancellation=Cancelled(), candidate_limit=100)
     assert _direct_slots(state, 0, index.chains[1], range(4), runtime) == ()
     assert runtime.stop_reason is SearchStopReason.USER_CANCELLED
+
+
+def test_block_interval_is_owned_once_when_one_order_has_multiple_pieces():
+    task, program, quality = construction_case(
+        weights=("100",) * 6,
+        widths=("1000", "990", "980", "970", "960", "950"),
+    )
+    count = task.nodes.weight.size
+    first_weight = int(task.nodes.weight[0]) // 2
+    piece_weights = (first_weight, int(task.nodes.weight[0]) - first_weight)
+    piece_durations = allocate_piece_milliseconds(
+        int(task.nodes.weight[0]),
+        int(task.nodes.duration_ms[0]),
+        piece_weights,
+        "test_piece_duration",
+    )
+    group = NumericSplitGroup(
+        0,
+        0,
+        int(task.nodes.resource[0]),
+        int(task.nodes.weight[0]),
+        int(task.nodes.duration_ms[0]),
+        int(task.nodes.source_period[0]),
+        0,
+        0,
+        0,
+        0,
+        1,
+    )
+    pieces = tuple(
+        split_piece_node(
+            task,
+            0,
+            group_index=0,
+            piece_index=piece_index,
+            piece_count=2,
+            weight=piece_weight,
+            duration_ms=piece_duration,
+            accepted_sequence=1,
+        )
+        for piece_index, (piece_weight, piece_duration) in enumerate(
+            zip(piece_weights, piece_durations)
+        )
+    )
+    workspace = extend_resource_workspace(
+        task, program, quality, pieces, split_group=group
+    )
+    state = _state(
+        workspace.task,
+        workspace.program,
+        workspace.quality,
+        (count, count + 1, 1, 2, 3, 4, 5),
+        (0, 4, 7),
+        (10, 20),
+        (0, 0),
+    )
+    sources = tuple(range(6))
+
+    recipes = tuple(
+        _source_recipe_stream(
+            state,
+            0,
+            "block",
+            ordered_sources=sources,
+            owner_sources=sources,
+        )
+    )
+
+    assert recipes
+    assert len(recipes) == len(set(recipes))
+
+
+def test_direct_ownership_preserves_candidate_budget_and_acceptance_order():
+    task, program, quality = construction_case(
+        weights=("100",) * 12,
+        widths=(
+            "1000",
+            "990",
+            "980",
+            "970",
+            "800",
+            "790",
+            "780",
+            "770",
+            "900",
+            "890",
+            "880",
+            "870",
+        ),
+    )
+    state = _state(
+        task,
+        program,
+        quality,
+        range(12),
+        (0, 4, 8, 12),
+        (10, 20, 30),
+        (0, 0, 0),
+    )
+    runtime = budget(candidate_limit=1000)
+    diagnostics = NumericRefinementDiagnostics()
+
+    improve_numeric_refinement(state, runtime, diagnostics=diagnostics)
+
+    assert runtime.candidate_check_count == 1000
+    assert runtime.stop_reason is SearchStopReason.CANDIDATE_LIMIT_REACHED
+    assert tuple(move.sequence for move in state.accepted_moves) == (
+        6,
+        7,
+        28,
+        58,
+        117,
+        544,
+        625,
+        629,
+    )
+    assert state.evaluation.quality_key.tolist() == [0, 0, 0, 0, 0, 0, 30, 0, 4]
+    assert state.plan.node_rows.tolist() == [0, 1, 2, 3, 10, 9, 8, 11, 5, 7, 6, 4]
+    assert state.plan.chain_offsets.tolist() == [0, 3, 5, 10, 12]
+    assert sum(diagnostics.accepted.values()) == 8
+    assert sum(diagnostics.plan_materializations.values()) == 8
 
 
 def test_refinement_reclaims_only_ordinary_bridge_and_keeps_split_separator():

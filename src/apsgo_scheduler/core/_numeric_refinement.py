@@ -54,7 +54,6 @@ class NumericRefinementDiagnostics:
     raw_combinations: dict[str, int] = field(default_factory=dict)
     unique_combinations: dict[str, int] = field(default_factory=dict)
     lane_filtered: dict[str, int] = field(default_factory=dict)
-    duplicate_filtered: dict[str, int] = field(default_factory=dict)
     routed_combinations: dict[str, int] = field(default_factory=dict)
     candidate_checks: dict[str, int] = field(default_factory=dict)
     complete_evaluations: dict[str, int] = field(default_factory=dict)
@@ -78,7 +77,6 @@ class NumericRefinementDiagnostics:
                 "raw_combinations",
                 "unique_combinations",
                 "lane_filtered",
-                "duplicate_filtered",
                 "routed_combinations",
                 "candidate_checks",
                 "complete_evaluations",
@@ -367,12 +365,48 @@ def _alternate(first, second):
                 yield value
 
 
+def _chain_recipe_stream(state, index, family, chain):
+    """Generate each chain-owned candidate once in its established order."""
+    plan = state.plan
+    chains, chain_ids = index.chains, plan.chain_ids
+    if family == "cut":
+        new_id = max((int(value) for value in chain_ids), default=-1) + 1
+        for cut in range(1, len(chains[chain])):
+            for prefix, suffix in permutations(range(len(chains) + 1), 2):
+                yield (
+                    NumericSearchAction.CHAIN_CUT,
+                    int(chain_ids[chain]),
+                    new_id,
+                    cut,
+                    -1,
+                    prefix,
+                    suffix,
+                )
+        return
+    if family == "order":
+        for position in range(len(chains)):
+            if position != chain and int(plan.chain_periods[position]) == int(
+                plan.chain_periods[chain]
+            ):
+                yield (
+                    NumericSearchAction.CHAIN_ORDER_RELOCATION,
+                    int(chain_ids[chain]),
+                    int(chain_ids[position]),
+                    -1,
+                    -1,
+                    position,
+                    -1,
+                )
+
+
 def _source_recipe_stream(
     state,
     source,
     family,
     *,
     ordered_sources=None,
+    owner_sources=None,
+    chain_recipe_streams=None,
     critical_lane=False,
     diagnostics=None,
     index=None,
@@ -383,6 +417,7 @@ def _source_recipe_stream(
     chains, chain_ids = index.chains, plan.chain_ids
     positions = tuple(reversed(index.source_positions[source]))
     ordered_sources = ordered_sources or _delivery_sources(state)
+    owner_sources = owner_sources or ordered_sources
     ranked_chains = _chain_order(state, index)
 
     if family == "intra":
@@ -458,11 +493,28 @@ def _source_recipe_stream(
             for rank, owner in enumerate(ordered_sources)
             for position in reversed(index.source_positions[owner])
         }
+        position_order = {
+            position: order
+            for owner in ordered_sources
+            for order, position in enumerate(reversed(index.source_positions[owner]))
+        }
 
         def owner(chain, start, stop):
             return min(
                 (ranks[(chain, slot)] for slot in range(start, stop) if (chain, slot) in ranks),
                 default=len(ranks),
+            )
+
+        def owner_position(chain, start, stop):
+            candidates = (
+                (chain, slot)
+                for slot in range(start, stop)
+                if (chain, slot) in ranks
+            )
+            return min(
+                candidates,
+                key=lambda position: (ranks[position], position_order[position]),
+                default=None,
             )
 
         for chain, anchor in positions:
@@ -473,7 +525,7 @@ def _source_recipe_stream(
                     min(anchor + 1, len(chains[chain]) - length + 1),
                 )
                 for start in starts:
-                    if owner(chain, start, start + length) != ranks[(chain, anchor)]:
+                    if owner_position(chain, start, start + length) != (chain, anchor):
                         continue
                     for target in ranked_chains:
                         if target == chain:
@@ -524,37 +576,25 @@ def _source_recipe_stream(
                         yield from _alternate(moves(), exchanges())
         return
 
-    owned_chains = tuple(dict.fromkeys(chain for chain, _ in positions))
-    if family == "cut":
-        new_id = max((int(value) for value in chain_ids), default=-1) + 1
+    if family in {"cut", "order"}:
+        if chain_recipe_streams is None:
+            chain_owners = {}
+            for candidate_owner in owner_sources:
+                for chain, _ in reversed(index.source_positions[candidate_owner]):
+                    chain_owners.setdefault(chain, candidate_owner)
+            owned_chains = tuple(
+                dict.fromkeys(
+                    chain for chain, _ in positions if chain_owners.get(chain) == source
+                )
+            )
+            chain_recipe_streams = {
+                chain: iter(_chain_recipe_stream(state, index, family, chain))
+                for chain in owned_chains
+            }
+        else:
+            owned_chains = tuple(dict.fromkeys(chain for chain, _ in positions))
         for chain in owned_chains:
-            for cut in range(1, len(chains[chain])):
-                for prefix, suffix in permutations(range(len(chains) + 1), 2):
-                    yield (
-                        NumericSearchAction.CHAIN_CUT,
-                        int(chain_ids[chain]),
-                        new_id,
-                        cut,
-                        -1,
-                        prefix,
-                        suffix,
-                    )
-        return
-    if family == "order":
-        for chain in owned_chains:
-            for position in range(len(chains)):
-                if position != chain and int(plan.chain_periods[position]) == int(
-                    plan.chain_periods[chain]
-                ):
-                    yield (
-                        NumericSearchAction.CHAIN_ORDER_RELOCATION,
-                        int(chain_ids[chain]),
-                        int(chain_ids[position]),
-                        -1,
-                        -1,
-                        position,
-                        -1,
-                    )
+            yield from chain_recipe_streams[chain]
 
 
 def _family_stream(
@@ -566,11 +606,18 @@ def _family_stream(
     critical_lane,
     budget,
     diagnostics=None,
-    diagnostic_seen=None,
     index=None,
 ):
     sources = _rotate_after(ordered_sources, cursor[family])
-    seen = diagnostic_seen if diagnostic_seen is not None else set()
+    chain_recipe_streams = None
+    if family in {"cut", "order"}:
+        chain_recipe_streams = {}
+        for source in sources:
+            for chain, _ in reversed(index.source_positions[source]):
+                if chain not in chain_recipe_streams:
+                    chain_recipe_streams[chain] = iter(
+                        _chain_recipe_stream(state, index, family, chain)
+                    )
     lane = "critical" if critical_lane else "regular"
     key = f"{lane}:{family}"
 
@@ -580,6 +627,8 @@ def _family_stream(
             source,
             family,
             ordered_sources=ordered_sources,
+            owner_sources=sources,
+            chain_recipe_streams=chain_recipe_streams,
             critical_lane=critical_lane is True,
             diagnostics=diagnostics,
             index=index,
@@ -594,11 +643,6 @@ def _family_stream(
                 if diagnostics is not None:
                     diagnostics.record("lane_filtered", key)
                 continue
-            if recipe in seen:
-                if diagnostics is not None:
-                    diagnostics.record("duplicate_filtered", key)
-                continue
-            seen.add(recipe)
             if diagnostics is not None:
                 diagnostics.record("unique_combinations", key)
             cursor[family] = source
@@ -1182,7 +1226,6 @@ def improve_numeric_refinement(
     next_family, next_lane = [0, 0], 0
     first_cleanup = True
     while budget.allows_search():
-        diagnostic_seen = set()
         index = NumericRefinementIndex.build(state)
         critical_order = _critical_sources(state, index)
         critical = frozenset(critical_order)
@@ -1202,7 +1245,6 @@ def improve_numeric_refinement(
                     lane == 0,
                     budget,
                     diagnostics,
-                    diagnostic_seen,
                     index,
                 )
                 for family in _FAMILIES[: _CRITICAL_FAMILY_COUNT if lane == 0 else -1]
