@@ -17,11 +17,12 @@ from ._numeric_candidate_kernel import (
 from ._numeric_kernel import _add, _mul, edge_node, all_edges_allowed_values
 from ._numeric_state import OK, DESCRIPTOR_FIELDS, readonly
 from ._numeric_units import NumericValueError
+from ._numeric_rules import NumericReason, NumericRuleKind
 from .model import MaterialRole, VirtualPurpose
 
 ScanColumns = namedtuple("ScanColumns", (
     "rows offsets ids periods piece_rows piece_offsets row_chain row_position "
-    "critical ranks interval_offsets interval_ranks interval_slots ranked_chains sources"
+    "critical ranks interval_offsets interval_ranks interval_slots ranked_chains sources early"
 ))
 _VIRTUAL = tuple(MaterialRole).index(MaterialRole.GENERATED_VIRTUAL)
 _BRIDGE = tuple(VirtualPurpose).index(VirtualPurpose.EDGE_BRIDGE)
@@ -193,6 +194,23 @@ def build_scan(state, columns):
     releasable = ordered(potential >= 0, -potential, -completion)
     late = ordered(present & (task.originals.due_ms > 0) & (slack < 0), late_weight, slack)
     critical_sources = interleave(backlog, releasable, late, True, completion.size)
+    # The detail result already locates every early node; do not build another clock.
+    early_marks = np.zeros(plan.node_rows.size, np.int64)
+    early = np.empty((0, 7), np.int64)
+    if state.program.for_kind(NumericRuleKind.EARLIEST_START):
+        details = state.evaluation.kernel_result.violations[:state.evaluation.kernel_result.counts[0]]
+        early = details[details[:, 1] == int(NumericReason.EARLY_START)]
+    if early.size:
+        slots = plan.chain_offsets[early[:, 2]] + early[:, 3]
+        owners = task.nodes.source[plan.node_rows[slots]]
+        order = np.lexsort((owners, slots, -early[:, 5]))
+        # Actual position identifies one source, so the last tie key cannot differ.
+        _, first = np.unique(owners[order], return_index=True)
+        early_sources = owners[order][np.sort(first)]
+        early_mask = np.zeros(completion.size, np.bool_)
+        early_mask[early_sources] = True
+        critical_sources = np.concatenate((early_sources, critical_sources[~early_mask[critical_sources]]))
+        early_marks[slots] = 1
     delivery_late = ordered((task.originals.due_ms > 0) & (slack < 0), slack, task.originals.due_ms)
     delivery_backlog = ordered(task.originals.old_backlog, -completion, -backlog_weight)
     on_time = ordered((task.originals.due_ms > 0) & (slack >= 0), slack)
@@ -213,7 +231,8 @@ def build_scan(state, columns):
         plan.source_piece_rows, plan.source_piece_offsets, plan.row_to_chain, plan.row_to_position,
         readonly(prefix, np.int64), readonly(ranks, np.int64), readonly(starts, np.int64),
         readonly(interval_ranks, np.int64), readonly(slots, np.int64),
-        readonly(np.argsort(due_key, kind="stable"), np.int64), readonly(sources, np.int64))
+        readonly(np.argsort(due_key, kind="stable"), np.int64), readonly(sources, np.int64),
+        readonly(np.concatenate((np.zeros(1, np.int64), np.cumsum(early_marks))), np.int64))
 
 
 @_managed_scan
@@ -227,9 +246,13 @@ def intra(x, source, lane, _closing):
             yield description(CONTINUE)
             if _closing[0]:
                 return
-        if has_critical(x, chain, start, start + 1) != lane:
-            continue
         for target in range(start):
+            base = x.offsets[chain]
+            # Moving a ready node forward also delays the early nodes it crosses.
+            # This remains one move owned by its moved node, routed to one lane only.
+            critical = has_critical(x, chain, start, start + 1) or x.early[base + start + 1] > x.early[base + target]
+            if critical != lane:
+                continue
             yield description(INTRA, x.ids[chain], x.ids[chain], start, start + 1, target)
             if _closing[0]:
                 return

@@ -9,7 +9,7 @@ from . import _numeric_refinement_scan as numeric_scan
 from . import _numeric_candidate_kernel as common_candidate
 from ._numeric_kernel import task_columns, rule_tables
 from ._numeric_batch import NumericCandidateBatchWorkspace
-from ._numeric_rules import NumericRuleKind
+from ._numeric_rules import NumericRuleKind, NumericReason
 from ._numeric_search import (
     NumericSearchCheckpoint, NumericSearchState, _run_numeric_local_search,
     _validate_search_inputs, improve_numeric_controlled_split, capture_candidate_result,
@@ -252,7 +252,8 @@ def _descriptor_settings(state, descriptor, maximum_virtual_bridge_nodes):
         common_candidate.BLOCK_MOVE, common_candidate.BLOCK_SWAP)
     maximum = _maximum_chain_weight(state) if segments else None
     policy = common_candidate.CandidateCheckPolicy(maximum_virtual_bridge_nodes,
-        -1 if maximum is None else maximum, tuple(NumericRuleKind))
+        -1 if maximum is None else maximum,
+        tuple(kind for kind in NumericRuleKind if kind is not NumericRuleKind.EARLIEST_START))
     return policy, (1, 0) if segments else (0,)
 
 
@@ -338,7 +339,8 @@ def improve_numeric_refinement(
         )
     if type(_batch_size) is not int or not 1 <= _batch_size <= _PROPOSALS_PER_FAMILY:
         raise NumericValueError("candidate_batch_size", "one to 64 descriptions required")
-    if any(value.prohibited for value in state.evaluation.violations):
+    if any(value.prohibited and value.reason is not NumericReason.EARLY_START
+           for value in state.evaluation.violations):
         return state
     if budget.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE:
         budget.stop_reason = None

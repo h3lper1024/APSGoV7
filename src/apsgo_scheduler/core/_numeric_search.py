@@ -310,6 +310,8 @@ class NumericSearchState:
             raise NumericValueError("candidate", "complete next-generation candidate required")
         before = tuple(int(value) for value in self.evaluation.quality_key)
         after = tuple(int(value) for value in evaluation.quality_key)
+        if not _preserves_other_hard_rules(self, evaluation.kernel_result):
+            raise NumericValueError("candidate", "earliest-start repair cannot add other prohibited violations")
         affected = tuple(
             dict.fromkeys(
                 (edit.source_chain_id,)
@@ -511,13 +513,25 @@ def _common_candidate_edit(state, descriptor, sequence):
     return NumericCandidateEdit(**values)
 
 
+def _preserves_other_hard_rules(state, summary):
+    """Release-time gains cannot buy extra violations of another hard rule."""
+    if not state.program.for_kind(NumericRuleKind.EARLIEST_START):
+        return True
+    old = state.evaluation.kernel_result.hits.sum(axis=0)
+    current = summary.hits.sum(axis=0)
+    return all(current[rule.index] <= old[rule.index] for rule in state.program.rules
+               if rule.kind is not NumericRuleKind.EARLIEST_START)
+
+
 def publish_accepted_candidate(state, workspace, result, edit):
     """Materialize and verify locally; commit is the only mutation of live state."""
     workspace.require_current(state.task, state.plan)
     workspace.require_view(result.view)
     if result.program is not state.program or result.quality_program is not state.quality:
         raise NumericValueError("candidate.publish", "candidate rules changed before publication")
-    if not result.prepared or not result.admissible or not tuple(result.summary.quality) < _quality(state.evaluation):
+    if (not result.prepared or not result.admissible
+            or not tuple(result.summary.quality) < _quality(state.evaluation)
+            or not _preserves_other_hard_rules(state, result.summary)):
         raise NumericValueError("candidate.publish", "admissible strict improvement required")
     virtual_count = sum(int(role) == _GENERATED_VIRTUAL for role in workspace.nodes.role[:workspace.node_count])
     if (result.virtual_sequence != state.virtual_sequence + virtual_count
@@ -565,6 +579,8 @@ def consume_candidate_result(state, budget, workspace, result):
         raise NumericValueError("candidate.consume", "candidate must consume its original logical check first")
     state.complete_candidate_evaluation_count += 1
     if not result.admissible or not budget.allows_search() or not tuple(result.summary.quality) < _quality(state.evaluation):
+        return False
+    if not _preserves_other_hard_rules(state, result.summary):
         return False
     edit = _common_candidate_edit(state, result.descriptor, budget.candidate_check_count)
     publish_accepted_candidate(state, workspace, result, edit)
