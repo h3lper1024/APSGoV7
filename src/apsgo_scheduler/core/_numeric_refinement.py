@@ -1552,7 +1552,7 @@ def improve_numeric_refinement(
     first_cleanup = True
     while budget.allows_search():
         pool = NumericCandidateBatchWorkspace(state.task, state.program, state.quality,
-            state.plan, state.evaluation, maximum_candidates=_batch_size)
+            state.plan, state.evaluation, maximum_candidates=_batch_size, _native_executor="serial")
         columns, rules = task_columns(state.task), rule_tables(state.program.rules)
         scan = numeric_scan.build_scan(state, columns)
         streams = [

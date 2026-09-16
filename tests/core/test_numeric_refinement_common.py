@@ -77,3 +77,36 @@ def test_rejected_private_candidate_does_not_construct_formal_objects(monkeypatc
     old_plan = state.plan
     accepted, _ = refinement._scan_family(state, budget(candidate_limit=10), iter((value,)))
     assert not accepted and state.plan is old_plan
+
+
+def test_public_refinement_selects_native_serial_with_identical_consumption(monkeypatch):
+    old, new = make_state(), make_state()
+    first, second = budget(candidate_limit=100), budget(candidate_limit=100)
+    original_pool = refinement.NumericCandidateBatchWorkspace
+    original_many = original_pool.prepare_many
+    calls, choices = [], []
+
+    def single(*args, **kwargs):
+        kwargs["_native_executor"] = None
+        return original_pool(*args, **kwargs)
+
+    with monkeypatch.context() as isolated:
+        isolated.setattr(refinement, "NumericCandidateBatchWorkspace", single)
+        refinement.improve_numeric_refinement(old, first)
+
+    def selected(*args, **kwargs):
+        choices.append(kwargs.get("_native_executor"))
+        return original_pool(*args, **kwargs)
+
+    def counted(current, *args, **kwargs):
+        calls.append(current.native_executor)
+        return original_many(current, *args, **kwargs)
+
+    monkeypatch.setattr(refinement, "NumericCandidateBatchWorkspace", selected)
+    monkeypatch.setattr(original_pool, "prepare_many", counted)
+    refinement.improve_numeric_refinement(new, second)
+    assert choices and set(choices) == {"serial"}
+    assert calls and set(calls) == {"serial"}
+    assert first.candidate_check_count == second.candidate_check_count
+    assert old.complete_candidate_evaluation_count == new.complete_candidate_evaluation_count
+    compare_states(new, old)

@@ -135,7 +135,7 @@ class NumericCandidateBatchWorkspace:
             yield workspace, result
 
     def prepare_many(self, entries, *, virtual_sequence, split_sequence, allows_continue):
-        """Trial-only whole native batches; main-thread consumption is unchanged."""
+        """Whole native batches with ordered main-thread consumption."""
         k = candidate_kernel
         if self.used or not 1 <= len(entries) <= self.maximum_candidates:
             raise NumericValueError("candidate_batch.capacity", "released bounded workspace required")

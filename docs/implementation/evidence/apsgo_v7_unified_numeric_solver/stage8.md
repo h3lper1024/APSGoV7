@@ -148,3 +148,36 @@ PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps
 环境实际 12 逻辑核、Numba 最大线程 12；工具完成后恢复线程设置。进程累计峰值 1573650432 字节含编译及全部模式，不当作某模式单独峰值。完整输入、源码、分组和样本见 `samples.json` / `hotspot.json`；生产摘要 `5104209e4580410a9e45fb7e16641cf66ddc2b63208c1c2d44b429926ce75df1`。
 
 本实现的线程协调总成本超过这些有界候选的收益；这是本次样本和实现的结论，不推断所有并行都无用。**不扩大任何线程组到真实窗口或 40 万次。**串行批量组织局部降低约 27.1%，下一项单独验证实际窗口及完整求解；尚不切换默认、不宣称整体提速。
+
+## 8.3 实际窗口与完整采用决策
+
+实施前 `7108523`。同一生产源码摘要 `5104209e4580410a9e45fb7e16641cf66ddc2b63208c1c2d44b429926ce75df1`、同一请求和完整内核，仅替换内部批次协调方式；不更改生成、扣额、消费、接受或最终审核。每方式先运行一次，再按交替顺序各取 3 个热样本。Mac arm64、12 逻辑核、Conda `aps_3.10.18`，没有启动其他重型测试参与热样本竞争。
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_native_candidate_adoption.py --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json --output-dir diagnostics/unified_numeric_solver/stage83_windows_03
+PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_native_candidate_adoption.py --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json --window-checks 0 --output-dir diagnostics/unified_numeric_solver/stage83_full_01
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_numeric_kernel_migration.py --reference-run diagnostics/unified_numeric_solver/stage0_baseline_01/run_01 --compare-run diagnostics/unified_numeric_solver/stage83_full_01/native_serial_hot_03 --output-dir diagnostics/unified_numeric_solver/stage83_baseline_compare_01
+```
+
+三条命令均退出 0；各组所有公开结果（只排除实测阶段耗时）、原订单报告及派生请求一致，核心/应用双审核全部通过。窗口按正常前缀进入，从 134226 到 154226；人工窗口额度在最终审核前恢复为请求中的 400000，不修改审核条件。最后完整结果同时与阶段 0 冻结基线比较通过。
+
+| 范围 / 方式 | 3 次完整公共服务时间（秒） | 服务中位数 | 精修中位数 |
+|---|---|---:|---:|
+| 2 万窗口 / 逐条协调 | 23.600032、23.072915、23.244311 | 23.244311 | 15.100803 |
+| 2 万窗口 / 原生批量串行 | 19.014734、19.668727、18.882363 | 19.014734 | 10.795245 |
+| 40 万完整 / 逐条协调 | 202.395192、210.670452、204.762459 | 204.762459 | 196.546317 |
+| 40 万完整 / 原生批量串行 | 145.398425、147.662980、147.223581 | 147.223581 | 138.695969 |
+
+实际窗口服务中位数降低 18.2%，完整服务降低 28.1%；各次批量耗时均小于各次逐条耗时。完整 CPU 中位数逐条 203.290090 秒、批量 146.050338 秒；同进程累计峰值 1949089792 字节含两模式编译及运行，不能拆成两种方式独立峰值。本次组不替代 7.2 的旧源码历史实绩，不把不同时间/实现的旧秒数直接计算为本次提升。
+
+完整首次逐条 362.922689 秒、随后首次批量 163.691210 秒均单列，不算热样本；后者已复用前者公共内核编译，**不是批量方式独立冷启动**。第一轮期间作过一次 1 秒进程栈采样，观察到编译栈；另有轻量静态整理，均不计入热样本。最终采用版仍须阶段 9 独立新进程、隔离缓存的完整冷测。
+
+采用结论：后置精修的代次工作区显式选择同内核原生批量串行；公共逐条入口仍用于首轮/拆单及参考对照，内部并行仅保留实验能力，不开放服务配置。正式精修已由新增测试见证实际批量调用，并与逐条路径比较完整状态及逻辑扣额。没有采用线程并行，没有达到一分钟目标；40 万候选、78775 完整评价、486 次接受、22 链、360 吨虚拟、零禁止/欠重、两类拆分各一次及唯一重放保持。历史交期退步仍未关闭。
+
+工具早期 `stage83_windows_01` 没有恢复临时额度，最终应用审核正确报 `runtime_policy_mismatch`，退出 1；`stage83_windows_02` 编译阶段主动停止后修正工具，均不算有效性能样本。原产物保留，审核没有放宽。工具的正常/异常恢复和模式强制覆盖共 4 项测试，以及正式选择与原有批次/取消/资源隔离/架构的必要范围，在共享树与精确树验证后记录于本项提交正文。
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m pytest -q -x -p no:cacheprovider tests/core/test_numeric_native_batch.py tests/core/test_numeric_refinement_common.py tests/core/test_numeric_batch.py tests/app/test_native_candidate_adoption_tool.py tests/architecture
+```
+
+原服务 YAML、SQLite、历史诊断、用户四份本地文档均保留。共享残留检查仍仅历史八项缺失及汇总，退出 1；精确导出单独检查，不能将共享检查记为通过。
