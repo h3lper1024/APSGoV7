@@ -16,6 +16,7 @@ def main():
     parser.add_argument("--prepared-request", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--private", action="store_true")
+    parser.add_argument("--splits", action="store_true")
     args = parser.parse_args()
     root = args.source_root.resolve()
     sys.path[:0] = [str(root / "src"), str(root)]
@@ -41,7 +42,82 @@ def main():
         # Only a base identity is needed; this is a resource test, not scheduling.
         plan = NumericPlan.build(task, tuple(range(count)), (0, count), (0,), (0,))
         workspace = NumericCandidateWorkspace.allocate(task, plan, changed_capacity=4,
-            chain_capacity=2, node_capacity=2, group_capacity=1, event_capacity=1)
+            chain_capacity=2, node_capacity=32, group_capacity=1, event_capacity=32)
+    if args.splits:
+        from apsgo_scheduler.core._numeric_rules import evaluate_numeric_split
+        from apsgo_scheduler.core._numeric_search import _split_piece_weights
+        from apsgo_scheduler.core._numeric_units import allocate_piece_milliseconds
+        samples = []
+        for parent in range(count):
+            for origin in range(int(task.nodes.source_period[parent]) + 1):
+                decision = evaluate_numeric_split(task, program, parent, origin, 0)
+                if not decision.eligible:
+                    continue
+                weights = _split_piece_weights(int(task.nodes.weight[parent]), decision)
+                if args.private:
+                    workspace.reset()
+                    status, created, pieces = resources.prepare_private_split(workspace, parent, decision, origin, sequence=1)
+                    if status != OK:
+                        raise AssertionError((parent, origin, status))
+                else:
+                    created, pieces = bool(weights), ()
+                    result = None
+                    if created:
+                        durations = allocate_piece_milliseconds(int(task.nodes.weight[parent]),
+                            int(task.nodes.duration_ms[parent]), weights, "split.duration")
+                        group = resources.split_group(task, parent, decision, origin, 1)
+                        nodes = tuple(resources.split_piece_node(task, parent, group_index=0,
+                            piece_index=i, piece_count=len(weights), weight=w, duration_ms=d,
+                            accepted_sequence=1) for i, (w, d) in enumerate(zip(weights, durations), 1))
+                        result = resources.extend_resource_workspace(task, program, quality, nodes, split_group=group)
+                        pieces = result.rows
+                ends, group_ends, completed = [], [], created
+                if created:
+                    ends.append(len(pieces)); group_ends.append(1)
+                    for sequence, (left, right) in enumerate(zip(pieces, pieces[1:]), 1):
+                        if args.private:
+                            status, found, selected = resources.prepare_private_separator(workspace, program,
+                                int(left), int(right), sequence=sequence, group_index=0)
+                            if status != OK:
+                                raise AssertionError((parent, origin, sequence, status))
+                        else:
+                            selected_result = resources.choose_split_separator(result.task, result.program,
+                                result.quality, left, right, sequence=sequence, group_index=0)
+                            found = selected_result is not None
+                            if found:
+                                result = selected_result
+                        if not found:
+                            completed = False
+                            break
+                        ends.append(ends[-1] + 1); group_ends.append(1)
+                if args.private:
+                    indices = list(range(workspace.node_count))
+                    columns, derived = workspace.nodes, workspace.derived
+                    groups = {name: column[:workspace.group_count].tolist()
+                              for name, column in zip(workspace.split_groups._fields, workspace.split_groups)}
+                    assert ends == workspace.event_node_ends[:workspace.event_count].tolist()
+                    assert group_ends == workspace.event_group_ends[:workspace.event_count].tolist()
+                else:
+                    current = task if result is None else result.task
+                    indices = list(range(task.nodes.weight.size, current.nodes.weight.size))
+                    columns, derived = current.nodes, current
+                    groups = {f.name: getattr(current.split_groups, f.name).tolist() for f in fields(current.split_groups)}
+                samples.append({"parent": parent, "origin": origin, "mode": decision.mode,
+                    "created": bool(created), "completed": bool(completed), "node_ends": ends,
+                    "group_ends": group_ends, "groups": groups,
+                    "nodes": {f.name: getattr(columns, f.name)[indices].tolist() for f in fields(NumericNodeColumns)},
+                    "derived": {name: getattr(derived, name)[:, indices].tolist()
+                                for name in ("priority", "narrow_matches", "surface_matches", "same_spec_groups")}})
+        _write_json(args.output_dir / "splits.json", samples)
+        _write_json(args.output_dir / "identity.json", {"source_root": str(root), "private": args.private,
+            "input_sha256": hashlib.sha256(args.prepared_request.read_bytes()).hexdigest(),
+            "task": task.fingerprint,
+            "sources": {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+                        for path in sorted((root / "src/apsgo_scheduler/core").glob("_numeric*.py"))}})
+        print(json.dumps({"samples": len(samples), "complete": sum(x['completed'] for x in samples),
+            "same_period": sum(x['mode'] == 0 for x in samples),
+            "future_return": sum(x['mode'] == 1 for x in samples)}))
+        return
     samples = []
     totals = {"direct": 0, "none": 0, "single": 0, "double": 0}
     started = perf_counter()

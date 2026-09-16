@@ -86,6 +86,16 @@ def check_source(source, path, package):
                 approved_shape_numbers.update(
                     item for item in ast.walk(definition) if isinstance(item, ast.Constant)
                 )
+    if module == "apsgo_scheduler.core._numeric_resources":
+        # The separator subject is left piece / virtual / right piece, not a
+        # benchmark result. Permit only this exact allocation in its owner.
+        shape = ast.parse("np.arange(3, dtype=np.int64)", mode="eval").body
+        for function in tree.body:
+            if isinstance(function, ast.FunctionDef) and function.name == "scan_private_separator":
+                for expression in ast.walk(function):
+                    if ast.dump(expression) == ast.dump(shape):
+                        approved_shape_numbers.update(item for item in ast.walk(expression)
+                                                      if isinstance(item, ast.Constant))
     if module == "apsgo_scheduler.core._numeric_kernel":
         # Native table column/rule ordinals use 3, just like NumericRuleKind.
         # Other historical benchmark values remain forbidden in this module.
@@ -367,6 +377,15 @@ def test_private_numeric_resource_dependencies_remain_exact():
             check_source(source, path, PACKAGE)
     with pytest.raises(AssertionError):
         check_source("import numba", PACKAGE / "core" / "_numeric_resources_extra.py", PACKAGE)
+
+
+def test_private_separator_three_row_shape_is_exact():
+    path = PACKAGE / "core" / "_numeric_resources.py"
+    check_source("def scan_private_separator():\n    return np.arange(3, dtype=np.int64)", path, PACKAGE)
+    for source in ("N = 3", "def other():\n    return np.arange(3, dtype=np.int64)",
+                   "def scan_private_separator():\n    return np.zeros(3, dtype=np.int64)"):
+        with pytest.raises(AssertionError, match="Benchmark numeric literal"):
+            check_source(source, path, PACKAGE)
 
 
 def test_numeric_evaluation_dependency_exception_is_exact():

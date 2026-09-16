@@ -59,3 +59,49 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m 
 ```
 
 最终共享/精确树数量与耗时见提交正文。见证包含实际无对象编译、缺失锚点/容量/取消零有效区修改、稳定同分、单/双材、温度自适应启停、私有锚点、序号溢出、正式对象构造/扩展失败桩以及精确依赖负例。未运行 40 万次、未试并行、阶段 2 尚未整体完成；下一项 2.2。
+
+## 2.2 私有拆片、分隔材和资源事件
+
+实施前 `6f64c98`；2.1 双树各 196 项已通过并提交。本项仍是公共资源原语，不替换主求解拆单流程。
+
+- 模板全字段及四组规则派生列由同一个编译写入原语复制；虚拟材和拆片只覆盖实际改变的字段。
+- 拆片按原最大片重顺序分配，末片低于下限或分隔数量超限不生成资源；工时按累计片重比例逐段四舍五入，再相减得到各片整数毫秒。原片重/总工时、父单/资源/来源期、目标期、片序和拆分序号保持。
+- 极端输入的中间 `工时 × 累计片重` 可超 int64，而最终商仍合法；本实现用整数商余分解和有界二进位除法，不能错误拒绝原 Python 宽整数允许的结果，不使用浮点或调整精度。305 组边界/固定种子大整数比对及极大值完整片段分配通过。
+- 分隔材按原型原序，以原权威链评价的禁止数、严重度、平滑度逐级择优；每次仅投影左片/原型/右片三行，不复制任务全部列，不创建临时节点对象和指纹。原规则公式不另写一份。
+- 私有拆分组与扩展事件同时记录；容量不足/取消不推进有效长度，正式编号、任务身份和接受仍留给阶段 3。授权判断仍由原拆单规则及阶段控制负责，本原语不新增动作/规则或直接接受候选。
+
+### 真实拆片对照
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_unified_numeric_resources.py \
+  --source-root /tmp/apsgo-unified-stage0-V92qIO --splits \
+  --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json \
+  --output-dir diagnostics/unified_numeric_solver/stage22_reference_01
+
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_unified_numeric_resources.py \
+  --source-root /Users/miles/dev/dev-py/APSGOV7 --private --splits \
+  --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json \
+  --output-dir diagnostics/unified_numeric_solver/stage22_private_01
+
+cmp diagnostics/unified_numeric_solver/stage22_reference_01/splits.json \
+    diagnostics/unified_numeric_solver/stage22_private_01/splits.json
+```
+
+均退出 0。按每原单从最早期到其来源期检查原资格，实际得到同期间 2、未来归还 3 共 5 个资源案例；全部拆片/分隔材/派生列/目标期/扩展事件字节一致，样本 SHA-256 为 `d5a7d9c0658460829cda4f4d156a75553c1aa18c53ed09fae88932f93f20b196`。此检查不执行搜索/接受，不能称完整求解有 5 次拆单。
+
+### 集中验证
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m pytest -q -p no:cacheprovider \
+  tests/core/test_numeric_private_split.py tests/core/test_numeric_private_resources.py \
+  tests/core/test_numeric_bridge_nonadaptive.py tests/core/test_numeric_rules.py \
+  tests/core/test_numeric_kernel_migration.py tests/core/test_numeric_state.py \
+  tests/core/test_numeric_workspace.py tests/core/test_numeric_units.py tests/core/test_numeric_chain_ops.py \
+  tests/core/test_numeric_search.py tests/architecture
+```
+
+实际共享/精确树数量、耗时、退出码见提交正文。首次三片测试夹具使用 1200 吨原单但沿用了测试侧 1000 吨链上限，在输入标准化被正确拒绝；已将该夹具的链上限设为 2000 吨，生产配置和输入校验未改。专项两资源文件 18 项通过、22.88 秒；覆盖同期间/未来归还、两/三片、私有锚点、容量/取消/重复父单拒绝、工时守恒及正式对象/扩展失败桩。
+
+集中检查发现旧架构门把分隔材评价的三行数组长度当成禁止基线数字，203 项通过、1 项失败；容量前置收紧后的中间复测同样仅此失败，未记为通过。现只精确登记 `scan_private_separator()` 内三行投影的数组形状，温度列使用已有字段常量，增加负例继续拒绝其他函数/其他分配/`N=3`。未全模块放宽基线数字检查。拆片容量检查前不分配片段数组，失败桩核验该边界。
+
+**阶段 2 完成；下一项 3.1 公共视图与权威评价内核。**尚未切换主求解、未跑新的完整排程/性能或并行。六项保护摘要和旧残留状态保持，历史交期质量问题未关闭。

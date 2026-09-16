@@ -233,6 +233,47 @@ def private_edge_node(t, tail, count, row, s):
 
 
 @njit
+def _gather_column(base, tail, rows):
+    out = np.empty(rows.size, dtype=base.dtype)
+    for i in range(rows.size):
+        row = rows[i]
+        out[i] = base[row] if row < base.size else tail[row - base.size]
+    return out
+
+
+@njit
+def _gather_derived(base, tail, rows):
+    out = np.empty((base.shape[0], rows.size), dtype=base.dtype)
+    for i in range(rows.size):
+        row = rows[i]
+        out[:, i] = base[:, row] if row < base.shape[1] else tail[:, row - base.shape[1]]
+    return out
+
+
+@njit
+def gather_local_task_columns(t, tail, derived, rows):
+    """Project a small resource-local rule subject, never copy the whole task."""
+    present = np.empty((rows.size, t.present.shape[1]), dtype=np.bool_)
+    for i in range(rows.size):
+        row = rows[i]
+        present[i] = t.present[row] if row < t.weight.size else tail.present[row - t.weight.size]
+    return TaskColumns(
+        _gather_column(t.width, tail.width, rows), _gather_column(t.thickness, tail.thickness, rows),
+        _gather_column(t.minimum, tail.min_temperature, rows),
+        _gather_column(t.maximum, tail.max_temperature, rows), present,
+        _gather_column(t.weight, tail.weight, rows), _gather_column(t.duration, tail.duration_ms, rows),
+        _gather_column(t.role, tail.role, rows), _gather_column(t.source, tail.source, rows),
+        _gather_column(t.period, tail.source_period, rows),
+        _gather_column(t.hot, tail.hot_roll_grade, rows), _gather_column(t.soft, tail.soft_hard_class, rows),
+        _gather_derived(t.priority, derived.priority, rows),
+        _gather_derived(t.narrow, derived.narrow_matches, rows),
+        _gather_derived(t.surface, derived.surface_matches, rows),
+        _gather_derived(t.spec, derived.same_spec_groups, rows),
+        t.original_weight, t.due, t.backlog, t.scales,
+    )
+
+
+@njit
 def edge_allowed_values(left, right, r, i, s):
     """One rule formula for formal nodes, private rows and virtual proposals."""
     kind = r.meta[i, 0]
