@@ -23,6 +23,9 @@ TaskColumns = namedtuple("TaskColumns", (
     "hot soft priority narrow surface spec original_weight due backlog scales"
 ))
 RuleTables = namedtuple("RuleTables", "meta values flags bands")
+EdgeNode = namedtuple("EdgeNode", (
+    "width thickness minimum maximum role hot soft has_width has_thickness has_minimum has_maximum"
+))
 KernelResult = namedtuple("KernelResult", (
     "status quality facts scores hits totals ends completion late waits "
     "violations metrics counts event_counts"
@@ -188,8 +191,7 @@ def _metric(out, detail, rule, kind, chain, value, denominator, weight_scale):
 
 
 @njit
-def _tolerance(t, r, i, left, right, s):
-    a, b = t.thickness[left], t.thickness[right]
+def _tolerance_values(a, b, r, i, s):
     basis = max(a, b) if r.values[i, 0] else min(a, b)
     numerator, denominator = r.values[i, 1], r.values[i, 2]
     for j in range(r.meta[i, 2], r.meta[i, 3]):
@@ -205,47 +207,101 @@ def _tolerance(t, r, i, left, right, s):
 
 
 @njit
-def edge_allowed(t, r, i, left, right, s):
+def _tolerance(t, r, i, left, right, s):
+    return _tolerance_values(t.thickness[left], t.thickness[right], r, i, s)
+
+
+@njit
+def edge_node(t, row):
+    return EdgeNode(t.width[row], t.thickness[row], t.minimum[row], t.maximum[row],
+                    np.int64(t.role[row]), t.hot[row], t.soft[row], t.present[row, 0],
+                    t.present[row, 1], t.present[row, 2], t.present[row, 3])
+
+
+@njit
+def private_edge_node(t, tail, count, row, s):
+    base = t.weight.size
+    if row < 0 or row >= base + count:
+        _error(s, INVALID)
+        return EdgeNode(0, 0, 0, 0, -1, 0, 0, False, False, False, False)
+    if row < base:
+        return edge_node(t, row)
+    i = row - base
+    return EdgeNode(tail.width[i], tail.thickness[i], tail.min_temperature[i], tail.max_temperature[i],
+                    np.int64(tail.role[i]), tail.hot_roll_grade[i], tail.soft_hard_class[i],
+                    tail.present[i, 0], tail.present[i, 1], tail.present[i, 2], tail.present[i, 3])
+
+
+@njit
+def edge_allowed_values(left, right, r, i, s):
+    """One rule formula for formal nodes, private rows and virtual proposals."""
     kind = r.meta[i, 0]
     v = r.values[i]
     if kind == 0:
-        return (t.present[left, 0] and t.present[right, 0]
-                and max(0, _sub(t.width[right], t.width[left], s)) <= v[0])
+        return (left.has_width and right.has_width
+                and max(0, _sub(right.width, left.width, s)) <= v[0])
     if kind == 1:
-        if t.role[left] == _GENERATED_VIRTUAL or t.role[right] == _GENERATED_VIRTUAL:
+        if left.role == _GENERATED_VIRTUAL or right.role == _GENERATED_VIRTUAL:
             return r.flags[i, 0]
-        if t.role[left] == _ACTUAL_TRANSITION or t.role[right] == _ACTUAL_TRANSITION:
+        if left.role == _ACTUAL_TRANSITION or right.role == _ACTUAL_TRANSITION:
             return r.flags[i, 1]
-        a, b = t.soft[left], t.soft[right]
+        a, b = left.soft, right.soft
         if a != v[1] and b != v[1]:
             return a == b
         if v[0] == 4:
-            return t.hot[left] != v[2] and t.hot[right] != v[2] and t.hot[left] == t.hot[right]
+            return left.hot != v[2] and right.hot != v[2] and left.hot == right.hot
         return v[0] == 1 or v[0] == 2 or v[0] == 3
     if kind == 2:
         if r.flags[i, 0] or (r.flags[i, 1] and (
-                t.role[left] == _GENERATED_VIRTUAL or t.role[right] == _GENERATED_VIRTUAL)):
+                left.role == _GENERATED_VIRTUAL or right.role == _GENERATED_VIRTUAL)):
             return True
-        if not (t.present[left, 2] and t.present[left, 3]
-                and t.present[right, 2] and t.present[right, 3]):
+        if not (left.has_minimum and left.has_maximum
+                and right.has_minimum and right.has_maximum):
             return True
-        overlap = _sub(min(t.maximum[left], t.maximum[right]),
-                       max(t.minimum[left], t.minimum[right]), s)
+        overlap = _sub(min(left.maximum, right.maximum), max(left.minimum, right.minimum), s)
         return overlap >= v[0]
     if kind == 3:
-        if not t.present[left, 1] or not t.present[right, 1]:
+        if not left.has_thickness or not right.has_thickness:
             return True
-        difference, tolerance = _tolerance(t, r, i, left, right, s)
+        difference, tolerance = _tolerance_values(left.thickness, right.thickness, r, i, s)
         return difference <= tolerance
     if kind == 4:
-        if not t.present[left, 0] or not t.present[right, 0]:
+        if not left.has_width or not right.has_width:
             return False
-        virtual = t.role[left] == _GENERATED_VIRTUAL or t.role[right] == _GENERATED_VIRTUAL
-        delta = _sub(t.width[right], t.width[left], s)
+        virtual = left.role == _GENERATED_VIRTUAL or right.role == _GENERATED_VIRTUAL
+        delta = _sub(right.width, left.width, s)
         if virtual:
             delta = _abs(delta, s)
         return delta <= v[1 if virtual else 0]
     return True
+
+
+@njit
+def edge_allowed(t, r, i, left, right, s):
+    return edge_allowed_values(edge_node(t, left), edge_node(t, right), r, i, s)
+
+
+@njit
+def all_edges_allowed_values(left, right, r, s):
+    for i in range(r.meta.shape[0]):
+        if r.meta[i, 1] == EDGE:
+            _location(s, i, -1, -1)
+            if not edge_allowed_values(left, right, r, i, s):
+                return False
+    return s[0] == OK
+
+
+@njit
+def edge_matrix_kernel(t, r, left_rows, right_rows):
+    allowed = np.zeros((left_rows.size, right_rows.size), dtype=np.bool_)
+    status = np.array((OK, -1, -1, -1), dtype=np.int64)
+    for i in range(left_rows.size):
+        for j in range(right_rows.size):
+            allowed[i, j] = all_edges_allowed_values(
+                edge_node(t, left_rows[i]), edge_node(t, right_rows[j]), r, status)
+            if status[0] != OK:
+                return allowed, status
+    return allowed, status
 
 
 @njit

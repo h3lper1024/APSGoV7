@@ -52,6 +52,7 @@ _ROLES = tuple(MaterialRole)
 
 # Shared native status codes; the existing evaluation kernel uses these too.
 OK, INVALID, NUMERIC_ERROR, CANCELLED, CAPACITY, STALE = range(6)
+MORE_WORK = 6
 
 
 class NumericSearchAction(str, Enum):

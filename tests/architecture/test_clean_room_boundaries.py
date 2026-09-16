@@ -112,6 +112,7 @@ def check_source(source, path, package):
                     (module == "apsgo_scheduler.core._bridge_numeric" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._numeric_kernel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._numeric_chain_ops" and top in {"numpy", "numba"})
+                    or (module == "apsgo_scheduler.core._numeric_resources" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._delivery_parallel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._search_numeric" and top == "numpy")
                         or (module == "apsgo_scheduler.core._numeric_state" and top == "numpy")
@@ -355,6 +356,17 @@ def test_shared_numeric_chain_operations_exception_is_exact():
             check_source(source, path, PACKAGE)
     with pytest.raises(AssertionError):
         check_source("import numba", PACKAGE / "core" / "_numeric_chain_ops_extra.py", PACKAGE)
+
+
+def test_private_numeric_resource_dependencies_remain_exact():
+    path = PACKAGE / "core" / "_numeric_resources.py"
+    for source in ("import numpy", "from numba import njit, literal_unroll"):
+        check_source(source, path, PACKAGE)
+    for source in ("import pandas", "import scipy", "import tests", "N = 531"):
+        with pytest.raises(AssertionError):
+            check_source(source, path, PACKAGE)
+    with pytest.raises(AssertionError):
+        check_source("import numba", PACKAGE / "core" / "_numeric_resources_extra.py", PACKAGE)
 
 
 def test_numeric_evaluation_dependency_exception_is_exact():

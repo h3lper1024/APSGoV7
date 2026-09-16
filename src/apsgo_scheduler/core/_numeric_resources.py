@@ -4,6 +4,12 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 import numpy as np
+from numba import njit, literal_unroll
+
+from ._numeric_kernel import (
+    EdgeNode, edge_node, private_edge_node, all_edges_allowed_values,
+    task_columns, rule_tables, _add, _sub, _abs, _mul,
+)
 
 from ._numeric_evaluation import NumericQualityProgram
 from ._numeric_rules import (
@@ -16,6 +22,8 @@ from ._numeric_state import (
     NumericDynamicNode,
     NumericSplitGroup,
     NumericTask,
+    NumericCandidateWorkspace, PrivateNodeColumns, PrivateDerivedColumns,
+    OK, INVALID, NUMERIC_ERROR, CANCELLED, CAPACITY, MORE_WORK,
     extend_numeric_task,
 )
 from ._numeric_units import NumericValueError, checked_product, checked_sum
@@ -26,6 +34,10 @@ _GENERATED_VIRTUAL = tuple(MaterialRole).index(MaterialRole.GENERATED_VIRTUAL)
 _PURPOSES = tuple(VirtualPurpose)
 _MIN_TEMPERATURE_PRESENT = 2
 _MAX_TEMPERATURE_PRESENT = len(("width", "thickness", "min_temperature"))
+_NODE_FIELDS = PrivateNodeColumns._fields
+_DERIVED_FIELDS = PrivateDerivedColumns._fields
+_SCAN_PHASE, _SCAN_NEXT, _SCAN_FIRST, _SCAN_SECOND, _SCAN_SCORE, _SCAN_COUNT = range(6)
+_SCAN_START, _SCAN_SINGLE, _SCAN_DOUBLE, _SCAN_DONE = range(4)
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +46,185 @@ class NumericResourceExtension:
     program: NumericRuleProgram
     quality: NumericQualityProgram
     rows: tuple[int, ...]
+
+
+@njit
+def _virtual_edge_values(t, prototype, left, right):
+    template = edge_node(t, prototype)
+    minimum = (min(left.minimum, right.minimum) if left.has_minimum and right.has_minimum
+               else left.minimum if left.has_minimum else right.minimum if right.has_minimum else 0)
+    maximum = (max(left.maximum, right.maximum) if left.has_maximum and right.has_maximum
+               else left.maximum if left.has_maximum else right.maximum if right.has_maximum else 0)
+    return EdgeNode(template.width, template.thickness, minimum, maximum,
+                    _GENERATED_VIRTUAL, template.hot, template.soft,
+                    template.has_width, template.has_thickness,
+                    left.has_minimum or right.has_minimum, left.has_maximum or right.has_maximum)
+
+
+@njit
+def _pair_smoothness(left, right, scales, status):
+    common = max(scales[0], scales[1])
+    if common % scales[0] or common % scales[1]:
+        status[0] = INVALID
+        return 0
+    width = _mul(_abs(_sub(left.width, right.width, status), status), common // scales[0], status)
+    thickness = _mul(_abs(_sub(left.thickness, right.thickness, status), status),
+                     common // scales[1], status)
+    return _add(width, _mul(thickness, 100, status), status)
+
+
+@njit
+def scan_private_bridge(t, rules, tail, private_count, prototypes, left_row, right_row,
+                        maximum_nodes, cursor, work_limit):
+    """Resume ordered direct/single/double scanning; no resource or ID is allocated."""
+    status = np.array((OK, -1, -1, -1), dtype=np.int64)
+    if maximum_nodes < 0 or maximum_nodes > 2 or work_limit <= 0:
+        status[0] = INVALID
+        return status
+    left = private_edge_node(t, tail, private_count, left_row, status)
+    right = private_edge_node(t, tail, private_count, right_row, status)
+    if status[0] != OK:
+        return status
+    if cursor[_SCAN_PHASE] == _SCAN_START:
+        cursor[_SCAN_COUNT] = -1
+        cursor[_SCAN_FIRST] = cursor[_SCAN_SECOND] = -1
+        if all_edges_allowed_values(left, right, rules, status):
+            cursor[_SCAN_COUNT] = 0
+            cursor[_SCAN_PHASE] = _SCAN_DONE
+        elif maximum_nodes == 0 or prototypes.size == 0:
+            cursor[_SCAN_PHASE] = _SCAN_DONE
+        else:
+            cursor[_SCAN_PHASE], cursor[_SCAN_NEXT] = _SCAN_SINGLE, 0
+    if status[0] != OK:
+        return status
+    work = 0
+    while cursor[_SCAN_PHASE] != _SCAN_DONE and work < work_limit:
+        phase = cursor[_SCAN_PHASE]
+        count = prototypes.size
+        limit = count if phase == _SCAN_SINGLE else count * count
+        if cursor[_SCAN_NEXT] >= limit:
+            if cursor[_SCAN_FIRST] >= 0:
+                cursor[_SCAN_COUNT] = 1 if phase == _SCAN_SINGLE else 2
+                cursor[_SCAN_PHASE] = _SCAN_DONE
+            elif phase == _SCAN_SINGLE and maximum_nodes == 2:
+                cursor[_SCAN_PHASE], cursor[_SCAN_NEXT] = _SCAN_DOUBLE, 0
+            else:
+                cursor[_SCAN_PHASE] = _SCAN_DONE
+            continue
+        position = cursor[_SCAN_NEXT]
+        cursor[_SCAN_NEXT] += 1
+        work += 1
+        first = position if phase == _SCAN_SINGLE else position // count
+        second = -1 if phase == _SCAN_SINGLE else position % count
+        a = _virtual_edge_values(t, prototypes[first], left, right)
+        allowed = all_edges_allowed_values(left, a, rules, status)
+        score = 0
+        if phase == _SCAN_SINGLE:
+            if allowed:
+                allowed = all_edges_allowed_values(a, right, rules, status)
+            if allowed:
+                score = _add(_pair_smoothness(left, a, t.scales, status),
+                             _pair_smoothness(a, right, t.scales, status), status)
+        else:
+            b = _virtual_edge_values(t, prototypes[second], left, right)
+            if allowed:
+                allowed = all_edges_allowed_values(a, b, rules, status)
+            if allowed:
+                allowed = all_edges_allowed_values(b, right, rules, status)
+            if allowed:
+                middle = _pair_smoothness(a, b, t.scales, status)
+                score = _add(_add(_pair_smoothness(left, a, t.scales, status), middle, status),
+                             _add(middle, _pair_smoothness(b, right, t.scales, status), status), status)
+        if status[0] != OK:
+            return status
+        if allowed and (cursor[_SCAN_FIRST] < 0 or score < cursor[_SCAN_SCORE]):
+            cursor[_SCAN_FIRST], cursor[_SCAN_SECOND], cursor[_SCAN_SCORE] = first, second, score
+    if cursor[_SCAN_PHASE] != _SCAN_DONE:
+        status[0] = MORE_WORK
+    return status
+
+
+@njit
+def append_private_virtuals(base, derived, tail, tail_derived, templates, selected,
+                            prototypes, offset, left, right, purpose, first_sequence, group):
+    """Write only selected templates, in one original resource extension event."""
+    minimum = (min(left.minimum, right.minimum) if left.has_minimum and right.has_minimum
+               else left.minimum if left.has_minimum else right.minimum if right.has_minimum else 0)
+    maximum = (max(left.maximum, right.maximum) if left.has_maximum and right.has_maximum
+               else left.maximum if left.has_maximum else right.maximum if right.has_maximum else 0)
+    for k in range(selected.size):
+        row, prototype = offset + k, selected[k]
+        template = prototypes[prototype]
+        for name in literal_unroll(_NODE_FIELDS):
+            getattr(tail, name)[row] = getattr(base, name)[template]
+        for name in literal_unroll(_DERIVED_FIELDS):
+            getattr(tail_derived, name)[:, row] = getattr(derived, name)[:, template]
+        templates[row] = template
+        tail.role[row] = _GENERATED_VIRTUAL
+        tail.source[row] = tail.resource[row] = tail.source_period[row] = -1
+        tail.prototype[row], tail.purpose[row], tail.split_group[row] = prototype, purpose, group
+        tail.piece_index[row], tail.piece_count[row] = -1, 0
+        tail.accepted_sequence[row] = first_sequence + k
+        tail.min_temperature[row], tail.max_temperature[row] = minimum, maximum
+        tail.present[row, _MIN_TEMPERATURE_PRESENT] = left.has_minimum or right.has_minimum
+        tail.present[row, _MAX_TEMPERATURE_PRESENT] = left.has_maximum or right.has_maximum
+
+
+def prepare_private_bridge(workspace, program, left, right, *, max_nodes,
+                           first_sequence, purpose=VirtualPurpose.EDGE_BRIDGE,
+                           split_group=-1, chunk_size=64, allows_continue=None):
+    """Return status, connectable, private rows; never extend a formal task.
+
+    Empty rows with connectable=True mean direct; False means no bridge or a
+    stopped attempt. Capacity failures leave every valid private length intact.
+    """
+    if (not isinstance(workspace, NumericCandidateWorkspace)
+            or not isinstance(program, NumericRuleProgram)
+            or program.task_fingerprint != workspace.task.fingerprint
+            or type(chunk_size) is not int or not 1 <= chunk_size <= 256
+            or type(max_nodes) is not int or not 0 <= max_nodes <= 2
+            or type(first_sequence) is not int or first_sequence <= 0
+            or not isinstance(purpose, VirtualPurpose)
+            or type(split_group) is not int or split_group < -1
+            or type(left) is not int or type(right) is not int):
+        raise NumericValueError("private_bridge", "valid workspace, rules, anchors and options required")
+    # Sequence arithmetic is checked before writing int64 columns.
+    checked_sum((first_sequence, max_nodes), "private_bridge.sequence")
+    task = workspace.task
+    columns, rules = task_columns(task), rule_tables(program.rules)
+    cursor = np.zeros(6, dtype=np.int64)
+    empty = np.empty(0, dtype=np.int64)
+    while True:
+        if allows_continue is not None and not allows_continue():
+            return CANCELLED, False, empty
+        status = scan_private_bridge(columns, rules, workspace.nodes, workspace.node_count,
+            task.prototype_rows, left, right, max_nodes, cursor, chunk_size)
+        if status[0] != MORE_WORK:
+            break
+    if status[0] != OK:
+        return int(status[0]), False, empty
+    count = int(cursor[_SCAN_COUNT])
+    if count <= 0:
+        return OK, count == 0, empty
+    capacity = workspace.capacity_status(changed_rows=workspace.changed_count, chains=workspace.chain_count,
+        nodes=workspace.node_count + count, groups=workspace.group_count, events=workspace.event_count + 1)
+    if capacity != OK:
+        return capacity, False, empty
+    selected = np.array((cursor[_SCAN_FIRST], cursor[_SCAN_SECOND]), dtype=np.int64)[:count]
+    first = workspace.node_count
+    base = PrivateNodeColumns(*(getattr(task.nodes, name) for name in _NODE_FIELDS))
+    derived = PrivateDerivedColumns(*(getattr(task, name) for name in _DERIVED_FIELDS))
+    left_values = private_edge_node(columns, workspace.nodes, first, left, status)
+    right_values = private_edge_node(columns, workspace.nodes, first, right, status)
+    append_private_virtuals(base, derived, workspace.nodes, workspace.derived, workspace.templates,
+        selected, task.prototype_rows, first, left_values, right_values,
+        _PURPOSES.index(purpose), first_sequence, split_group)
+    workspace.node_count += count
+    workspace.event_node_ends[workspace.event_count] = workspace.node_count
+    workspace.event_group_ends[workspace.event_count] = workspace.group_count
+    workspace.event_count += 1
+    return OK, True, np.arange(task.nodes.weight.size + first,
+                              task.nodes.weight.size + workspace.node_count, dtype=np.int64)
 
 
 def _temperature(task, rows, column):
@@ -203,44 +394,12 @@ def _static_bridge_supported(program):
 
 
 def _prototype_edge_mask(task, program, left_rows, right_rows):
-    """Evaluate edges containing a static generated-virtual prototype in bulk."""
-    nodes = task.nodes
-    left = np.asarray(left_rows, dtype=np.int64)[:, None]
-    right = np.asarray(right_rows, dtype=np.int64)[None, :]
-    allowed = np.ones((left.size, right.size), dtype=np.bool_)
-    for rule in program.rules:
-        if rule.scope is not RuleScope.EDGE:
-            continue
-        if rule.kind is NumericRuleKind.SYNTHETIC_WIDTH:
-            allowed &= nodes.present[left, 0] & nodes.present[right, 0]
-            allowed &= np.maximum(0, nodes.width[right] - nodes.width[left]) <= rule.values[0]
-        elif rule.kind is NumericRuleKind.SOFT_HARD:
-            if not rule.flags[0]:
-                allowed.fill(False)
-        elif rule.kind is NumericRuleKind.TEMPERATURE:
-            continue
-        elif rule.kind is NumericRuleKind.THICKNESS:
-            present = nodes.present[left, 1] & nodes.present[right, 1]
-            first, second = nodes.thickness[left], nodes.thickness[right]
-            basis = np.maximum(first, second) if rule.values[0] else np.minimum(first, second)
-            numerator = np.full(basis.shape, rule.values[1], dtype=np.int64)
-            denominator = np.full(basis.shape, rule.values[2], dtype=np.int64)
-            unmatched = np.ones(basis.shape, dtype=np.bool_)
-            for band in rule.bands:
-                matches = unmatched.copy()
-                if band.has_minimum:
-                    matches &= basis >= band.minimum if band.include_minimum else basis > band.minimum
-                if band.has_maximum:
-                    matches &= basis <= band.maximum if band.include_maximum else basis < band.maximum
-                numerator[matches] = band.tolerance_numerator
-                denominator[matches] = band.tolerance_denominator
-                unmatched[matches] = False
-            difference = np.abs(first - second)
-            allowed &= ~present | (difference * denominator <= numerator)
-        elif rule.kind is NumericRuleKind.WIDTH:
-            present = nodes.present[left, 0] & nodes.present[right, 0]
-            difference = np.abs(nodes.width[right] - nodes.width[left])
-            allowed &= present & (difference <= rule.values[1])
+    """The prototype scan uses the same native edge formulas as full evaluation."""
+    from ._numeric_kernel import task_columns, rule_tables, edge_matrix_kernel, OK
+    allowed, status = edge_matrix_kernel(task_columns(task), rule_tables(program.rules),
+        np.asarray(left_rows, dtype=np.int64), np.asarray(right_rows, dtype=np.int64))
+    if status[0] != OK:
+        raise NumericValueError(f"rules[{int(status[1])}]", "integer is outside signed int64")
     return allowed
 
 
