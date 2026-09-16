@@ -24,7 +24,7 @@ from apsgo_scheduler.core._numeric_rules import (
 )
 from apsgo_scheduler.core._numeric_state import NumericPlan, NumericTask
 from apsgo_scheduler.core._numeric_units import SEVERITY_SCALE, NumericValueError
-from apsgo_scheduler.core.contracts import RuleScope
+from apsgo_scheduler.core.contracts import RuleScope, fingerprint
 from apsgo_scheduler.core.delivery_timing import DeliveryTimingInput, OrderTimingInput
 from tests.app.test_input_normalizer import make_order, make_prototype, make_request, make_spec
 
@@ -143,6 +143,28 @@ def test_compiler_covers_registry_without_skips():
     assert len(program.rules) == len(rules.rules) == len(NumericRuleKind) == 20
     assert {rule.kind for rule in program.rules} == set(NumericRuleKind)
     assert program.fingerprint == NumericRuleProgram.compile(task, rules).fingerprint
+    expected = lambda identity: fingerprint(
+        {
+            "compiler": 1,
+            "task": identity,
+            "rule_set": rules.fingerprint,
+            "rules": tuple(
+                (
+                    rule.index,
+                    rule.rule_id,
+                    int(rule.kind),
+                    rule.scope.value,
+                    rule.values,
+                    rule.flags,
+                    rule.bands,
+                )
+                for rule in program.rules
+            ),
+        }
+    )
+    assert program.fingerprint == expected(task.fingerprint)
+    changed = replace(task, fingerprint="another-task")
+    assert program.rebind(changed).fingerprint == expected(changed.fingerprint)
     with pytest.raises(NumericValueError, match='does not match'):
         NumericRuleProgram.compile(task, replace(rules, fingerprint='another-rule-set'))
 

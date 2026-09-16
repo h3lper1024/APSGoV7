@@ -6,6 +6,8 @@ code consumes only the compact records and numeric task/plan columns below.
 
 from dataclasses import dataclass
 from enum import IntEnum
+from functools import lru_cache
+from hashlib import sha256
 from operator import index as integer_index
 
 from ._numeric_state import NumericPlan, NumericPlanOverlay, NumericTask
@@ -19,7 +21,7 @@ from ._numeric_units import (
     round_half_up_ratio,
     to_ticks,
 )
-from .contracts import ControlledSplitMode, RuleScope, fingerprint
+from .contracts import ControlledSplitMode, RuleScope, canonical_json
 from .model import MaterialRole
 from .rules.concrete import (
     ChainWeightRangeRule,
@@ -420,11 +422,7 @@ class NumericRuleProgram:
         rules = tuple(_compile_rule(task, index, rule) for index, rule in enumerate(rule_set.rules))
         if len(rules) != len(rule_set.rules):
             raise NumericValueError('rules', 'an enabled rule was skipped')
-        identity = fingerprint({
-            'compiler': 1, 'task': task.fingerprint, 'rule_set': rule_set.fingerprint,
-            'rules': tuple((rule.index, rule.rule_id, int(rule.kind), rule.scope.value,
-                            rule.values, rule.flags, rule.bands) for rule in rules),
-        })
+        identity = _program_fingerprint(task.fingerprint, rule_set.fingerprint, rules)
         return cls(task.fingerprint, rule_set.fingerprint, rules, identity)
 
     def for_kind(self, kind):
@@ -436,16 +434,48 @@ class NumericRuleProgram:
         """Bind unchanged compiled parameters to an accepted expanded task catalog."""
         if not isinstance(task, NumericTask) or task.rule_set_fingerprint != self.rule_set_fingerprint:
             raise NumericValueError('rules', 'expanded task does not match compiled rules')
-        identity = fingerprint({
-            'compiler': 1,
-            'task': task.fingerprint,
-            'rule_set': self.rule_set_fingerprint,
-            'rules': tuple((rule.index, rule.rule_id, int(rule.kind), rule.scope.value,
-                            rule.values, rule.flags, rule.bands) for rule in self.rules),
-        })
+        identity = _program_fingerprint(
+            task.fingerprint, self.rule_set_fingerprint, self.rules
+        )
         return NumericRuleProgram(
             task.fingerprint, self.rule_set_fingerprint, self.rules, identity
         )
+
+
+_TASK_MARKER = "\0numeric-task-fingerprint\0"
+
+
+@lru_cache(maxsize=128)
+def _program_fingerprint_template(rule_set_fingerprint, rules):
+    encoded = canonical_json(
+        {
+            "compiler": 1,
+            "task": _TASK_MARKER,
+            "rule_set": rule_set_fingerprint,
+            "rules": tuple(
+                (
+                    rule.index,
+                    rule.rule_id,
+                    int(rule.kind),
+                    rule.scope.value,
+                    rule.values,
+                    rule.flags,
+                    rule.bands,
+                )
+                for rule in rules
+            ),
+        }
+    )
+    prefix, marker, suffix = encoded.rpartition(canonical_json(_TASK_MARKER))
+    if not marker:
+        raise NumericValueError("rules", "task identity marker is missing")
+    return prefix, suffix
+
+
+def _program_fingerprint(task_fingerprint, rule_set_fingerprint, rules):
+    prefix, suffix = _program_fingerprint_template(rule_set_fingerprint, rules)
+    encoded = prefix + canonical_json(task_fingerprint) + suffix
+    return sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _severity_ratio(numerator, denominator, path, *, at_least_one=True):
