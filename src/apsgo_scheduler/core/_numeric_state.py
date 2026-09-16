@@ -734,14 +734,6 @@ class NumericPlan:
             raise NumericValueError("source", "unknown original")
         positions = np.arange(n, dtype=np.int64)
         chains_by_position = np.repeat(np.arange(chains, dtype=np.int64), np.diff(offsets))
-        if not split_target_periods_match(
-            task,
-            tuple(rows[offsets[index] : offsets[index + 1]] for index in range(chains)),
-            periods,
-        ):
-            raise NumericValueError(
-                "split_target_period", "split pieces must remain in the authorized target period"
-            )
         real = owners >= 0
         if np.any((task.nodes.role[rows] != _ROLES.index(MaterialRole.GENERATED_VIRTUAL)) != real):
             raise NumericValueError("role", "material role and original ownership disagree")

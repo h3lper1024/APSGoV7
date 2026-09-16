@@ -239,6 +239,10 @@ def test_controlled_split_conserves_weight_and_duration_then_replays_once(
     assert state.task.nodes.weight[piece_rows].tolist() == [50000, 10000]
     assert int(state.task.nodes.duration_ms[piece_rows].sum()) == int(task.originals.duration_ms[0])
     assert int(state.task.nodes.weight[piece_rows].sum()) == int(task.originals.weight[0])
+    assert {
+        int(state.plan.chain_periods[int(state.plan.row_to_chain[int(row)])])
+        for row in piece_rows
+    } == {expected_mode}
     assert checkpoint.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE
 
 

@@ -29,7 +29,7 @@ from ._numeric_rules import (
     evaluate_numeric_rows,
     evaluate_numeric_split,
 )
-from ._numeric_state import NumericPlan, NumericTask
+from ._numeric_state import NumericPlan, NumericTask, split_target_periods_match
 from ._numeric_units import (
     NumericValueError,
     allocate_piece_milliseconds,
@@ -634,6 +634,9 @@ def _try_prepared_candidate(
 ):
     if edit.sequence != budget.candidate_check_count:
         raise NumericValueError("candidate", "candidate sequence does not match consumed budget")
+    chains, _, periods = _layout(candidate)
+    if not split_target_periods_match(candidate_task, chains, periods):
+        return False
     evaluation = evaluate_numeric_candidate(
         candidate_task,
         candidate_program,

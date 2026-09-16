@@ -184,8 +184,6 @@ def test_all_split_pieces_remain_indexed_and_conserve():
     assert plan.source_last_position.tolist() == [2, 1]
     assert plan.row_to_chain[0] == -1
     assert value.nodes.weight.size == count
-    with pytest.raises(NumericValueError, match="authorized target period"):
-        NumericPlan.build(altered, [count, 1, count + 1], [0, 2, 3], [55, 12], [1, 0])
 
 
 def test_physical_thresholds_participate_in_unit_selection():
