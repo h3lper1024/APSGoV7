@@ -310,6 +310,43 @@ def test_capacity_retry_and_cancelled_later_splice_keep_the_same_candidate():
         workspace.require_view(old_view)
 
 
+@pytest.mark.parametrize("chunk", (1, 2, 64))
+def test_native_splice_scan_resume_keeps_selection_fields_and_resource_events(monkeypatch, chunk):
+    workspace, program, quality = case()
+    values = descriptor(workspace, A.WHOLE_CHAIN_PREPEND)
+    expected = resources.choose_virtual_bridge(workspace.task, program, quality, 0, 1,
+        max_nodes=2, first_sequence=1)
+    native = candidate.repair_parts_step
+    calls = []
+
+    def bounded(*args):
+        calls.append(1)
+        return native(*args[:-1], chunk)
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("splice must not return to Python bridge orchestration")
+
+    monkeypatch.setattr(candidate, "repair_parts_step", bounded)
+    monkeypatch.setattr(resources, "prepare_private_bridge", forbidden)
+    result = candidate.compute_candidate_attempt(workspace, program, quality, values, 0,
+        candidate.CandidateCheckPolicy())
+    assert result.prepared and result.virtual_sequence == 2
+    assert_resources(workspace, expected.task)
+    assert workspace.event_count == 1 and workspace.event_node_ends[0] == 2
+    assert workspace.event_group_ends[0] == 0
+    assert len(calls) >= 4 and native.nopython_signatures
+    assert resources.private_bridge_step.nopython_signatures
+
+
+def test_native_splice_sequence_overflow_retains_original_boundary_error():
+    workspace, program, quality = case()
+    values = descriptor(workspace, A.WHOLE_CHAIN_PREPEND)
+    with pytest.raises(NumericValueError, match="private_bridge.sequence"):
+        candidate.compute_candidate_attempt(workspace, program, quality, values, 0,
+            candidate.CandidateCheckPolicy(), virtual_sequence=(1 << 63) - 2)
+    assert workspace.node_count == workspace.event_count == 0
+
+
 def test_descriptor_staleness_and_action_specific_domains_are_checked_before_editing():
     state = standard_state()
     workspace = workspace_for(state)

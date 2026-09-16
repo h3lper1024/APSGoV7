@@ -16,14 +16,14 @@ from ._numeric_kernel import (
     all_edges_allowed_values, private_edge_node,
 )
 from ._numeric_resources import (
-    prepare_private_bridge, prepare_private_split, prepare_private_separator,
-    _append_selected_virtuals,
+    prepare_private_split, prepare_private_separator,
+    _append_selected_virtuals, private_resource_columns, private_bridge_step,
 )
 from ._numeric_rules import NumericRuleKind, NumericSplitDecision
 from ._numeric_state import (
     NumericCandidateDescriptors, NumericCandidateWorkspace, NumericSearchAction,
     PrivateNodeColumns, PrivateSplitColumns,
-    DESCRIPTOR_FIELDS, OK, INVALID, CANCELLED, CAPACITY, readonly,
+    DESCRIPTOR_FIELDS, OK, INVALID, NUMERIC_ERROR, CANCELLED, CAPACITY, MORE_WORK, readonly,
 )
 from ._numeric_units import NumericValueError, int64, checked_sum
 from .model import MaterialRole, VirtualPurpose
@@ -336,42 +336,82 @@ def _append_rows(workspace, rows):
     return int(status)
 
 
-def _repair_parts(workspace, program, base_view, parts, indices, policy, sequence, allows_continue):
-    """Control only a few splice boundaries; scans and copies run on arrays."""
-    start = workspace.changed_count
-    group = -1
-    for part in parts:
-        if allows_continue is not None and not allows_continue():
-            return CANCELLED, False, sequence
-        next_group = int(part[GROUP])
-        if next_group != group:
-            if group >= 0:
-                target = int(indices[group])
-                workspace.starts[target], workspace.stops[target], workspace.private[target] = start, workspace.changed_count, True
-            start, group = workspace.changed_count, next_group
-        rows = chain_rows(base_view, int(part[CHAIN]))[int(part[FIRST]):int(part[LAST])]
-        if part[REVERSE]:
-            rows = rows[::-1]
-        if not rows.size:
-            continue
-        if workspace.changed_count > start:
-            status, connected, bridge = prepare_private_bridge(workspace, program,
-                int(workspace.changed_rows[workspace.changed_count - 1]), int(rows[0]),
-                max_nodes=policy.maximum_bridge_nodes, first_sequence=sequence + 1,
-                allows_continue=allows_continue)
+_RP_PART, _RP_GROUP, _RP_START, _RP_SEQUENCE, _RP_CHANGED, _RP_NODES, _RP_EVENTS, _RP_ERROR = range(8)
+
+
+@njit
+def repair_parts_step(view, base_view, parts, indices, columns, rules, base,
+        base_derived, tail, derived, templates, prototypes, event_node_ends,
+        event_group_ends, group_count, maximum_bridge_nodes, progress, cursor,
+        work_limit):
+    """One splice or bounded bridge scan. All writes stay in the caller's slot."""
+    p, group, start, sequence, used, nodes, events = progress[:7]
+    if p == parts.shape[0]:
+        if group >= 0:
+            target = indices[group]
+            view.starts[target], view.stops[target], view.private[target] = start, used, True
+        return OK, True
+    part = parts[p]
+    next_group = part[GROUP]
+    if next_group != group:
+        if group >= 0:
+            target = indices[group]
+            view.starts[target], view.stops[target], view.private[target] = start, used, True
+        start, group = used, next_group
+        progress[_RP_START], progress[_RP_GROUP] = start, group
+    rows = chain_rows(base_view, part[CHAIN])[part[FIRST]:part[LAST]]
+    if part[REVERSE]:
+        rows = rows[::-1]
+    if rows.size:
+        if used > start:
+            check = np.array((OK, -1, -1, -1), np.int64)
+            first_sequence = _add(sequence, 1, check)
+            _add(first_sequence, maximum_bridge_nodes, check)
+            if check[0] != OK:
+                progress[_RP_ERROR] = 1
+                return check[0], False
+            status, connected, bridge, nodes, events = private_bridge_step(
+                columns, rules, base, base_derived, tail, derived, templates,
+                prototypes, event_node_ends, event_group_ends, nodes, group_count,
+                events, view.changed_rows[used - 1], rows[0], maximum_bridge_nodes,
+                first_sequence, _BRIDGE, -1, cursor, work_limit)
+            progress[_RP_NODES], progress[_RP_EVENTS] = nodes, events
             if status != OK or not connected:
-                return status, False, sequence
-            status = _append_rows(workspace, bridge)
+                return status, False
+            status, used = write_parts(view, np.array(((-1, 0, bridge.size, 0),), np.int64), bridge, used)
             if status != OK:
-                return status, False, sequence
+                return status, False
             sequence += bridge.size
-        status = _append_rows(workspace, rows)
+            progress[_RP_CHANGED], progress[_RP_SEQUENCE] = used, sequence
+        status, used = write_parts(view, np.array(((-1, 0, rows.size, 0),), np.int64), rows, used)
         if status != OK:
-            return status, False, sequence
-    if group >= 0:
-        target = int(indices[group])
-        workspace.starts[target], workspace.stops[target], workspace.private[target] = start, workspace.changed_count, True
-    return OK, True, int(sequence)
+            return status, False
+        progress[_RP_CHANGED] = used
+    progress[_RP_PART] = p + 1
+    cursor[:] = 0
+    return MORE_WORK, False
+
+
+def _repair_parts(workspace, program, base_view, parts, indices, policy, sequence, allows_continue):
+    progress = np.array((0, -1, workspace.changed_count, sequence,
+        workspace.changed_count, workspace.node_count, workspace.event_count, 0), np.int64)
+    cursor = np.zeros(6, np.int64)
+    base, derived = private_resource_columns(workspace.task)
+    columns, rules = task_columns(workspace.task), rule_tables(program.rules)
+    while True:
+        if allows_continue is not None and not allows_continue():
+            return CANCELLED, False, int(progress[_RP_SEQUENCE])
+        status, found = repair_parts_step(workspace.view(), base_view, parts, indices,
+            columns, rules, base, derived, workspace.nodes, workspace.derived,
+            workspace.templates, workspace.task.prototype_rows, workspace.event_node_ends,
+            workspace.event_group_ends, workspace.group_count, policy.maximum_bridge_nodes,
+            progress, cursor, 64)
+        workspace.changed_count = int(progress[_RP_CHANGED])
+        workspace.node_count, workspace.event_count = int(progress[_RP_NODES]), int(progress[_RP_EVENTS])
+        if progress[_RP_ERROR]:
+            checked_sum((int(progress[_RP_SEQUENCE]) + 1, policy.maximum_bridge_nodes), "private_bridge.sequence")
+        if status != MORE_WORK:
+            return int(status), bool(found), int(progress[_RP_SEQUENCE])
 
 
 def _base_view(workspace):

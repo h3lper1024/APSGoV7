@@ -45,3 +45,37 @@ PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python too
 相比 7.2 相同真实窗口剖析记录的 36747 次工作区分配，本项 8 条路径降至 223 次；这是工作量观察，**不是端到端耗时比值**。采样工具直接围绕当前分配入口计数，不保留所有工作区而改变其生命周期；最大保留私有输入缓冲 181744 字节，输出/编译内存不混入该字段。单条 32.639248 秒、8 条 16.252195 秒均包含逐项重算和诊断，且前者先运行有编译成本；不得据此宣称两倍提速。
 
 运行生产源码摘要 `1ef04c60eed49df1810569484843b5aab5eefb1e54064183ca609455818a0f2b`。之后仅清理无人调用的旧工作区分配包装及无用导入、补类说明，生产执行函数不再变化；最终精确树同范围验证见提交正文。下一项新 8.2 仍需将整个候选的链编辑/桥接/资源/评价接入同一原生计算流程后再实际测试并行。
+
+## 8.2.1 共用有界原生拼接修复
+
+实施前 `57a4543`，环境和保护范围沿用本计划；非旧 NumPy 计划的同号步骤。本单元只是整候选原生计算的前置单元，没有开启并行、不代表新 8.2 全部完成。
+
+### 实际修改与边界
+
+- `repair_parts_step()` 直接读取原链数组片段、依原顺序拼接和修复，使用数值进度/桥接游标续算；每次至多处理一个拼接片段或 64 项桥接搜索。主线程在步骤间保留取消检查，不用不可取消的全原型双层循环替换。
+- 原生桥接扫描完成后直接调用唯一选中资源写入路径；原独立桥接包装也调用同一路径。直接、单材、双材优先序、严格同分选择、温区投影、资源全字段和扩展事件都保留，不物化正式任务。
+- 共用 `_repair_parts()` 接线后，首轮整链、真实节点移动、拆单移除父单后的拼接和精修结构调整均走该原语；并非只为后置精修复制一套桥接逻辑。
+- 保留容量不足原尝试重试、部分私有缓冲不发布、资源序号 int64 溢出的原错误边界。独立直接写入还在读取非法端点状态时明确退出，避免继续使用失败投影；有效输入的写入公式不变。
+
+### 必要回归
+
+首批旧有 48 项通过（90.98 秒），随后新增小步续算、全字段/事件及原错误定位见证，集中必要范围 **197 项通过，134.17 秒，退出 0**：
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -m pytest -q -p no:cacheprovider tests/core/test_numeric_candidate_kernel.py tests/core/test_numeric_private_resources.py tests/core/test_numeric_private_split.py tests/core/test_numeric_candidate_publication.py tests/core/test_numeric_refinement_common.py tests/core/test_numeric_batch.py tests/app/test_unified_numeric_flow.py tests/architecture
+```
+
+同一真实双材案例用 1/2/64 项扫描片验证原生续算，选中序号、全部节点/派生列和扩展事件相等；真实 Numba 无对象编译签名已见证。既有非自适应温区、资源容量、取消、拆单、原序消费和实际主流程禁止旧准备入口的检查一起通过。精确暂存树导出复验同一范围，树、目录、耗时见本项 Git 提交正文。
+
+本单元开始及提交前残留检查仍只报告已登记的 8 个旧稳定路径缺失及 1 个归类汇总，不修复外部历史残留、不宣称共享检查成功；精确导出另验。四份用户文件、正式 YAML/SQLite 和原请求 SHA-256 均与阶段 0 保护值一致。
+
+### 真实前缀与窗口
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 /Users/miles/anaconda3/envs/aps_3.10.18/bin/python tools/verify_unified_numeric_search_prefix.py --source-root /Users/miles/dev/dev-py/APSGOV7 --prepared-request diagnostics/critical_delivery_search_and_bridge_reclamation/combined_01/prepared_request.json --through-split --refinement-checks 20000 --output-dir diagnostics/unified_numeric_solver/stage821_window_01
+cmp diagnostics/unified_numeric_solver/stage61_reference_01/search_prefix.json diagnostics/unified_numeric_solver/stage821_window_01/search_prefix.json
+```
+
+退出均为 0。前缀及窗口 JSON 字节一致，SHA-256 `da2f5a753580bfcab57c258cf31a940e2d11aa7d417e89d0823d662b1d1e5f1d`；共 154226 检查/6688 完整评价/460 接受，窗口新增 5560 完整评价/18 接受，出口身份和九级与上节窗口一致。两类拆单各 1、唯一重放 1；没有把窗口结果冒充全量最终排程。
+
+本次为首次编译并带轨迹的正确性诊断，开始阶段与必要测试有短时重叠；附带 115.381378 秒墙钟/114.878869 秒 CPU 不作正式性能比较。源码逐文件摘要在该目录 `identity.json`；无扩大忽略项、无改原期望。下一项整候选原生计算仍待实施，之后才进入实际线程筛查。

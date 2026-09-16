@@ -179,6 +179,51 @@ def append_private_virtuals(base, derived, tail, tail_derived, templates, select
         tail.present[row, _MAX_TEMPERATURE_PRESENT] = left.has_maximum or right.has_maximum
 
 
+@njit
+def append_virtual_selection_native(columns, base, base_derived, tail, derived,
+        templates, prototypes, event_node_ends, event_group_ends, node_count,
+        group_count, event_count, selected, left, right, purpose, first_sequence, split_group):
+    """One selected resource event; scans and callers share this exact write path."""
+    empty = np.empty(0, np.int64)
+    count = selected.size
+    if node_count + count > templates.size or event_count >= event_node_ends.size:
+        return CAPACITY, False, empty, node_count, event_count
+    status = np.array((OK, -1, -1, -1), np.int64)
+    left_values = private_edge_node(columns, tail, node_count, left, status)
+    right_values = private_edge_node(columns, tail, node_count, right, status)
+    if status[0] != OK:
+        return status[0], False, empty, node_count, event_count
+    append_private_virtuals(base, base_derived, tail, derived, templates, selected,
+        prototypes, node_count, left_values, right_values, purpose, first_sequence, split_group)
+    end = node_count + count
+    event_node_ends[event_count], event_group_ends[event_count] = end, group_count
+    return OK, True, np.arange(base.weight.size + node_count, base.weight.size + end), end, event_count + 1
+
+
+@njit
+def private_bridge_step(columns, rules, base, base_derived, tail, derived, templates,
+        prototypes, event_node_ends, event_group_ends, node_count, group_count,
+        event_count, left, right, max_nodes, first_sequence, purpose, split_group,
+        cursor, work_limit):
+    """One bounded scan slice plus the sole selected-resource write on completion."""
+    status = scan_private_bridge(columns, rules, tail, node_count, prototypes,
+        left, right, max_nodes, cursor, work_limit)
+    if status[0] != OK:
+        return status[0], False, np.empty(0, np.int64), node_count, event_count
+    count = cursor[_SCAN_COUNT]
+    if count <= 0:
+        return OK, count == 0, np.empty(0, np.int64), node_count, event_count
+    selected = np.array((cursor[_SCAN_FIRST], cursor[_SCAN_SECOND]), np.int64)[:count]
+    return append_virtual_selection_native(columns, base, base_derived, tail, derived,
+        templates, prototypes, event_node_ends, event_group_ends, node_count,
+        group_count, event_count, selected, left, right, purpose, first_sequence, split_group)
+
+
+def private_resource_columns(task):
+    return (PrivateNodeColumns(*(getattr(task.nodes, name) for name in _NODE_FIELDS)),
+            PrivateDerivedColumns(*(getattr(task, name) for name in _DERIVED_FIELDS)))
+
+
 def prepare_private_bridge(workspace, program, left, right, *, max_nodes,
                            first_sequence, purpose=VirtualPurpose.EDGE_BRIDGE,
                            split_group=-1, chunk_size=64, allows_continue=None):
@@ -201,22 +246,21 @@ def prepare_private_bridge(workspace, program, left, right, *, max_nodes,
     checked_sum((first_sequence, max_nodes), "private_bridge.sequence")
     task = workspace.task
     columns, rules = task_columns(task), rule_tables(program.rules)
+    base, derived = private_resource_columns(task)
     cursor = np.zeros(6, dtype=np.int64)
     empty = np.empty(0, dtype=np.int64)
     while True:
         if allows_continue is not None and not allows_continue():
             return CANCELLED, False, empty
-        status = scan_private_bridge(columns, rules, workspace.nodes, workspace.node_count,
-            task.prototype_rows, left, right, max_nodes, cursor, chunk_size)
-        if status[0] != MORE_WORK:
-            break
-    if status[0] != OK:
-        return int(status[0]), False, empty
-    count = int(cursor[_SCAN_COUNT])
-    if count <= 0:
-        return OK, count == 0, empty
-    selected = np.array((cursor[_SCAN_FIRST], cursor[_SCAN_SECOND]), dtype=np.int64)[:count]
-    return _append_selected_virtuals(workspace, selected, left, right, purpose, first_sequence, split_group)
+        status, connected, rows, nodes, events = private_bridge_step(columns, rules,
+            base, derived, workspace.nodes, workspace.derived, workspace.templates,
+            task.prototype_rows, workspace.event_node_ends, workspace.event_group_ends,
+            workspace.node_count, workspace.group_count, workspace.event_count,
+            left, right, max_nodes, first_sequence, _PURPOSES.index(purpose), split_group,
+            cursor, chunk_size)
+        if status != MORE_WORK:
+            workspace.node_count, workspace.event_count = int(nodes), int(events)
+            return int(status), bool(connected), rows
 
 
 def _append_selected_virtuals(workspace, selected, left, right, purpose, first_sequence, split_group):
@@ -225,22 +269,15 @@ def _append_selected_virtuals(workspace, selected, left, right, purpose, first_s
         nodes=workspace.node_count + int(count), groups=workspace.group_count, events=workspace.event_count + 1)
     if capacity != OK:
         return capacity, False, np.empty(0, dtype=np.int64)
-    first = workspace.node_count
     columns = task_columns(task)
-    status = np.array((OK, -1, -1, -1), dtype=np.int64)
-    base = PrivateNodeColumns(*(getattr(task.nodes, name) for name in _NODE_FIELDS))
-    derived = PrivateDerivedColumns(*(getattr(task, name) for name in _DERIVED_FIELDS))
-    left_values = private_edge_node(columns, workspace.nodes, first, left, status)
-    right_values = private_edge_node(columns, workspace.nodes, first, right, status)
-    append_private_virtuals(base, derived, workspace.nodes, workspace.derived, workspace.templates,
-        selected, task.prototype_rows, first, left_values, right_values,
-        _PURPOSES.index(purpose), first_sequence, split_group)
-    workspace.node_count += count
-    workspace.event_node_ends[workspace.event_count] = workspace.node_count
-    workspace.event_group_ends[workspace.event_count] = workspace.group_count
-    workspace.event_count += 1
-    return OK, True, np.arange(task.nodes.weight.size + first,
-                              task.nodes.weight.size + workspace.node_count, dtype=np.int64)
+    base, derived = private_resource_columns(task)
+    status, connected, rows, nodes, events = append_virtual_selection_native(columns,
+        base, derived, workspace.nodes, workspace.derived, workspace.templates,
+        task.prototype_rows, workspace.event_node_ends, workspace.event_group_ends,
+        workspace.node_count, workspace.group_count, workspace.event_count, selected,
+        left, right, _PURPOSES.index(purpose), first_sequence, split_group)
+    workspace.node_count, workspace.event_count = int(nodes), int(events)
+    return int(status), bool(connected), rows
 
 
 @njit
