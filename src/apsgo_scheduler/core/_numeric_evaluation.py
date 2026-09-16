@@ -681,10 +681,11 @@ def _evaluate_numeric_candidate(
         != previous_task.originals.weight.size
     ):
         raise NumericValueError("evaluation_reuse", "matching previous evaluation required")
+    task_is_compatible = task is previous_task or (
+        previous_task.fingerprint in task.ancestor_fingerprints
+    )
     if (
-        task is not previous_task
-        or rule_program.fingerprint != previous_rule_program.fingerprint
-        or quality_program.fingerprint != previous_quality_program.fingerprint
+        not task_is_compatible
         or rule_program.rules != previous_rule_program.rules
         or quality_program.objectives != previous_quality_program.objectives
     ):
@@ -717,7 +718,11 @@ def _evaluate_numeric_candidate(
         tuple(chain_results),
         chain_facts,
         _delivery(task, plan, previous_plan, previous_evaluation.delivery),
-        previous_evaluation.node_metrics,
+        (
+            previous_evaluation.node_metrics
+            if task is previous_task
+            else _node_metrics(task, rule_program, plan)
+        ),
     )
 
 

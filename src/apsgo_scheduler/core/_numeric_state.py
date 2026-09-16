@@ -302,12 +302,19 @@ class NumericTask:
     text_labels: tuple
     derived_rule_ids: tuple
     rule_set_fingerprint: str
+    ancestor_fingerprints: tuple
     fingerprint: str
 
     def __post_init__(self):
         capacity = self.nodes.weight.size
         if len(self.node_ids) != capacity or len(set(self.node_ids)) != capacity:
             raise NumericValueError("node_ids", "one unique identity per numeric row required")
+        if (
+            not isinstance(self.ancestor_fingerprints, tuple)
+            or any(not isinstance(value, str) or not value for value in self.ancestor_fingerprints)
+            or len(set(self.ancestor_fingerprints)) != len(self.ancestor_fingerprints)
+        ):
+            raise NumericValueError("task_lineage", "unique task ancestor fingerprints required")
         if (
             self.prototype_rows.dtype != np.int64
             or self.prototype_rows.flags.writeable
@@ -544,6 +551,7 @@ class NumericTask:
             tuple(text_labels),
             (tuple(priority_ids), tuple(narrow_ids), tuple(surface_ids), tuple(group_ids)),
             rule_set.fingerprint,
+            (),
             digest.hexdigest(),
         )
 
@@ -649,6 +657,7 @@ def extend_numeric_task(task, dynamic_nodes, *, split_group=None):
         surface_matches=surface,
         same_spec_groups=same_spec,
         node_ids=task.node_ids + identities,
+        ancestor_fingerprints=task.ancestor_fingerprints + (task.fingerprint,),
         fingerprint=identity,
     )
 

@@ -10,8 +10,10 @@ from apsgo_scheduler.core._numeric_evaluation import (
     evaluate_numeric_candidate,
     evaluate_numeric_plan,
 )
+from apsgo_scheduler.core._numeric_resources import extend_resource_workspace, virtual_node
 from apsgo_scheduler.core._numeric_state import NumericPlan, readonly
 from apsgo_scheduler.core._numeric_units import NumericValueError
+from apsgo_scheduler.core.model import VirtualPurpose
 from tests.core.test_numeric_construction import construction_case
 
 
@@ -145,6 +147,68 @@ def test_changed_task_uses_full_new_numeric_evaluation(monkeypatch):
     )
     assert calls == [0, 1]
     _assert_same(result, evaluate_numeric_plan(task, program, quality, plan))
+
+
+def test_append_only_resource_extension_reuses_unchanged_chains_and_matches_full(
+    monkeypatch,
+):
+    task, program, quality = construction_case(
+        weights=("100", "100", "100"), widths=("1000", "900", "800")
+    )
+    previous_plan = NumericPlan.build(
+        task, (0, 1, 2), (0, 2, 3), (10, 20), (0, 0)
+    )
+    previous = evaluate_numeric_plan(task, program, quality, previous_plan)
+    extension = extend_resource_workspace(
+        task,
+        program,
+        quality,
+        (
+            virtual_node(
+                task,
+                0,
+                0,
+                1,
+                purpose=VirtualPurpose.EDGE_BRIDGE,
+                sequence=1,
+            ),
+        ),
+    )
+    added = extension.rows[0]
+    candidate = NumericPlan.build(
+        extension.task,
+        (0, added, 1, 2),
+        (0, 3, 4),
+        (10, 20),
+        (0, 0),
+        generation=1,
+    )
+    calls = []
+    original = evaluation_module.evaluate_numeric_chain
+
+    def counted(*args):
+        calls.append(args[-1])
+        return original(*args)
+
+    monkeypatch.setattr(evaluation_module, "evaluate_numeric_chain", counted)
+    incremental = evaluate_numeric_candidate(
+        extension.task,
+        extension.program,
+        extension.quality,
+        candidate,
+        task,
+        program,
+        quality,
+        previous_plan,
+        previous,
+    )
+    assert calls == [0]
+    calls.clear()
+    full = evaluate_numeric_plan(
+        extension.task, extension.program, extension.quality, candidate
+    )
+    assert calls == [0, 1]
+    _assert_same(incremental, full)
 
 
 def test_reuse_rejects_previous_delivery_with_wrong_node_count():
