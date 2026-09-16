@@ -1,6 +1,7 @@
 """Candidate-private numeric rows for virtual material and controlled splits."""
 
 from dataclasses import dataclass
+from functools import lru_cache
 
 import numpy as np
 
@@ -134,6 +135,7 @@ def split_piece_node(
     )
 
 
+@lru_cache(maxsize=128)
 def extend_resource_workspace(task, program, quality, nodes, *, split_group=None):
     candidate = extend_numeric_task(task, nodes, split_group=split_group)
     candidate_program = program.rebind(candidate)

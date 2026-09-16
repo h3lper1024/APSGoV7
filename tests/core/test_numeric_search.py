@@ -6,7 +6,11 @@ import pytest
 
 from apsgo_scheduler.core._numeric_construction import NumericInitialSolution
 from apsgo_scheduler.core._numeric_evaluation import evaluate_numeric_plan
-from apsgo_scheduler.core._numeric_resources import choose_virtual_bridge
+from apsgo_scheduler.core._numeric_resources import (
+    choose_virtual_bridge,
+    extend_resource_workspace,
+    virtual_node,
+)
 from apsgo_scheduler.core._numeric_rules import NumericRuleKind
 from apsgo_scheduler.core._numeric_search import (
     NumericCandidateEdit,
@@ -23,6 +27,7 @@ from apsgo_scheduler.core._numeric_search import (
 from apsgo_scheduler.core._numeric_state import NumericPlan
 from apsgo_scheduler.core._numeric_units import NumericValueError
 from apsgo_scheduler.core.contracts import SearchStopReason
+from apsgo_scheduler.core.model import VirtualPurpose
 from tests.core.test_numeric_construction import budget, construction_case
 
 
@@ -167,6 +172,28 @@ def test_static_bridge_scan_matches_materialized_adaptive_temperature_choice():
     assert task.prototype_ids[int(fast.task.nodes.prototype[fast.rows[0]])] == task.prototype_ids[
         int(fallback.task.nodes.prototype[fallback.rows[0]])
     ]
+
+
+def test_identical_candidate_resource_extension_reuses_immutable_workspace():
+    task, program, quality = construction_case(
+        temperatures=(("700", "710"), ("800", "810"))
+    )
+    node = virtual_node(
+        task,
+        0,
+        0,
+        1,
+        purpose=VirtualPurpose.EDGE_BRIDGE,
+        sequence=1,
+    )
+    extend_resource_workspace.cache_clear()
+
+    first = extend_resource_workspace(task, program, quality, (node,))
+    second = extend_resource_workspace(task, program, quality, (node,))
+
+    assert second is first
+    assert extend_resource_workspace.cache_info().hits == 1
+    extend_resource_workspace.cache_clear()
 
 
 def test_missing_bridge_or_rejected_fill_does_not_publish_private_rows_or_sequences():
