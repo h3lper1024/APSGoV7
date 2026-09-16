@@ -305,6 +305,7 @@ def choose_virtual_bridge(
         )
         workspace = extend_resource_workspace(task, program, quality, temporary)
         first_rows = workspace.rows[:count]
+        best = None
         best_score = None
         for prototype, row in enumerate(first_rows):
             if _allowed(workspace.task, workspace.program, left, row) and _allowed(
