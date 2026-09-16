@@ -1,5 +1,7 @@
 """Post-search numeric refinement keeps actions, resources and shared quota coherent."""
 
+import numpy as np
+
 import apsgo_scheduler.core._numeric_refinement as refinement
 from apsgo_scheduler.core._numeric_evaluation import evaluate_numeric_plan
 from apsgo_scheduler.core._numeric_refinement import (
@@ -22,7 +24,7 @@ from apsgo_scheduler.core._numeric_resources import (
     virtual_node,
 )
 from apsgo_scheduler.core._numeric_search import NumericSearchAction, NumericSearchState
-from apsgo_scheduler.core._numeric_state import NumericPlan, NumericSplitGroup
+from apsgo_scheduler.core._numeric_state import NumericPlan, NumericSplitGroup, readonly
 from apsgo_scheduler.core._numeric_units import allocate_piece_milliseconds
 from apsgo_scheduler.core.contracts import SearchStopReason
 from apsgo_scheduler.core.model import VirtualPurpose
@@ -318,6 +320,90 @@ def test_block_interval_is_owned_once_when_one_order_has_multiple_pieces():
 
     assert recipes
     assert len(recipes) == len(set(recipes))
+
+
+def test_refinement_rejects_split_piece_outside_authorized_target_period(monkeypatch):
+    task, program, quality = construction_case(
+        weights=("100", "100", "100"),
+        widths=("1000", "990", "980"),
+        source_periods=("P0", "P1", "P0"),
+    )
+    count = task.nodes.weight.size
+    piece_weights = (5000, 5000)
+    piece_durations = allocate_piece_milliseconds(
+        int(task.nodes.weight[0]),
+        int(task.nodes.duration_ms[0]),
+        piece_weights,
+        "test_piece_duration",
+    )
+    group = NumericSplitGroup(
+        0,
+        0,
+        int(task.nodes.resource[0]),
+        int(task.nodes.weight[0]),
+        int(task.nodes.duration_ms[0]),
+        0,
+        0,
+        1,
+        1,
+        0,
+        1,
+    )
+    pieces = tuple(
+        split_piece_node(
+            task,
+            0,
+            group_index=0,
+            piece_index=index,
+            piece_count=2,
+            weight=weight,
+            duration_ms=duration,
+            accepted_sequence=1,
+        )
+        for index, (weight, duration) in enumerate(zip(piece_weights, piece_durations))
+    )
+    workspace = extend_resource_workspace(
+        task, program, quality, pieces, split_group=group
+    )
+    state = _state(
+        workspace.task,
+        workspace.program,
+        workspace.quality,
+        (2, count, count + 1, 1),
+        (0, 1, 4),
+        (10, 20),
+        (0, 1),
+    )
+    runtime = budget(candidate_limit=1)
+    assert runtime.consume_candidate_check()
+    chains = (
+        readonly((2, count), np.int64),
+        readonly((count + 1, 1), np.int64),
+    )
+    overlay = refinement._candidate_overlay(
+        state.task, state.plan, chains, (10, 20), (0, 1), group_periods=False
+    )
+    edit = refinement._edit_for(
+        state,
+        (NumericSearchAction.NODE_MOVE, 20, 10, 0, 1, 1, -1),
+        runtime.candidate_check_count,
+    )
+    monkeypatch.setattr(
+        refinement,
+        "evaluate_numeric_overlay_candidate",
+        lambda *args, **kwargs: pytest.fail("invalid split candidate must not be evaluated"),
+    )
+
+    assert not refinement._try_overlay_candidate(
+        state,
+        runtime,
+        edit,
+        state.task,
+        state.program,
+        state.quality,
+        overlay,
+    )
+    assert state.complete_candidate_evaluation_count == 0
 
 
 def test_direct_ownership_preserves_candidate_budget_and_acceptance_order():

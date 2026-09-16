@@ -31,7 +31,7 @@ from ._numeric_search import (
     _validate_search_inputs,
     improve_numeric_controlled_split,
 )
-from ._numeric_state import NumericPlanOverlay, readonly
+from ._numeric_state import NumericPlanOverlay, readonly, split_target_periods_match
 from ._numeric_units import NumericValueError, checked_product
 from .budget import SolveRuntimeBudget
 from .contracts import SearchStopReason
@@ -853,6 +853,10 @@ def _try_overlay_candidate(
 ):
     if edit.sequence != budget.candidate_check_count:
         raise NumericValueError("candidate", "candidate sequence does not match consumed budget")
+    if not split_target_periods_match(
+        candidate_task, overlay.chains, overlay.chain_periods
+    ):
+        return False
     preview = evaluate_numeric_overlay_candidate(
         candidate_task,
         candidate_program,

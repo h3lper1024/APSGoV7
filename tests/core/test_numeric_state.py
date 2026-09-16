@@ -11,6 +11,8 @@ from apsgo_scheduler.app.rule_set_loader import load_rule_set
 from apsgo_scheduler.core._numeric_state import (
     NumericNodeColumns,
     NumericPlan,
+    NumericSplitGroup,
+    NumericSplitGroups,
     NumericTask,
     readonly,
 )
@@ -152,9 +154,28 @@ def test_all_split_pieces_remain_indexed_and_conserve():
         elif field.name == "split_group":
             added[:] = 0
         columns[field.name] = readonly(np.concatenate((original, added)), original.dtype)
+    group = NumericSplitGroup(
+        0,
+        0,
+        int(value.nodes.resource[0]),
+        parent_weight,
+        int(value.nodes.duration_ms[0]),
+        int(value.nodes.source_period[0]),
+        0,
+        0,
+        0,
+        0,
+        1,
+    )
     altered = replace(
         value,
         nodes=NumericNodeColumns(**columns),
+        split_groups=NumericSplitGroups(
+            *(
+                readonly([getattr(group, field.name)], np.int64)
+                for field in fields(NumericSplitGroups)
+            )
+        ),
         node_ids=value.node_ids + ("split-piece-1", "split-piece-2"),
     )
     plan = NumericPlan.build(altered, [count, 1, count + 1], [0, 2, 3], [55, 12], [0, 0])
@@ -163,6 +184,8 @@ def test_all_split_pieces_remain_indexed_and_conserve():
     assert plan.source_last_position.tolist() == [2, 1]
     assert plan.row_to_chain[0] == -1
     assert value.nodes.weight.size == count
+    with pytest.raises(NumericValueError, match="authorized target period"):
+        NumericPlan.build(altered, [count, 1, count + 1], [0, 2, 3], [55, 12], [1, 0])
 
 
 def test_physical_thresholds_participate_in_unit_selection():

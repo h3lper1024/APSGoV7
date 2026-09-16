@@ -64,6 +64,22 @@ def _indices(values, path):
     return readonly(value, np.int64)
 
 
+def split_target_periods_match(task, chains, chain_periods):
+    """Return whether every scheduled split piece remains in its authorized period."""
+    if not isinstance(task, NumericTask) or len(chains) != len(chain_periods):
+        return False
+    group_count = task.split_groups.target_period.size
+    for chain, period in zip(chains, chain_periods):
+        groups = task.nodes.split_group[np.asarray(chain, dtype=np.int64)]
+        groups = groups[groups >= 0]
+        if groups.size and (
+            np.any(groups >= group_count)
+            or np.any(task.split_groups.target_period[groups] != int(period))
+        ):
+            return False
+    return True
+
+
 def _text(material, name):
     value = material.grade if name == "grade" else material.rule_attributes.get(name)
     if value is None:
@@ -718,6 +734,14 @@ class NumericPlan:
             raise NumericValueError("source", "unknown original")
         positions = np.arange(n, dtype=np.int64)
         chains_by_position = np.repeat(np.arange(chains, dtype=np.int64), np.diff(offsets))
+        if not split_target_periods_match(
+            task,
+            tuple(rows[offsets[index] : offsets[index + 1]] for index in range(chains)),
+            periods,
+        ):
+            raise NumericValueError(
+                "split_target_period", "split pieces must remain in the authorized target period"
+            )
         real = owners >= 0
         if np.any((task.nodes.role[rows] != _ROLES.index(MaterialRole.GENERATED_VIRTUAL)) != real):
             raise NumericValueError("role", "material role and original ownership disagree")
