@@ -1,0 +1,15 @@
+{
+  "semantics": "continuous_start_lower_bound_v1",
+  "unit": "millisecond",
+  "cases": [
+    {"name":"equal", "sources":[0], "durations":[3600000], "earliest":[0], "starts":[0], "early":[0]},
+    {"name":"completion_equal_but_start_early", "sources":[0,1], "durations":[7200000,3600000], "earliest":[0,10800000], "starts":[0,7200000], "early":[0,3600000]},
+    {"name":"one_millisecond_early", "sources":[0,1], "durations":[3599999,1], "earliest":[0,3600000], "starts":[0,3599999], "early":[0,1]},
+    {"name":"virtual_consumes_time", "sources":[0,-1,1], "durations":[3600000,1800000,1800000], "earliest":[0,5400000], "starts":[0,3600000,5400000], "early":[0,0,0]},
+    {"name":"split_inherits", "sources":[0,0], "durations":[3600000,1000], "earliest":[3600000], "starts":[0,3600000], "early":[3600000,0]},
+    {"name":"chain_order_before", "sources":[0,1], "durations":[7200000,3600000], "earliest":[3600000,0], "starts":[0,7200000], "early":[3600000,0]},
+    {"name":"chain_order_after", "sources":[1,0], "durations":[3600000,7200000], "earliest":[3600000,0], "starts":[0,3600000], "early":[0,0]},
+    {"name":"all_unavailable_no_wait", "sources":[0,1], "durations":[1000,1000], "earliest":[3600000,3600000], "starts":[0,1000], "early":[3600000,3599000]},
+    {"name":"negative_lower_bound", "sources":[0], "durations":[1000], "earliest":[-3600000], "starts":[0], "early":[0]}
+  ]
+}
