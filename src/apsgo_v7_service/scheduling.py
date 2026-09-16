@@ -243,6 +243,11 @@ def bind_gqga4_scheduling_task(
     active_rules = active.active_rules
     delivery_enabled = any(rule.rule_id == "delivery_due_performance" and rule.enabled
                            for rule in active_rules.rule_set_spec.rules)
+    earliest_enabled = any(rule.rule_type == "EarliestProcessStartRule" and rule.enabled
+                           for rule in active_rules.rule_set_spec.rules)
+    if earliest_enabled and task_input.contract_version != "v7-month-solve-v3":
+        raise RuleManagementServiceError("earliest_start_configuration_mismatch",
+            "已启用最早开工规则，请使用携带逐单最早开始时间的月计划 v3 请求。")
     if delivery_enabled != (task_input.schedule_start_at is not None):
         raise RuleManagementServiceError(
             "delivery_configuration_mismatch",
@@ -317,7 +322,8 @@ def solve_gqga4_scheduling_task(
         binding_fingerprint=task.binding_fingerprint,
         result=result,
         delivery_report=(build_delivery_report(task.request, result)
-                         if task.request.delivery_timing is not None and result.release is not None else None),
+                         if task.request.delivery_timing is not None and
+                         (result.release is not None or result.diagnostic_candidate is not None) else None),
     )
 
 

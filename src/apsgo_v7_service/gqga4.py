@@ -6,7 +6,8 @@ from dataclasses import replace
 from apsgo_scheduler.app.delivery_request import with_delivery_objective
 from apsgo_scheduler.app.rule_set_loader import fingerprint_rule_set_spec
 
-from apsgo_scheduler.api.request import VirtualPrototypeInput
+from apsgo_scheduler.api.request import VirtualPrototypeInput, RuleDefinitionSpec
+from apsgo_scheduler.core.contracts import RuleScope
 from apsgo_scheduler.api.rule_management import EditableRuleInput
 from apsgo_scheduler.app.rule_set_compiler import (
     CompiledRuleSetSnapshot,
@@ -352,8 +353,22 @@ def _delivery_template():
 GQGA4_DELIVERY_RULE_SET_TEMPLATE = _delivery_template()
 
 
+def _earliest_start_template():
+    spec = replace(GQGA4_DELIVERY_RULE_SET_TEMPLATE, rules=(
+        *GQGA4_DELIVERY_RULE_SET_TEMPLATE.rules,
+        RuleDefinitionSpec("earliest_process_start", "EarliestProcessStartRule",
+            "当前工序最早开工", RuleScope.PLAN, True, "1", {}),
+    ))
+    return replace(spec, fingerprint=fingerprint_rule_set_spec(spec))
+
+
+GQGA4_EARLIEST_START_RULE_SET_TEMPLATE = _earliest_start_template()
+
+
 def _template_for(rules):
     # Historical seven-level versions remain verifiable without rewriting their bytes.
+    if any(item.rule_id == "earliest_process_start" for item in rules):
+        return GQGA4_EARLIEST_START_RULE_SET_TEMPLATE
     return (GQGA4_DELIVERY_RULE_SET_TEMPLATE
             if any(item.rule_id == "delivery_due_performance" for item in rules)
             else GQGA4_RULE_SET_TEMPLATE)

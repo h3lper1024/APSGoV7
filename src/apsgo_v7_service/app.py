@@ -291,7 +291,7 @@ def _mapped_month_error(
             "scheduling_input_invalid",
         )
     if isinstance(error, RuleManagementServiceError):
-        if error.code in {"active_version_conflict", "delivery_configuration_mismatch"}:
+        if error.code in {"active_version_conflict", "delivery_configuration_mismatch", "earliest_start_configuration_mismatch"}:
             status, message = 409, str(error)
         elif error.code in {"rule_set_not_initialized", "grade_dictionary_unavailable"}:
             status, message = 503, "GQGA4 月计划规则或软硬钢字典尚不可用。"

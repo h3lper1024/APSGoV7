@@ -27,12 +27,13 @@ from apsgo_scheduler.core.contracts import (
 )
 from apsgo_scheduler.core.model import MaterialRole, SchedulePlan
 from apsgo_scheduler.core.rules.base import RuleViolation
-from apsgo_scheduler.core.delivery_timing import OrderTimingInput, production_hours
+from apsgo_scheduler.core.delivery_timing import OrderTimingInput, production_hours, validate_earliest_start
 
 from .scheduling import BoundSchedulingResult, SchedulingTaskInput
 
 MONTH_SOLVE_CONTRACT_VERSION = "v7-month-solve-v1"
 MONTH_DELIVERY_CONTRACT_VERSION = "v7-month-solve-v2"
+MONTH_EARLIEST_START_CONTRACT_VERSION = "v7-month-solve-v3"
 _TIMING_FIELDS = frozenset(("due_date", "furnace_speed_mpm", "process_speed_mpm"))
 
 _ROOT_FIELDS = frozenset(("contract_version", "request_id", "expected_active_version_id", "periods", "orders"))
@@ -158,7 +159,7 @@ def _load_json(payload: str | bytes | bytearray):
         _raise_contract("invalid_json", "body", f"请求体不是合法 JSON：{error}。")
 
 
-def _exact_object(value, path: str, names: frozenset[str]) -> Mapping:
+def _exact_object(value, path: str, names: frozenset[str], optional=frozenset()) -> Mapping:
     if not isinstance(value, Mapping):
         _raise_contract("invalid_field_type", path or "body", "字段必须是 JSON 对象。")
     missing = sorted(names - value.keys())
@@ -168,7 +169,7 @@ def _exact_object(value, path: str, names: frozenset[str]) -> Mapping:
             f"{path}.{missing[0]}" if path else missing[0],
             "缺少必需字段。",
         )
-    unknown = sorted(value.keys() - names)
+    unknown = sorted(value.keys() - names - optional)
     if unknown:
         _raise_contract(
             "unknown_field",
@@ -238,9 +239,10 @@ def _material_role(customer_grade, hot_roll_grade, execution_standard) -> Materi
     return MaterialRole.ACTUAL_TRANSITION if transition else MaterialRole.NORMAL_REAL
 
 
-def _order(value, index: int, *, delivery=False) -> OrderInput:
+def _order(value, index: int, *, delivery=False, earliest=False) -> OrderInput:
     path = f"orders[{index}]"
-    item = _exact_object(value, path, _ORDER_FIELDS | _TIMING_FIELDS if delivery else _ORDER_FIELDS)
+    item = _exact_object(value, path, _ORDER_FIELDS | _TIMING_FIELDS if delivery else _ORDER_FIELDS,
+                         {"earliest_start_at"} if earliest else frozenset())
     source_order_id = _text(item["source_order_id"], f"{path}.source_order_id")
     is_virtual = item["is_virtual"]
     if type(is_virtual) is not bool:
@@ -337,9 +339,16 @@ def _order_timing(raw, order, index):
         _raise_contract("missing_production_speed", f"{path}.furnace_speed_mpm", "炉区速度和备用工艺速度至少有一个有效正值。", order.source_order_id)
     for name in ("width", "thickness"):
         _positive_decimal(raw[name], f"{path}.{name}")
+    earliest = raw.get("earliest_start_at")
+    if earliest is not None:
+        try:
+            validate_earliest_start(earliest)
+        except (ValueError, TypeError, OverflowError):
+            _raise_contract("invalid_earliest_start", f"{path}.earliest_start_at",
+                "最早开始时间必须为带 +08:00 的秒级北京时间。", order.source_order_id)
     return OrderTimingInput(order.source_order_id, due, production_hours(
         order.weight, order.width, order.thickness, speed
-    ))
+    ), earliest_start_at=earliest)
 
 
 def loads_month_solve_request(
@@ -351,13 +360,14 @@ def loads_month_solve_request(
     if not isinstance(policy, SolverPolicy):
         raise ValueError("policy must be SolverPolicy")
     raw = _load_json(payload)
-    delivery = isinstance(raw, Mapping) and raw.get("contract_version") == MONTH_DELIVERY_CONTRACT_VERSION
+    earliest = isinstance(raw, Mapping) and raw.get("contract_version") == MONTH_EARLIEST_START_CONTRACT_VERSION
+    delivery = earliest or isinstance(raw, Mapping) and raw.get("contract_version") == MONTH_DELIVERY_CONTRACT_VERSION
     raw = _exact_object(raw, "", _ROOT_FIELDS | {"schedule_start_at"} if delivery else _ROOT_FIELDS)
-    if raw["contract_version"] not in (MONTH_SOLVE_CONTRACT_VERSION, MONTH_DELIVERY_CONTRACT_VERSION):
+    if raw["contract_version"] not in (MONTH_SOLVE_CONTRACT_VERSION, MONTH_DELIVERY_CONTRACT_VERSION, MONTH_EARLIEST_START_CONTRACT_VERSION):
         _raise_contract(
             "unsupported_contract_version",
             "contract_version",
-            f"contract_version 必须为 {MONTH_SOLVE_CONTRACT_VERSION}。",
+            "contract_version 必须为受支持的月计划 v1、v2 或 v3 契约。",
         )
     request_id = _text(raw["request_id"], "request_id")
     try:
@@ -369,7 +379,7 @@ def loads_month_solve_request(
     )
     periods = tuple(_period(item, index) for index, item in enumerate(_array(raw["periods"], "periods")))
     order_rows = _array(raw["orders"], "orders")
-    orders = tuple(_order(item, index, delivery=delivery) for index, item in enumerate(order_rows))
+    orders = tuple(_order(item, index, delivery=delivery, earliest=earliest) for index, item in enumerate(order_rows))
     _ensure_unique(periods, "period_id", "periods")
     _ensure_unique(periods, "sequence", "periods")
     _ensure_unique(orders, "source_order_id", "orders")
@@ -626,6 +636,9 @@ def month_solve_response_data(
         "run_manifest": _manifest_data(result.run_manifest),
         "violations": violations,
         "rows": rows,
+        **({"diagnostic_violations": [_violation_data(item) for item in result.diagnostic_candidate.search_evaluation.violations]}
+           if request.task_input.contract_version == MONTH_EARLIEST_START_CONTRACT_VERSION
+           and not publishable and result.diagnostic_candidate is not None else {}),
         **({"schedule_start_at": request.task_input.schedule_start_at,
             "delivery_report": bound.delivery_report}
            if request.task_input.schedule_start_at is not None else {}),

@@ -31,6 +31,7 @@ from ..core.delivery_timing import (
     score_time_seconds,
     weighted_wait_seconds,
 )
+from ..core.rules.concrete import EarliestProcessStartRule
 from .input_normalizer import normalize_input
 from .rule_set_loader import load_rule_set
 
@@ -414,5 +415,8 @@ def build_delivery_report(request, result):
     report.update(kind=kind, request_fingerprint=fingerprint_public_request(request),
                   problem_fingerprint=problem.input_fingerprint, rule_set_fingerprint=rules.fingerprint,
                   plan_fingerprint=fingerprint(plan))
+    if "early_start_node_count" in report["delivery_summary"]:
+        report["earliest_start_constraint_enabled"] = any(
+            isinstance(rule, EarliestProcessStartRule) for rule in rules.rules)
     report["report_fingerprint"] = fingerprint(report)
     return report
