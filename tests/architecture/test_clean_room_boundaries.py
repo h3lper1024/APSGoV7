@@ -122,6 +122,7 @@ def check_source(source, path, package):
                     (module == "apsgo_scheduler.core._bridge_numeric" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._numeric_kernel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._numeric_chain_ops" and top in {"numpy", "numba"})
+                    or (module == "apsgo_scheduler.core._numeric_candidate_kernel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._numeric_resources" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._delivery_parallel" and top in {"numpy", "numba"})
                     or (module == "apsgo_scheduler.core._search_numeric" and top == "numpy")
@@ -377,6 +378,20 @@ def test_private_numeric_resource_dependencies_remain_exact():
             check_source(source, path, PACKAGE)
     with pytest.raises(AssertionError):
         check_source("import numba", PACKAGE / "core" / "_numeric_resources_extra.py", PACKAGE)
+
+
+def test_unified_candidate_dependencies_are_exact_and_do_not_call_stages():
+    path = PACKAGE / "core" / "_numeric_candidate_kernel.py"
+    for source in ("import numpy", "from numba import njit"):
+        check_source(source, path, PACKAGE)
+    for source in ("import pandas", "import scipy", "import tests", "N = 531"):
+        with pytest.raises(AssertionError):
+            check_source(source, path, PACKAGE)
+    with pytest.raises(AssertionError):
+        check_source("import numba", PACKAGE / "core" / "_numeric_candidate_kernel_extra.py", PACKAGE)
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    imports = {node.module for node in ast.walk(tree) if isinstance(node, ast.ImportFrom)}
+    assert not imports & {"_numeric_search", "_numeric_refinement", "_numeric_construction", "_numeric_batch"}
 
 
 def test_private_separator_three_row_shape_is_exact():
