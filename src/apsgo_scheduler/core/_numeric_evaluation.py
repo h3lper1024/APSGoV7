@@ -1,7 +1,8 @@
 """Complete integer plan evaluation before search and incremental wiring."""
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from enum import Enum
+from functools import lru_cache
 
 import numpy as np
 
@@ -257,6 +258,7 @@ class NumericPlanEvaluation:
     borrowed_future_weight: int
     quality_key: np.ndarray
     chain_facts: NumericChainFacts
+    kernel_result: tuple | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self):
         for name in (
@@ -833,3 +835,136 @@ def preview_numeric_chain_order_quality(task, quality_program, plan, evaluation,
     for objective, value in replacements.items():
         values[quality_program.objectives.index(objective)] = value
     return tuple(values)
+
+
+@lru_cache(maxsize=32)
+def _objective_order(objectives):
+    return readonly([tuple(NumericObjective).index(value) for value in objectives], np.int64)
+
+
+def _kernel_inputs(plan):
+    if isinstance(plan, NumericPlan):
+        return plan.node_rows, plan.chain_offsets
+    lengths = np.fromiter((chain.size for chain in plan.chains), np.int64, len(plan.chains))
+    offsets = np.empty(lengths.size + 1, dtype=np.int64)
+    offsets[0] = 0
+    np.cumsum(lengths, out=offsets[1:])
+    rows = np.concatenate(plan.chains)
+    rows.setflags(write=False)
+    offsets.setflags(write=False)
+    return rows, offsets
+
+
+def _check_kernel_status(result):
+    from ._numeric_kernel import OK, CAPACITY, INVALID, NUMERIC_ERROR, CANCELLED
+    code, rule, chain, position = map(int, result.status[:4])
+    if code in (OK, CAPACITY):
+        return
+    reason = {
+        INVALID: "invalid numeric layout or missing inter-chain boundary width",
+        NUMERIC_ERROR: "integer is outside signed int64 or invalid ratio",
+        CANCELLED: "numeric evaluation cancelled",
+    }.get(code, "unknown numeric kernel status")
+    raise NumericValueError(f"kernel.rules[{rule}].chains[{chain}].positions[{position}]", reason)
+
+
+def _native_result(task, program, quality, plan, *, detail=False, reuse=None):
+    from ._numeric_kernel import evaluate_kernel, task_columns, rule_tables, CAPACITY
+    _validate_evaluation_inputs(task, program, quality, plan)
+    if task.start_ms is None:
+        raise NumericValueError("delivery", "task has no production start and duration input")
+    if np.any(plan.chain_periods[1:] < plan.chain_periods[:-1]):
+        raise NumericValueError("chain_periods", "production chains must follow task period order")
+    rows, offsets = _kernel_inputs(plan)
+    # Start bounded. Only the boundary retries if detail buffers prove too small.
+    v_capacity = 16 if detail else 0
+    m_capacity = 32 if detail else 0
+    while True:
+        output = evaluate_kernel(
+            task_columns(task), rule_tables(program.rules), rows, offsets,
+            plan.chain_periods, _objective_order(quality.objectives), detail,
+            v_capacity, m_capacity, False, plan.chain_ids, reuse,
+        )
+        _check_kernel_status(output)
+        if output.status[0] != CAPACITY:
+            for array in output:
+                array.setflags(write=False)
+            return output
+        v_capacity, m_capacity = map(int, output.counts[:2])
+
+
+def _validated_reuse(task, program, quality, previous_task, previous_program,
+                     previous_quality, previous_plan, previous_evaluation):
+    from ._numeric_kernel import ReuseColumns
+    _validate_evaluation_inputs(previous_task, previous_program, previous_quality, previous_plan)
+    if (
+        not isinstance(previous_evaluation, NumericPlanEvaluation)
+        or previous_evaluation.task_fingerprint != previous_task.fingerprint
+        or previous_evaluation.rule_program_fingerprint != previous_program.fingerprint
+        or previous_evaluation.quality_program_fingerprint != previous_quality.fingerprint
+        or previous_evaluation.plan_fingerprint != previous_plan.fingerprint
+        or previous_evaluation.plan_generation != previous_plan.generation
+        or len(previous_evaluation.chain_results) != previous_plan.chain_ids.size
+        or previous_evaluation.delivery.node_end_ms.size != previous_plan.node_rows.size
+        or previous_evaluation.delivery.original_completion_ms.size != previous_task.originals.weight.size
+    ):
+        raise NumericValueError("evaluation_reuse", "matching previous evaluation required")
+    compatible = (task is previous_task or previous_task.fingerprint in task.ancestor_fingerprints)
+    cached = previous_evaluation.kernel_result
+    if (not compatible or program.rules != previous_program.rules
+            or quality.objectives != previous_quality.objectives or cached is None):
+        return None
+    return ReuseColumns(previous_plan.node_rows, previous_plan.chain_offsets,
+                        previous_plan.chain_ids, previous_plan.chain_periods,
+                        cached.facts, cached.scores, cached.hits, cached.event_counts)
+
+
+def summarize_numeric_candidate(task, program, quality, plan, previous_task,
+                                previous_program, previous_quality, previous_plan,
+                                previous_evaluation):
+    """Fixed native outputs only: no rule result, violation or metric objects."""
+    reuse = _validated_reuse(task, program, quality, previous_task, previous_program,
+                             previous_quality, previous_plan, previous_evaluation)
+    return _native_result(task, program, quality, plan, reuse=reuse)
+
+
+def _map_kernel_details(task, program, quality, plan, output):
+    from ._numeric_rules import NumericReason
+    violations = tuple(NumericViolation(
+        int(row[0]), NumericReason(int(row[1])), int(row[2]), int(row[3]),
+        int(row[4]), int(row[5]), bool(row[6]),
+    ) for row in output.violations[:int(output.counts[0])])
+    metrics = tuple(NumericMetric(
+        int(row[0]), NumericMetricKind(int(row[1])), int(row[3]), int(row[4]),
+    ) for row in output.metrics[:int(output.counts[1])])
+    chain_results = []
+    vi = mi = 0
+    for nv, nm in output.event_counts:
+        next_v, next_m = vi + int(nv), mi + int(nm)
+        chain_results.append(NumericRuleResult(violations[vi:next_v], metrics[mi:next_m]))
+        vi, mi = next_v, next_m
+    plan_metrics = tuple(m for m, row in zip(metrics, output.metrics) if row[2] == -1)
+    node_metrics = tuple(m for m, row in zip(metrics, output.metrics) if row[2] == -2)
+    delivery = NumericDeliveryEvaluation(
+        output.ends, output.completion, output.late, output.waits,
+        *map(int, output.totals[3:6]),
+    )
+    facts = NumericChainFacts(*(readonly(output.facts[:, i], np.int64) for i in range(5)))
+    return NumericPlanEvaluation(
+        task.fingerprint, program.fingerprint, quality.fingerprint, plan.generation,
+        plan.fingerprint if isinstance(plan, NumericPlan) else "candidate-overlay",
+        tuple(chain_results), NumericRuleResult(violations[vi:], plan_metrics),
+        node_metrics, violations, delivery, *map(int, output.totals[:3]),
+        output.quality, facts, output,
+    )
+
+
+def materialize_numeric_evaluation(task, program, quality, plan, summary=None):
+    """Accepted candidate/audit boundary; recompute details from the same primitives."""
+    output = _native_result(task, program, quality, plan, detail=True)
+    if summary is not None:
+        for name in ("quality", "facts", "scores", "hits", "totals",
+                     "ends", "completion", "late", "waits", "event_counts"):
+            if not np.array_equal(getattr(output, name), getattr(summary, name)):
+                raise NumericValueError("candidate_overlay", f"summary and detail differ: {name}")
+    return _map_kernel_details(task, program, quality, plan, output)

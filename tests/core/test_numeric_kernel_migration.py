@@ -46,6 +46,8 @@ def assert_kernel_matches(task, rules, quality, plan):
     metrics += [(m.rule_index, int(m.kind), -2, m.numerator, m.denominator) for m in expected.node_metrics]
     assert detail.metrics.tolist() == [list(m) for m in metrics]
     assert evaluate_kernel.nopython_signatures
+    from apsgo_scheduler.core._numeric_evaluation import materialize_numeric_evaluation
+    _assert_same(materialize_numeric_evaluation(task, rules, quality, plan), expected)
 
 
 def test_frozen_reference_complete_candidate_corpus():
@@ -130,3 +132,36 @@ def test_native_status_and_checked_arithmetic_do_not_wrap():
     assert evaluate_kernel(*args, cancelled=True).status[0] == CANCELLED
     invalid = (*args[:3], np.array([0, 3]), *args[4:])
     assert evaluate_kernel(*invalid).status[0] == INVALID
+
+
+def test_summary_has_zero_detail_objects_and_reuses_only_unchanged_chains(monkeypatch):
+    import apsgo_scheduler.core._numeric_evaluation as e
+    from apsgo_scheduler.core._numeric_state import NumericPlanOverlay
+    task, rules, quality = construction_case(
+        weights=("100",) * 4, widths=("1000", "900", "800", "700"),
+    )
+    old = NumericPlan.build(task, (0, 1, 2, 3), (0, 2, 3, 4), (10, 20, 30), (0, 0, 0))
+    previous = e.materialize_numeric_evaluation(task, rules, quality, old)
+    overlay = NumericPlanOverlay.build(task, old, ((0,), (1, 2), (3,)), (10, 20, 30), (0, 0, 0))
+    expected = reference.evaluate_numeric_overlay_candidate(
+        task, rules, quality, overlay, task, rules, quality, old, previous,
+    )
+    def forbidden(*args, **kwargs):
+        raise AssertionError("summary constructed a detail object")
+    with monkeypatch.context() as m:
+        for cls in (e.NumericPlanEvaluation, e.NumericRuleResult, e.NumericViolation, e.NumericMetric):
+            m.setattr(cls, "__post_init__", forbidden)
+        summary = e.summarize_numeric_candidate(
+            task, rules, quality, overlay, task, rules, quality, old, previous,
+        )
+    assert summary.counts[2] == 2
+    actual = e.materialize_numeric_evaluation(task, rules, quality, overlay, summary)
+    _assert_same(actual, expected)
+    # Plan rules with a node subject must not leak into cached chain scores.
+    shifted = NumericPlan.build(task, (0, 1, 2, 3), (0, 2, 3, 4), (10, 20, 30), (1, 1, 1))
+    p = e.materialize_numeric_evaluation(task, rules, quality, shifted)
+    summary = e.summarize_numeric_candidate(
+        task, rules, quality, shifted, task, rules, quality, shifted, p)
+    assert summary.counts[2] == 0
+    _assert_same(e.materialize_numeric_evaluation(task, rules, quality, shifted, summary),
+                 reference.evaluate_numeric_plan(task, rules, quality, shifted))
