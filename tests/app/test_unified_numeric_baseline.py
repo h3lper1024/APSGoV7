@@ -58,6 +58,20 @@ def test_hooks_restore_after_failure():
     assert search.NumericCandidateEdit.__post_init__ is original
 
 
+def test_refinement_profiler_requires_an_explicit_bounded_window(monkeypatch, tmp_path, capsys):
+    from tools.verify_unified_numeric_search_prefix import main
+
+    destination = tmp_path / "must-not-be-created"
+    monkeypatch.setattr("sys.argv", ["prefix", "--source-root", str(tmp_path),
+        "--prepared-request", str(tmp_path / "unused.json"), "--output-dir", str(destination),
+        "--profile-refinement"])
+    with pytest.raises(SystemExit) as error:
+        main()
+    assert error.value.code == 2
+    assert "positive refinement window" in capsys.readouterr().err
+    assert not destination.exists()
+
+
 def test_public_measurement_with_hooks_matches_uninstrumented_result(tmp_path):
     from dataclasses import replace
     from decimal import Decimal

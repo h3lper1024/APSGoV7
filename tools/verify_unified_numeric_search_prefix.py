@@ -1,11 +1,13 @@
 """Compare search prefixes and an optional bounded refinement window."""
 
 import argparse
+import cProfile
 from dataclasses import fields
 from decimal import Decimal
 import hashlib
 import json
 from pathlib import Path
+import pstats
 import sys
 from time import perf_counter, process_time
 from unittest.mock import patch
@@ -19,9 +21,12 @@ def main():
     parser.add_argument("--through-split", action="store_true")
     parser.add_argument("--refinement-checks", type=int, default=0)
     parser.add_argument("--refinement-diagnostics", action="store_true")
+    parser.add_argument("--profile-refinement", action="store_true")
     args = parser.parse_args()
     if args.refinement_checks < 0 or (args.refinement_checks and not args.through_split):
         parser.error("nonnegative refinement window requires --through-split")
+    if args.profile_refinement and not args.refinement_checks:
+        parser.error("--profile-refinement requires a positive refinement window")
     root = args.source_root.resolve()
     sys.path[:0] = [str(root / "src"), str(root)]
     from apsgo_scheduler.app.input_normalizer import normalize_input
@@ -128,9 +133,21 @@ def main():
                 return original_scan(current, budget, observed(), *a, **kw)
             with patch.object(refinement, "_scan_family", scan):
                 diagnostics = refinement.NumericRefinementDiagnostics() if args.refinement_diagnostics else None
-                refinement.improve_numeric_refinement(state, runtime,
-                    maximum_virtual_bridge_nodes=request.policy.maximum_virtual_bridge_nodes,
-                    diagnostics=diagnostics)
+                profiler = cProfile.Profile() if args.profile_refinement else None
+                if profiler is not None:
+                    profiler.enable()
+                try:
+                    refinement.improve_numeric_refinement(state, runtime,
+                        maximum_virtual_bridge_nodes=request.policy.maximum_virtual_bridge_nodes,
+                        diagnostics=diagnostics)
+                finally:
+                    if profiler is not None:
+                        profiler.disable()
+                        profiler.dump_stats(str(args.output_dir / "refinement.pstats"))
+                        with (args.output_dir / "refinement_profile.txt").open("x", encoding="utf-8") as stream:
+                            stats = pstats.Stats(profiler, stream=stream)
+                            stats.sort_stats("cumulative").print_stats(60)
+                            stats.sort_stats("tottime").print_stats(40)
             if diagnostics is not None:
                 _write_json(args.output_dir / "refinement_diagnostics.json",
                     json.loads(json.dumps(diagnostics.snapshot()), parse_float=Decimal))
@@ -146,8 +163,11 @@ def main():
         input_sha256=hashlib.sha256(args.prepared_request.read_bytes()).hexdigest(),
         sources={str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
                  for p in sorted((root / "src/apsgo_scheduler/core").glob("_numeric*.py"))},
+        tool_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        refinement_profile=args.profile_refinement,
         wall_seconds=str(perf_counter() - started), cpu_seconds=str(process_time() - cpu),
-        mode="cold_prefix_diagnostic_not_performance"))
+        mode=("profiled_refinement_diagnostic_not_performance" if args.profile_refinement
+              else "cold_prefix_diagnostic_not_performance")))
 
 
 if __name__ == "__main__":
