@@ -1,0 +1,186 @@
+{
+  "schema_version": "apsgo-initial-earliest-a0-v1",
+  "evidence_kind": "synthetic_hand_calculated_witnesses",
+  "source_revision": "08a4d24faf897afdcd6c20a796a6f85f145cbc1a",
+  "seed": 590531,
+  "policy": {
+    "total_time_limit_seconds": "600",
+    "finalization_reserve_seconds": "30",
+    "candidate_check_limit": 0,
+    "whole_chain_pair_scan_slack_weight": "40",
+    "maximum_virtual_bridge_nodes": 2
+  },
+  "input_provenance": {
+    "real_business_data": false,
+    "weight_semantics": "Synthetic 100-tonne inputs; not order quantity or coating shortage evidence.",
+    "timing_semantics": "Exact hand-specified durations; furnace/process speeds not used.",
+    "grade_dictionary": "not_applicable_synthetic_rule_attributes",
+    "production_configuration_modified": false,
+    "budget_semantics": "Construction-only verification allowance; never copied to service YAML.",
+    "rules": "tests/core/test_numeric_evaluation.py:numeric_quality_spec + EarliestProcessStartRule",
+    "prototypes": "tests/app/test_input_normalizer.py:make_request defaults"
+  },
+  "cases": [
+    {
+      "case_id": "same_period_two_chains",
+      "description": "Design 3.1: B is early in the original layout.",
+      "earliest_enabled": true,
+      "schedule_start_at": "2026-06-01T08:00:00+08:00",
+      "period_order": ["P0", "P1"],
+      "orders": [
+        {"order_id": "A", "weight_tonnes": "100", "width_mm": "1200", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 0, "due_date": "2026-06-30"},
+        {"order_id": "B", "weight_tonnes": "100", "width_mm": "1100", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 10800000, "due_date": "2026-06-30"},
+        {"order_id": "C", "weight_tonnes": "100", "width_mm": "1000", "thickness_mm": "1", "min_temperature": "900", "max_temperature": "1000", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 0, "due_date": "2026-06-30"},
+        {"order_id": "D", "weight_tonnes": "100", "width_mm": "900", "thickness_mm": "1", "min_temperature": "900", "max_temperature": "1000", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 3600000, "due_date": "2026-06-30"}
+      ],
+      "expected_baseline": {
+        "origin": "hand_calculated_not_observed",
+        "ordered_rows": [0, 1, 2, 3],
+        "edges": [[0, 1], [2, 3]],
+        "cover_paths": [[0, 1], [2, 3]],
+        "chains": [[0, 1], [2, 3]],
+        "chain_ids": [0, 1],
+        "chain_periods": ["P0", "P0"],
+        "start_ms": [0, 3600000, 7200000, 10800000],
+        "early_ms": [0, 7200000, 0, 0],
+        "candidate_check_count": 0
+      },
+      "manual_proposal": {
+        "chains": [[2, 3], [0, 1]],
+        "chain_periods": ["P0", "P0"],
+        "start_ms": [0, 3600000, 7200000, 10800000],
+        "early_ms": [0, 0, 0, 0],
+        "interpretation": "Hand witness only; no ready-layout algorithm has been implemented."
+      }
+    },
+    {
+      "case_id": "intra_chain_blocked",
+      "description": "A ready chain head does not make its successor ready.",
+      "earliest_enabled": true,
+      "schedule_start_at": "2026-06-01T08:00:00+08:00",
+      "period_order": ["P0", "P1"],
+      "orders": [
+        {"order_id": "A", "weight_tonnes": "100", "width_mm": "1200", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 0, "due_date": "2026-06-30"},
+        {"order_id": "B", "weight_tonnes": "100", "width_mm": "1100", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 10800000, "due_date": "2026-06-30"},
+        {"order_id": "C", "weight_tonnes": "100", "width_mm": "1000", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 0, "due_date": "2026-06-30"}
+      ],
+      "expected_baseline": {
+        "origin": "hand_calculated_not_observed",
+        "ordered_rows": [0, 1, 2],
+        "edges": [[0, 1], [0, 2], [1, 2]],
+        "cover_paths": [[0, 1, 2]],
+        "chains": [[0, 1, 2]],
+        "chain_ids": [0],
+        "chain_periods": ["P0"],
+        "start_ms": [0, 3600000, 7200000],
+        "early_ms": [0, 7200000, 0],
+        "candidate_check_count": 0
+      },
+      "manual_proposal": null
+    },
+    {
+      "case_id": "all_unready",
+      "description": "No waiting is inserted; initial coverage remains complete.",
+      "earliest_enabled": true,
+      "schedule_start_at": "2026-06-01T08:00:00+08:00",
+      "period_order": ["P0", "P1"],
+      "orders": [
+        {"order_id": "A", "weight_tonnes": "100", "width_mm": "1200", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 3600000, "due_date": "2026-06-30"},
+        {"order_id": "B", "weight_tonnes": "100", "width_mm": "1100", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 7200000, "due_date": "2026-06-30"},
+        {"order_id": "C", "weight_tonnes": "100", "width_mm": "1000", "thickness_mm": "1", "min_temperature": "900", "max_temperature": "1000", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 10800000, "due_date": "2026-06-30"},
+        {"order_id": "D", "weight_tonnes": "100", "width_mm": "900", "thickness_mm": "1", "min_temperature": "900", "max_temperature": "1000", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 14400000, "due_date": "2026-06-30"}
+      ],
+      "expected_baseline": {
+        "origin": "hand_calculated_not_observed",
+        "ordered_rows": [0, 1, 2, 3],
+        "edges": [[0, 1], [2, 3]],
+        "cover_paths": [[0, 1], [2, 3]],
+        "chains": [[0, 1], [2, 3]],
+        "chain_ids": [0, 1],
+        "chain_periods": ["P0", "P0"],
+        "start_ms": [0, 3600000, 7200000, 10800000],
+        "early_ms": [3600000, 3600000, 3600000, 3600000],
+        "candidate_check_count": 0
+      },
+      "manual_proposal": null
+    },
+    {
+      "case_id": "mixed_periods",
+      "description": "Period grouping precedes the authoritative clock; D is borrowed.",
+      "earliest_enabled": true,
+      "schedule_start_at": "2026-06-01T08:00:00+08:00",
+      "period_order": ["P0", "P1"],
+      "orders": [
+        {"order_id": "A", "weight_tonnes": "100", "width_mm": "1200", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P1", "duration_ms": 3600000, "earliest_offset_ms": 7200000, "due_date": "2026-06-30"},
+        {"order_id": "B", "weight_tonnes": "100", "width_mm": "1100", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P1", "duration_ms": 3600000, "earliest_offset_ms": 10800000, "due_date": "2026-06-30"},
+        {"order_id": "C", "weight_tonnes": "100", "width_mm": "1000", "thickness_mm": "1", "min_temperature": "900", "max_temperature": "1000", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 0, "due_date": "2026-06-30"},
+        {"order_id": "D", "weight_tonnes": "100", "width_mm": "900", "thickness_mm": "1", "min_temperature": "900", "max_temperature": "1000", "source_period": "P1", "duration_ms": 3600000, "earliest_offset_ms": 10800000, "due_date": "2026-06-30"}
+      ],
+      "expected_baseline": {
+        "origin": "hand_calculated_not_observed",
+        "ordered_rows": [0, 1, 2, 3],
+        "edges": [[0, 1], [2, 3]],
+        "cover_paths": [[0, 1], [2, 3]],
+        "chains": [[2, 3], [0, 1]],
+        "chain_ids": [1, 0],
+        "chain_periods": ["P0", "P1"],
+        "start_ms": [0, 3600000, 7200000, 10800000],
+        "early_ms": [0, 7200000, 0, 0],
+        "candidate_check_count": 0
+      },
+      "manual_proposal": null
+    },
+    {
+      "case_id": "disabled_missing_lower",
+      "description": "Disabled rule permits missing lower bounds and keeps the layout.",
+      "earliest_enabled": false,
+      "schedule_start_at": "2026-06-01T08:00:00+08:00",
+      "period_order": ["P0", "P1"],
+      "orders": [
+        {"order_id": "A", "weight_tonnes": "100", "width_mm": "1200", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": null, "due_date": "2026-06-30"},
+        {"order_id": "B", "weight_tonnes": "100", "width_mm": "1100", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": null, "due_date": "2026-06-30"},
+        {"order_id": "C", "weight_tonnes": "100", "width_mm": "1000", "thickness_mm": "1", "min_temperature": "900", "max_temperature": "1000", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": null, "due_date": "2026-06-30"},
+        {"order_id": "D", "weight_tonnes": "100", "width_mm": "900", "thickness_mm": "1", "min_temperature": "900", "max_temperature": "1000", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": null, "due_date": "2026-06-30"}
+      ],
+      "expected_baseline": {
+        "origin": "hand_calculated_not_observed",
+        "ordered_rows": [0, 1, 2, 3],
+        "edges": [[0, 1], [2, 3]],
+        "cover_paths": [[0, 1], [2, 3]],
+        "chains": [[0, 1], [2, 3]],
+        "chain_ids": [0, 1],
+        "chain_periods": ["P0", "P0"],
+        "start_ms": [0, 3600000, 7200000, 10800000],
+        "early_ms": [0, 0, 0, 0],
+        "candidate_check_count": 0
+      },
+      "manual_proposal": null
+    },
+    {
+      "case_id": "successor_ready_at_position",
+      "description": "Each successor is ready when its turn begins, not at chain start.",
+      "earliest_enabled": true,
+      "schedule_start_at": "2026-06-01T08:00:00+08:00",
+      "period_order": ["P0", "P1"],
+      "orders": [
+        {"order_id": "A", "weight_tonnes": "100", "width_mm": "1200", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 0, "due_date": "2026-06-30"},
+        {"order_id": "B", "weight_tonnes": "100", "width_mm": "1100", "thickness_mm": "1", "min_temperature": "700", "max_temperature": "800", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 3600000, "due_date": "2026-06-30"},
+        {"order_id": "C", "weight_tonnes": "100", "width_mm": "1000", "thickness_mm": "1", "min_temperature": "900", "max_temperature": "1000", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 7200000, "due_date": "2026-06-30"},
+        {"order_id": "D", "weight_tonnes": "100", "width_mm": "900", "thickness_mm": "1", "min_temperature": "900", "max_temperature": "1000", "source_period": "P0", "duration_ms": 3600000, "earliest_offset_ms": 10800000, "due_date": "2026-06-30"}
+      ],
+      "expected_baseline": {
+        "origin": "hand_calculated_not_observed",
+        "ordered_rows": [0, 1, 2, 3],
+        "edges": [[0, 1], [2, 3]],
+        "cover_paths": [[0, 1], [2, 3]],
+        "chains": [[0, 1], [2, 3]],
+        "chain_ids": [0, 1],
+        "chain_periods": ["P0", "P0"],
+        "start_ms": [0, 3600000, 7200000, 10800000],
+        "early_ms": [0, 0, 0, 0],
+        "candidate_check_count": 0
+      },
+      "manual_proposal": null
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "scope": "new standalone witness and capture-tool guard tests only; not APSGo solver tests",
+  "command": "PYTHONDONTWRITEBYTECODE=1 python -m pytest -c /dev/null -p no:cacheprovider -q tests/core/test_initial_earliest_start_baseline_witnesses.py --junitxml=/mnt/data/apsgo-a0/a0_witness_junit.xml",
+  "execution_directory_kind": "isolated new-file draft, not a repository checkout",
+  "exit_code": 0,
+  "tests": 24,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "junit_elapsed_seconds": "0.113",
+  "ast_parse_passed": true,
+  "numeric_baseline_executed": false,
+  "real_data_executed": false,
+  "witness_status": "hand_witnesses_verified_only",
+  "fixture_sha256": "94a9b087bd111477f34f04d9bf5a1ee56b367895d5540c3baed595a39ff6beff",
+  "witness_results": [
+    {
+      "case_id": "same_period_two_chains",
+      "early_node_count": 1,
+      "early_total_ms": 7200000,
+      "production_observed": null
+    },
+    {
+      "case_id": "intra_chain_blocked",
+      "early_node_count": 1,
+      "early_total_ms": 7200000,
+      "production_observed": null
+    },
+    {
+      "case_id": "all_unready",
+      "early_node_count": 4,
+      "early_total_ms": 14400000,
+      "production_observed": null
+    },
+    {
+      "case_id": "mixed_periods",
+      "early_node_count": 1,
+      "early_total_ms": 7200000,
+      "production_observed": null
+    },
+    {
+      "case_id": "disabled_missing_lower",
+      "early_node_count": 0,
+      "early_total_ms": 0,
+      "production_observed": null
+    },
+    {
+      "case_id": "successor_ready_at_position",
+      "early_node_count": 0,
+      "early_total_ms": 0,
+      "production_observed": null
+    }
+  ],
+  "numeric_attempt": {
+    "exit_code": 2,
+    "status": "blocked_or_error",
+    "numeric_executed": false,
+    "error_type": "CalledProcessError",
+    "reason": "The isolated draft is not a complete Git checkout; source identity check failed before any numeric imports."
+  }
+}
