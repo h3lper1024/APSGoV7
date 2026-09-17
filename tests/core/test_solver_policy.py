@@ -120,6 +120,8 @@ def audit_report(**changes):
     values = {
         "status": CoreAuditStatus.NOT_RUN,
         "passed": False,
+        "integrity_passed": False,
+        "writeback_blocking_violation_count": None,
         "audited_evaluation_fingerprint": None,
         "invariant_failure_codes": (),
         "action_authorization_failure_codes": (),
@@ -154,6 +156,8 @@ def test_unfinished_audit_cannot_claim_zero_counts_or_completed_comparison(statu
         ("audited_future_borrow_return_count", 0),
         ("search_evaluation_matches", False),
         ("passed", True),
+        ("integrity_passed", True),
+        ("writeback_blocking_violation_count", 0),
         ("audited_evaluation_fingerprint", "evaluation"),
         ("derived_resource_fingerprint", "resources"),
     ):
@@ -165,6 +169,8 @@ def test_completed_audit_counts_and_success_conditions():
     result = audit_report(
         status=CoreAuditStatus.COMPLETED,
         passed=True,
+        integrity_passed=True,
+        writeback_blocking_violation_count=0,
         audited_evaluation_fingerprint="evaluation",
         derived_resource_fingerprint="resources",
         audited_split_count=3,
@@ -183,12 +189,18 @@ def test_completed_audit_counts_and_success_conditions():
         ("derived_resource_fingerprint", None),
         ("invariant_failure_codes", ("weight_not_conserved",)),
         ("action_authorization_failure_codes", ("split_not_authorized",)),
+        ("integrity_passed", False),
+        ("writeback_blocking_violation_count", None),
+        ("writeback_blocking_violation_count", 1),
+        ("writeback_blocking_violation_count", True),
+        ("writeback_blocking_violation_count", -1),
     ):
         with pytest.raises(ValueError):
             replace(result, **{name: value})
     failures = ["evaluation_mismatch"]
     failed = replace(
-        result, passed=False, search_evaluation_matches=False, invariant_failure_codes=failures
+        result, passed=False, integrity_passed=False, writeback_blocking_violation_count=None,
+        search_evaluation_matches=False, invariant_failure_codes=failures
     )
     failures.append("later_mutation")
     assert failed.invariant_failure_codes == ("evaluation_mismatch",)

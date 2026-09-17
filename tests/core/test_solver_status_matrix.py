@@ -85,8 +85,8 @@ def report_identity(args, state, audit):
     (
         (("100",), (), SolveStatus.SUCCESS),
         (("70",), (UNDERWEIGHT,), SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION),
-        (("70",), (), SolveStatus.COMPLETE_NOT_PUBLISHABLE),
-        (("110", "110"), (UNDERWEIGHT,), SolveStatus.COMPLETE_NOT_PUBLISHABLE),
+        (("70",), (), SolveStatus.PUBLISHABLE_WITH_VIOLATIONS),
+        (("110", "110"), (UNDERWEIGHT,), SolveStatus.PUBLISHABLE_WITH_VIOLATIONS),
     ),
 )
 def test_status_distinguishes_success_allowed_underweight_and_business_prohibition(
@@ -106,7 +106,8 @@ def test_status_distinguishes_success_allowed_underweight_and_business_prohibiti
     assert result.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE
     assert result.core_audit.status is CoreAuditStatus.COMPLETED
     assert result.diagnostic_candidate.plan is options["state"].current_plan
-    assert (result.release is not None) is options["audit"].report.passed
+    assert result.release is not None and result.core_audit.writeback_eligible
+    assert result.core_audit.passed is (status is not SolveStatus.PUBLISHABLE_WITH_VIOLATIONS)
 
 
 @pytest.mark.parametrize(

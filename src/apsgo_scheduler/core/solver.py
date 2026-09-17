@@ -22,13 +22,17 @@ from .contracts import (
     SolverPolicy,
     SolverResult,
     SolveStatus,
+    audited_release_status,
     contract_values,
     fingerprint,
     freeze_tuple,
+    has_integrity_errors,
     sum_weights,
 )
 from .controlled_split import run_controlled_order_split
-from .final_audit import CoreAuditOutcome, audit_core_without_search_cache
+from .final_audit import (
+    CoreAuditOutcome, audit_core_without_search_cache, _writeback_blocking_violation_count,
+)
 from .initial_solution import construct_initial_plan
 from .model import Node, SchedulingProblem, SearchState
 from .neighborhoods import AcceptedMoveTrace, SearchContext, run_local_search
@@ -187,6 +191,8 @@ def _not_run_audit():
     values = dict(
         status=CoreAuditStatus.NOT_RUN,
         passed=False,
+        integrity_passed=False,
+        writeback_blocking_violation_count=None,
         audited_evaluation_fingerprint=None,
         invariant_failure_codes=(),
         action_authorization_failure_codes=(),
@@ -264,7 +270,7 @@ def _audit_binding_issues(candidate, problem, rule_set, state, metrics, audit):
                 phase=DiagnosticPhase.CORE_AUDIT,
             )
         )
-    if report.passed and facts is None:
+    if report.integrity_passed and facts is None:
         issues.append(
             _issue(
                 "audited_resource_missing",
@@ -284,6 +290,23 @@ def _audit_binding_issues(candidate, problem, rule_set, state, metrics, audit):
                 phase=DiagnosticPhase.CORE_AUDIT,
             )
         )
+    expected_integrity = (
+        evaluation is not None and facts is not None and report.search_evaluation_matches is True
+        and not report.invariant_failure_codes and not report.action_authorization_failure_codes
+        and not has_integrity_errors(audit.issues)
+    )
+    expected_blocking = (
+        _writeback_blocking_violation_count(evaluation, rule_set) if expected_integrity else None
+    )
+    if (
+        report.integrity_passed != expected_integrity
+        or report.writeback_blocking_violation_count != expected_blocking
+        or report.passed != (not audit.issues)
+    ):
+        issues.append(_issue(
+            "core_audit_writeback_binding_mismatch", "回写审核结论与独立评价不一致。",
+            phase=DiagnosticPhase.CORE_AUDIT,
+        ))
     return issues
 
 
@@ -387,11 +410,7 @@ def build_core_solver_result(
         found.append(_issue("candidate_count_mismatch", "运行指标与共享候选检查计数不一致。"))
         if runtime.stop_reason not in terminal:
             runtime.stop_reason = SearchStopReason.SYSTEM_ERROR
-    business_codes = {"prohibited_rule_violation", "unapproved_final_deviation"}
-    if runtime.stop_reason not in terminal and any(
-        item.severity is DiagnosticSeverity.ERROR and item.code not in business_codes
-        for item in found
-    ):
+    if runtime.stop_reason not in terminal and has_integrity_errors(found):
         runtime.stop_reason = SearchStopReason.SYSTEM_ERROR
     allowed = _finalization_allowed(runtime, found)
 
@@ -404,21 +423,16 @@ def build_core_solver_result(
             return SolveStatus.NO_COMPLETE_PLAN
         if (
             runtime.stop_reason is SearchStopReason.FINALIZATION_TIME_LIMIT_REACHED
-            or not report.passed
+            or not report.writeback_eligible
         ):
             return SolveStatus.COMPLETE_NOT_PUBLISHABLE
-        return (
-            SolveStatus.SUCCESS
-            if not audit.audited_evaluation.violations
-            else SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION
+        return audited_release_status(
+            audit.audited_evaluation.violations, audit_passed=report.passed
         )
 
     release = None
     result_status = status()
-    if allowed and result_status in {
-        SolveStatus.SUCCESS,
-        SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION,
-    }:
+    if allowed and result_status.publishable:
         identities = dict(
             plan_fingerprint=fingerprint(candidate.plan),
             evaluation_fingerprint=report.audited_evaluation_fingerprint,

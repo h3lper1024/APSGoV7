@@ -467,9 +467,11 @@ def test_real_business_status_is_preserved_without_inventing_publishability(cloc
         assert result.status is SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION
         assert result.release is not None and result.confirmation_required
     else:
-        assert result.status is SolveStatus.COMPLETE_NOT_PUBLISHABLE
-        assert result.release is None and result.diagnostic_candidate is not None
-        assert result.audit_report.status is ResultAuditStatus.NOT_RUN
+        assert result.status is SolveStatus.PUBLISHABLE_WITH_VIOLATIONS
+        assert result.release is not None and result.diagnostic_candidate is not None
+        assert result.core_audit.integrity_passed and not result.core_audit.passed
+        assert result.core_audit.writeback_blocking_violation_count == 0
+        assert result.audit_report.passed and not result.confirmation_required
 
 
 def test_corrupted_draft_is_rejected_by_actual_contract_audit(clock, monkeypatch):

@@ -15,12 +15,13 @@ from ..core.contracts import (
     DiagnosticIssue,
     DiagnosticPhase,
     DiagnosticSeverity,
-    RuleScope,
     SearchStopReason,
     SolveStatus,
+    audited_release_status,
     fingerprint,
     freeze_scalars,
     freeze_tuple,
+    has_integrity_errors,
     require_decimal,
     require_enum,
     require_int,
@@ -28,7 +29,6 @@ from ..core.contracts import (
 )
 from ..core.model import SchedulePlan
 from ..core.resource_facts import PlanDerivedFacts
-from ..core.rules.base import RuleDisposition
 
 if TYPE_CHECKING:
     from ..core.evaluation import PlanEvaluation
@@ -207,10 +207,7 @@ class SchedulingResult:
             raise ValueError("result and manifest stop reasons must agree")
         if self.run_manifest.diagnostic_codes != tuple(issue.code for issue in issues):
             raise ValueError("manifest diagnostic codes must match the ordered result issues")
-        publishable = self.status in {
-            SolveStatus.SUCCESS,
-            SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION,
-        }
+        publishable = self.status.publishable
         if publishable != (self.release is not None):
             raise ValueError("only publishable statuses must have a release")
         if self.stop_reason is SearchStopReason.USER_CANCELLED:
@@ -273,12 +270,12 @@ class SchedulingResult:
             raise ValueError("this stop reason never permits release")
         if (
             self.core_audit.status is not CoreAuditStatus.COMPLETED
-            or not self.core_audit.passed
+            or not self.core_audit.writeback_eligible
             or self.audit_report.status is not ResultAuditStatus.COMPLETED
             or not self.audit_report.passed
-            or any(issue.severity is DiagnosticSeverity.ERROR for issue in issues)
+            or has_integrity_errors(issues)
         ):
-            raise ValueError("release requires both completed passing audits and no fatal issues")
+            raise ValueError("release requires integrity audits, zero writeback blockers and no fatal issues")
         if any(
             value is None
             for value in (
@@ -305,15 +302,10 @@ class SchedulingResult:
         ):
             raise ValueError("public plan and evaluation must match their audited identities")
         violations = self.release.evaluation.violations
-        if (self.status is SolveStatus.SUCCESS) != (not violations) or any(
-            item.disposition is not RuleDisposition.ALLOWED_FINAL_DEVIATION
-            or item.scope is not RuleScope.CHAIN
-            or item.reason_code != "chain_weight_below_minimum"
-            for item in violations
+        if self.status is not audited_release_status(
+            violations, audit_passed=self.core_audit.passed
         ):
-            raise ValueError(
-                "publishable status must reflect only the audited underweight deviations"
-            )
+            raise ValueError("publishable status must reflect the audited violations")
 
     @property
     def confirmation_required(self) -> bool:

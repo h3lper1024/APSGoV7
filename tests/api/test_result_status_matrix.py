@@ -82,6 +82,8 @@ def core_audit(*, completed=True, **changes):
     values = {
         "status": CoreAuditStatus.COMPLETED if completed else CoreAuditStatus.NOT_RUN,
         "passed": completed,
+        "integrity_passed": completed,
+        "writeback_blocking_violation_count": 0 if completed else None,
         "audited_evaluation_fingerprint": fingerprint(release().evaluation) if completed else None,
         "invariant_failure_codes": (),
         "action_authorization_failure_codes": (),
@@ -346,7 +348,9 @@ def test_publishing_requires_both_passing_audits_and_consistent_resource_identit
     for changes in (
         {"core_audit": core_audit(completed=False)},
         {"audit_report": result_audit(completed=False)},
-        {"core_audit": core_audit(passed=False, invariant_failure_codes=("coverage",))},
+        {"core_audit": core_audit(passed=False, integrity_passed=False,
+                                  writeback_blocking_violation_count=None,
+                                  invariant_failure_codes=("coverage",))},
         {"audit_report": result_audit(passed=False, failure_codes=("resource_mismatch",))},
         {"core_audit": core_audit(derived_resource_fingerprint="different")},
         {"audit_report": result_audit(resource_fingerprint="different")},
@@ -640,7 +644,7 @@ def test_release_status_cannot_mislabel_whether_allowed_deviation_exists(status)
 def test_reported_pass_cannot_publish_other_or_prohibited_deviations(change):
     original = allowed_evaluation()
     evaluation = replace(original, violations=(replace(original.violations[0], **change),))
-    with pytest.raises(ValueError, match="underweight"):
+    with pytest.raises(ValueError, match="status"):
         result(
             status=SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION,
             release=replace(release(), evaluation=evaluation),

@@ -105,10 +105,7 @@ def assemble_draft_scheduling_result(
     if not isinstance(manifest, RunManifest):
         raise ValueError("assembly requires RunManifest")
     release = core_result.release
-    if release is None or core_result.status not in {
-        SolveStatus.SUCCESS,
-        SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION,
-    }:
+    if release is None or not core_result.status.publishable:
         raise ValueError("only a publishable audited core result can form a release draft")
     if (
         manifest.request_fingerprint != fingerprint_public_request(request)

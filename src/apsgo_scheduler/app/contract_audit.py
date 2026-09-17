@@ -10,18 +10,16 @@ from ..core.budget import SolveRuntimeBudget
 from ..core.contracts import (
     ControlledSplitMode,
     CoreAuditStatus,
-    DiagnosticSeverity,
-    RuleScope,
     SearchStopReason,
     SolverResult,
-    SolveStatus,
+    audited_release_status,
     fingerprint,
+    has_integrity_errors,
     contract_values,
     sum_weights,
 )
 from ..core.model import MaterialRole, SchedulingProblem, VirtualPurpose
 from ..core.delivery_timing import normalize_delivery_timing
-from ..core.rules.base import RuleDisposition
 from .result_assembler import DraftSchedulingResult, fingerprint_draft_result
 
 
@@ -360,7 +358,7 @@ def audit_result_contract(draft, request, problem, core_result, runtime) -> Resu
         check(
             draft.core_audit == core_result.core_audit
             and draft.core_audit.status is CoreAuditStatus.COMPLETED
-            and draft.core_audit.passed
+            and draft.core_audit.writeback_eligible
             and draft.core_audit.search_evaluation_matches,
             "core_audit_binding_mismatch",
         )
@@ -390,22 +388,13 @@ def audit_result_contract(draft, request, problem, core_result, runtime) -> Resu
             == draft.core_audit.derived_resource_fingerprint,
             "resource_fingerprint_mismatch",
         )
-        allowed = all(
-            item.disposition is RuleDisposition.ALLOWED_FINAL_DEVIATION
-            and item.scope is RuleScope.CHAIN
-            and item.reason_code == "chain_weight_below_minimum"
-            for item in proposed.evaluation.violations
-        )
-        expected_status = (
-            SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION
-            if proposed.evaluation.violations
-            else SolveStatus.SUCCESS
+        expected_status = audited_release_status(
+            proposed.evaluation.violations, audit_passed=draft.core_audit.passed
         )
         check(
             draft.proposed_status is core_result.status is expected_status
             and draft.stop_reason is core_result.stop_reason is runtime.stop_reason
-            and allowed
-            and not any(issue.severity is DiagnosticSeverity.ERROR for issue in draft.issues),
+            and not has_integrity_errors(draft.issues),
             "result_status_mismatch",
         )
         if not _request_binding(request, problem, check, runtime):

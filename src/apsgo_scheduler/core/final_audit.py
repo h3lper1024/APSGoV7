@@ -19,6 +19,7 @@ from .contracts import (
     SearchStopReason,
     fingerprint,
     freeze_tuple,
+    has_integrity_errors,
     sum_weights,
 )
 from .evaluation import PlanEvaluation, evaluate_plan
@@ -31,7 +32,7 @@ from .resource_facts import (
     _derive_audited_resource_facts,
 )
 from .rules.base import ControlledSplitRuleSubject, RuleDisposition, RuleEvaluationContext
-from .rules.concrete import WEIGHT_EPSILON, ChainWeightRangeRule
+from .rules.concrete import WEIGHT_EPSILON, ChainWeightRangeRule, EarliestProcessStartRule
 from .rules.rule_set import ProcessRuleSet
 
 
@@ -57,7 +58,9 @@ class CoreAuditOutcome:
             self.audited_evaluation is not None or self.resource_facts is not None
         ):
             raise ValueError("unfinished audit must not expose partial audited material")
-        if self.report.passed and (self.audited_evaluation is None or self.resource_facts is None):
+        if self.report.integrity_passed and (
+            self.audited_evaluation is None or self.resource_facts is None
+        ):
             raise ValueError("passed audit requires complete audited material")
         if self.resource_facts is not None and (
             self.resource_facts.facts_fingerprint != self.report.derived_resource_fingerprint
@@ -617,9 +620,16 @@ def _publication_issues(evaluation, rule_set, issues):
                 issues,
                 None,
                 "unapproved_final_deviation",
-                f"该允许偏差不能发布：{violation.rule_id}/{violation.reason_code}。",
+                f"非原允许欠重偏差：{violation.rule_id}/{violation.reason_code}。",
                 violation.subject_id,
             )
+
+
+def _writeback_blocking_violation_count(evaluation, rule_set):
+    blocking_ids = {
+        rule.rule_id for rule in rule_set.rules if type(rule) is EarliestProcessStartRule
+    }
+    return sum(item.rule_id in blocking_ids for item in evaluation.violations)
 
 
 def _outcome(
@@ -638,9 +648,19 @@ def _outcome(
     if status is not CoreAuditStatus.COMPLETED:
         evaluation, facts, counts, matches = None, None, None, None
     total, same, future = counts if counts is not None else (None, None, None)
+    integrity_passed = (
+        status is CoreAuditStatus.COMPLETED
+        and evaluation is not None and facts is not None and matches is True
+        and not invariants and not authorizations and not has_integrity_errors(issues)
+    )
     values = dict(
         status=status,
         passed=status is CoreAuditStatus.COMPLETED and not issues,
+        integrity_passed=integrity_passed,
+        writeback_blocking_violation_count=(
+            _writeback_blocking_violation_count(evaluation, rule_set)
+            if integrity_passed else None
+        ),
         audited_evaluation_fingerprint=None if evaluation is None else fingerprint(evaluation),
         invariant_failure_codes=tuple(invariants),
         action_authorization_failure_codes=tuple(authorizations),

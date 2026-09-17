@@ -211,10 +211,40 @@ def validate_split_target(mode, source: str, origin: str, target: str) -> None:
 class SolveStatus(str, Enum):
     SUCCESS = "success"
     PUBLISHABLE_WITH_ALLOWED_DEVIATION = "publishable_with_allowed_deviation"
+    PUBLISHABLE_WITH_VIOLATIONS = "publishable_with_violations"
     COMPLETE_NOT_PUBLISHABLE = "complete_not_publishable"
     NO_COMPLETE_PLAN = "no_complete_plan"
     CANCELLED = "cancelled"
     FAILED = "failed"
+
+    @property
+    def publishable(self) -> bool:
+        return self in {
+            SolveStatus.SUCCESS,
+            SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION,
+            SolveStatus.PUBLISHABLE_WITH_VIOLATIONS,
+        }
+
+
+def audited_release_status(violations, *, audit_passed: bool) -> SolveStatus:
+    """Classify a trusted release without changing any rule disposition or score."""
+    from .rules.base import RuleDisposition
+
+    if not violations:
+        if not audit_passed:
+            raise ValueError("publishable status without violations requires a passed audit")
+        return SolveStatus.SUCCESS
+    allowed_underweight = all(
+        item.disposition is RuleDisposition.ALLOWED_FINAL_DEVIATION
+        and item.scope is RuleScope.CHAIN
+        and item.reason_code == "chain_weight_below_minimum"
+        for item in violations
+    )
+    if audit_passed and not allowed_underweight:
+        raise ValueError("passed audit status cannot conceal prohibited business violations")
+    if audit_passed:
+        return SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION
+    return SolveStatus.PUBLISHABLE_WITH_VIOLATIONS
 
 
 class SearchStopReason(str, Enum):
@@ -269,6 +299,20 @@ class DiagnosticIssue:
         require_text(self.subject_id, "subject_id", allow_none=True)
         require_text(self.message, "message")
         require_enum(self.severity, DiagnosticSeverity, "severity")
+
+
+def is_business_audit_finding(issue: DiagnosticIssue) -> bool:
+    # Only findings emitted by the completed rule replay have this exemption.
+    return issue.phase is DiagnosticPhase.CORE_AUDIT and issue.code in {
+        "prohibited_rule_violation", "unapproved_final_deviation"
+    }
+
+
+def has_integrity_errors(issues) -> bool:
+    return any(
+        issue.severity is DiagnosticSeverity.ERROR and not is_business_audit_finding(issue)
+        for issue in issues
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -350,6 +394,8 @@ class CoreAuditStatus(str, Enum):
 class CoreAuditReport:
     status: CoreAuditStatus
     passed: bool
+    integrity_passed: bool
+    writeback_blocking_violation_count: int | None
     audited_evaluation_fingerprint: str | None
     invariant_failure_codes: tuple[str, ...]
     action_authorization_failure_codes: tuple[str, ...]
@@ -364,6 +410,10 @@ class CoreAuditReport:
         require_enum(self.status, CoreAuditStatus, "status")
         if type(self.passed) is not bool:
             raise ValueError("passed must be boolean")
+        if type(self.integrity_passed) is not bool:
+            raise ValueError("integrity_passed must be boolean")
+        if self.writeback_blocking_violation_count is not None:
+            require_int(self.writeback_blocking_violation_count, "writeback blocking count")
         require_text(self.report_fingerprint, "report_fingerprint")
         for name in ("audited_evaluation_fingerprint", "derived_resource_fingerprint"):
             require_text(getattr(self, name), name, allow_none=True)
@@ -380,6 +430,8 @@ class CoreAuditReport:
         if self.status is not CoreAuditStatus.COMPLETED:
             if (
                 self.passed
+                or self.integrity_passed
+                or self.writeback_blocking_violation_count is not None
                 or any(value is not None for value in counts)
                 or self.search_evaluation_matches is not None
             ):
@@ -396,7 +448,7 @@ class CoreAuditReport:
             raise ValueError("audited split total does not match its mode counts")
         if type(self.search_evaluation_matches) is not bool:
             raise ValueError("completed audit must contain a completed comparison")
-        if self.passed and (
+        if self.integrity_passed and (
             not self.search_evaluation_matches
             or self.invariant_failure_codes
             or self.action_authorization_failure_codes
@@ -404,6 +456,18 @@ class CoreAuditReport:
             or self.derived_resource_fingerprint is None
         ):
             raise ValueError("passed audit must be consistent and have all audited identities")
+        if self.passed and (
+            not self.integrity_passed or self.writeback_blocking_violation_count != 0
+        ):
+            raise ValueError("passed audit requires integrity and zero writeback blockers")
+
+    @property
+    def writeback_eligible(self) -> bool:
+        return (
+            self.status is CoreAuditStatus.COMPLETED
+            and self.integrity_passed
+            and self.writeback_blocking_violation_count == 0
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -493,10 +557,7 @@ class SolverResult:
             "core_result_fingerprint",
         ):
             require_text(getattr(self, name), name)
-        publishable = self.status in {
-            SolveStatus.SUCCESS,
-            SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION,
-        }
+        publishable = self.status.publishable
         if publishable != (self.release is not None):
             raise ValueError("only publishable core statuses may carry a release")
         if (self.status is SolveStatus.CANCELLED) != (
@@ -515,14 +576,14 @@ class SolverResult:
         if (
             self.diagnostic_candidate is None
             or self.core_audit.status is not CoreAuditStatus.COMPLETED
-            or not self.core_audit.passed
+            or not self.core_audit.writeback_eligible
             or self.stop_reason
             in {
                 SearchStopReason.FINALIZATION_TIME_LIMIT_REACHED,
                 SearchStopReason.INPUT_INVALID,
                 SearchStopReason.SYSTEM_ERROR,
             }
-            or any(issue.severity is DiagnosticSeverity.ERROR for issue in self.issues)
+            or has_integrity_errors(self.issues)
         ):
             raise ValueError("core release requires an audited candidate without terminal failure")
         release = self.release
@@ -533,5 +594,7 @@ class SolverResult:
             or release.resource_fingerprint != self.core_audit.derived_resource_fingerprint
         ):
             raise ValueError("core result must preserve its audited release bindings")
-        if (self.status is SolveStatus.SUCCESS) != (not release.audited_evaluation.violations):
-            raise ValueError("core success and allowed-deviation statuses must reflect audit facts")
+        if self.status is not audited_release_status(
+            release.audited_evaluation.violations, audit_passed=self.core_audit.passed
+        ):
+            raise ValueError("core publishable status must reflect audit facts")
