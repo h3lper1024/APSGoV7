@@ -187,11 +187,14 @@ def log_bound_result(logger, bound) -> None:
         logging.INFO if result.release is not None else logging.WARNING,
         "month_solve_result request_id=%s status=%s stop_reason=%s publishable=%s "
         "core_audit=%s core_audit_passed=%s result_audit=%s result_audit_passed=%s "
+        "integrity_passed=%s writeback_blocking_violation_count=%s "
         "quality=%s violation_count=%s issue_count=%s counters=%s "
         "stage_duration_seconds=%s result_fingerprint=%s",
         result.request_id, result.status.value, result.stop_reason.value,
         result.release is not None, result.core_audit.status.value, result.core_audit.passed,
-        result.audit_report.status.value, result.audit_report.passed, quality,
+        result.audit_report.status.value, result.audit_report.passed,
+        result.core_audit.integrity_passed and result.audit_report.passed,
+        result.core_audit.writeback_blocking_violation_count, quality,
         0 if evaluation is None else len(evaluation.violations), len(result.issues),
         dict(result.run_manifest.counters), dict(result.run_manifest.stage_duration_seconds),
         result.result_fingerprint,

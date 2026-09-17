@@ -413,6 +413,7 @@ def test_release_rows_preserve_plan_order_period_sequences_lineage_and_exact_war
         "thickness_warning",
         "temperature_warning",
         "chain_warning",
+        "business_warning",
     }
 
     unknown = violation(
@@ -455,6 +456,9 @@ def test_bound_publishable_result_serializes_complete_identity_quality_and_rows(
     assert {row["assigned_period"] for row in data["rows"]} == {"P0"}
     assert data["violations"] == []
     assert data["audit_summary"]["passed"] is True
+    assert data["audit_summary"]["integrity_passed"] is True
+    assert data["audit_summary"]["writeback_blocking_violation_count"] == 0
+    assert data["business_rules_satisfied"] is True
     assert all(
         row[name] is None
         for row in data["rows"]
@@ -486,6 +490,7 @@ def test_allowed_underweight_is_authoritative_and_projected_only_to_chain_head(d
     ]
     assert data["rows"][0]["chain_warning"] == data["violations"][0]["message"]
     assert len(data["violations"]) == 1
+    assert data["business_rules_satisfied"] is False
 
 
 def test_input_invalid_result_keeps_diagnostics_but_never_rows_or_diagnostic_violations(database_path):
@@ -504,6 +509,9 @@ def test_input_invalid_result_keeps_diagnostics_but_never_rows_or_diagnostic_vio
     assert data["violations"] == []
     assert data["quality"] == [] and data["metrics"] == {}
     assert data["issues"]
+    assert data["business_rules_satisfied"] is None
+    assert data["audit_summary"]["writeback_blocking_violation_count"] is None
+    assert data["audit_summary"]["integrity_passed"] is False
 
 
 def test_response_rejects_request_identity_or_quality_spec_mismatch(database_path):

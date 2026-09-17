@@ -126,7 +126,7 @@ def test_missing_configuration_exits_with_only_timestamped_error_lines(tmp_path)
     assert all(re.match(PREFIX, line) for line in result.stderr.splitlines())
 
 
-def test_non_publishable_http_log_preserves_real_reason_without_changing_rows(tmp_path, caplog):
+def test_business_writeback_log_preserves_real_violations_and_audit_flags(tmp_path, caplog):
     database = tmp_path / "rules.sqlite3"
     initialize_gqga4_rules(database, initial_grade_dictionary=sample_grade_dictionary())
     application = create_app(database, monthly_solve_policy=replace(policy(), candidate_check_limit=0))
@@ -136,8 +136,10 @@ def test_non_publishable_http_log_preserves_real_reason_without_changing_rows(tm
         response = client.post(MONTH_SOLVE_PATH, content=body, headers={"content-type": "application/json"})
     result = response.json()
     assert response.status_code == 200
-    assert result["status"] == "complete_not_publishable" and result["rows"] == []
-    assert "publishable=False" in caplog.text and "stop_reason=" in caplog.text
+    assert result["status"] == "publishable_with_violations" and len(result["rows"]) == 1
+    assert "publishable=True" in caplog.text and "stop_reason=" in caplog.text
+    assert "core_audit_passed=False" in caplog.text
+    assert "integrity_passed=True writeback_blocking_violation_count=0" in caplog.text
     assert "if_narrow_run_weight" in caplog.text
     assert "elapsed_seconds=" in caplog.text
     assert "subject=initial-000001:chain_if_narrow_real_weight_lte:0-0" in caplog.text
@@ -212,9 +214,10 @@ def test_real_artifacts_preserve_candidate_audits_and_exact_response(diagnostic_
             assert [row["node_id"] for row in rows] == [node["node_id"] for node in nodes]
             assert [Decimal(row["weight"]) for row in rows] == [node["weight"] for node in nodes]
             if case == "prohibited":
-                assert response.json()["rows"] == [] and result["release"] is None
+                assert response.json()["rows"] and result["release"] is not None
+                assert response.json()["business_rules_satisfied"] is False
                 assert candidate["search_evaluation"]["violations"] and result["issues"]
-                assert all(row["publishable"] == "False" for row in rows)
+                assert all(row["publishable"] == "True" for row in rows)
             else:
                 assert nodes[0]["width"] == Decimal("1000.25")
                 assert result["release"]["evaluation"] == candidate["search_evaluation"]

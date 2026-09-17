@@ -98,6 +98,9 @@ def test_v3_http_hard_failure_success_and_disabled_missing(tmp_path):
         assert len(good["quality"]) == 9
         bad = solve(body("2026-06-03T00:00:00+08:00")).json()
         assert not bad["publishable"] and not bad["rows"] and "latest_dates" not in bad
+        assert bad["audit_summary"]["core"]["integrity_passed"] is True
+        assert bad["audit_summary"]["writeback_blocking_violation_count"] > 0
+        assert bad["business_rules_satisfied"] is False
         assert any(v["reason_code"] == "earliest_process_start_violated" for v in bad["diagnostic_violations"])
         assert bad["delivery_report"]["kind"] == "diagnostic_candidate_not_publishable"
         assert bad["delivery_report"]["earliest_start_constraint_enabled"] is True

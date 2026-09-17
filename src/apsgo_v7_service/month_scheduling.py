@@ -453,7 +453,8 @@ def _lineage_data(value):
 
 def _warning_targets(plan: SchedulePlan, violations: Sequence[RuleViolation]):
     warnings = {
-        node.node_id: {"width_warning": [], "thickness_warning": [], "temperature_warning": [], "chain_warning": []}
+        node.node_id: {"width_warning": [], "thickness_warning": [], "temperature_warning": [],
+                       "chain_warning": [], "business_warning": []}
         for chain in plan.chains
         for node in chain.nodes
     }
@@ -464,34 +465,38 @@ def _warning_targets(plan: SchedulePlan, violations: Sequence[RuleViolation]):
         for left, right in zip(chain.nodes, chain.nodes[1:])
     }
     for violation in violations:
-        field = None
-        node_id = None
-        if violation.reason_code == "chain_weight_below_minimum" and violation.scope is RuleScope.CHAIN:
-            chain = chains.get(violation.subject_id)
-            if chain is not None:
-                field, node_id = "chain_warning", chain.nodes[0].node_id
-        elif violation.reason_code in _WIDTH_REASONS:
+        field = "chain_warning" if violation.scope is RuleScope.CHAIN else "business_warning"
+        node_id = violation.subject_id if violation.subject_id in warnings else None
+        if violation.reason_code in _WIDTH_REASONS:
             field = "width_warning"
-        elif violation.reason_code == "thickness":
+        elif violation.reason_code in {"thickness", "thickness_transition_exceeded"}:
             field = "thickness_warning"
-        elif violation.reason_code == "temperature":
+        elif violation.reason_code in {"temperature", "temperature_overlap_below_minimum"}:
             field = "temperature_warning"
-        if field is None:
-            continue
         if node_id is None:
             node_id = edges.get(violation.subject_id)
-        if node_id is None and violation.scope is RuleScope.NODE:
-            node_id = violation.subject_id if violation.subject_id in warnings else None
-        if node_id is None and violation.reason_code == "virtual_bridge_reverse_width_exceeded":
+        if node_id is None and violation.subject_id in chains:
+            node_id = chains[violation.subject_id].nodes[0].node_id
+        if node_id is None:
+            # Both evaluators identify a chain segment by chain/rule and inclusive positions.
             for chain in plan.chains:
-                anchors = [(index, node) for index, node in enumerate(chain.nodes) if node.material_role is not MaterialRole.GENERATED_VIRTUAL]
-                for (left_index, _), (right_index, right) in zip(anchors, anchors[1:]):
-                    subject = f"{chain.chain_id}:{violation.rule_id}:virtual_anchor:{left_index}-{right_index}"
-                    if right_index > left_index + 1 and violation.subject_id == subject:
-                        node_id = right.node_id
-                        break
-                if node_id is not None:
+                prefix = f"{chain.chain_id}:{violation.rule_id}:"
+                if not violation.subject_id.startswith(prefix):
+                    continue
+                positions = violation.subject_id[len(prefix):].removeprefix("virtual_anchor:").split("-")
+                if len(positions) != 2 or not all(part.isdecimal() for part in positions):
+                    continue
+                start, end = map(int, positions)
+                if 0 <= start <= end < len(chain.nodes):
+                    target = end if (
+                        field in {"width_warning", "thickness_warning", "temperature_warning"}
+                        or violation.scope is RuleScope.EDGE
+                    ) else start
+                    node_id = chain.nodes[target].node_id
                     break
+        if node_id is None and violation.scope is RuleScope.PLAN and violation.subject_id == "plan":
+            # Global findings remain in the full response; do not blame an arbitrary order.
+            continue
         if node_id is None:
             raise MonthSchedulingMappingError(
                 f"warning subject is not present in the release plan: {violation.subject_id}"
@@ -552,6 +557,8 @@ def _audit_data(result) -> dict:
     core, public = result.core_audit, result.audit_report
     return {
         "passed": core.passed and public.passed,
+        "integrity_passed": core.integrity_passed and public.passed,
+        "writeback_blocking_violation_count": core.writeback_blocking_violation_count,
         "core": {part.name: _enum(getattr(core, part.name)) for part in fields(core)},
         "result": {part.name: _enum(getattr(public, part.name)) for part in fields(public)},
     }
@@ -595,6 +602,12 @@ def month_solve_response_data(
     ):
         raise MonthSchedulingMappingError("bound result does not match the monthly request")
     release = result.release
+    publishable = (
+        release is not None and result.status.publishable
+        and result.core_audit.writeback_eligible and result.audit_report.passed
+    )
+    if release is not None and not publishable:
+        raise MonthSchedulingMappingError("release does not satisfy audited writeback eligibility")
     if release is None:
         quality, metrics, violations, rows = [], {}, [], []
     else:
@@ -611,13 +624,18 @@ def month_solve_response_data(
         metrics = dict(release.evaluation.metrics)
         violations = [_violation_data(item) for item in release.evaluation.violations]
         rows = list(build_month_solve_rows(release.plan, release.evaluation.violations))
-    publishable = release is not None and result.core_audit.passed and result.audit_report.passed
+    trusted_evaluation = (
+        release.evaluation if release is not None else
+        result.diagnostic_candidate.search_evaluation
+        if result.core_audit.integrity_passed and result.diagnostic_candidate is not None else None
+    )
     return {
         "contract_version": request.task_input.contract_version,
         "request_id": result.request_id,
         "status": result.status.value,
         "stop_reason": result.stop_reason.value,
         "publishable": publishable,
+        "business_rules_satisfied": None if trusted_evaluation is None else not trusted_evaluation.violations,
         "active_rule_set_version_id": bound.active_rule_set_version_id,
         "rule_set_version": bound.rule_set_version,
         "rule_set_fingerprint": bound.rule_set_fingerprint,

@@ -369,8 +369,8 @@ def build_delivery_report(request, result):
     if result.run_manifest.problem_fingerprint != problem.input_fingerprint:
         raise ValueError("delivery report problem binding mismatch")
     if result.release is not None:
-        if not result.core_audit.passed or not result.audit_report.passed:
-            raise ValueError("delivery release requires both audits to pass")
+        if not result.core_audit.writeback_eligible or not result.audit_report.passed:
+            raise ValueError("delivery release requires integrity audits and zero writeback blockers")
         plan, evaluation = result.release.plan, result.release.evaluation
         kind = "audited_release"
     elif result.diagnostic_candidate is not None:
