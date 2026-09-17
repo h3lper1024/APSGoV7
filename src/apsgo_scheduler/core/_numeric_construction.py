@@ -752,6 +752,13 @@ def construct_numeric_initial_plan(task, program, quality, graph, cover, budget)
     evaluation = evaluate_numeric_plan(task, program, quality, plan)
     if not budget.allows_search():
         return interrupted()
+    if program.for_kind(NumericRuleKind.EARLIEST_START):
+        from ._numeric_initial_layout import select_ready_initial_plan
+
+        selected = select_ready_initial_plan(task, program, quality, plan, evaluation, budget)
+        if selected is None or not budget.allows_search():
+            return interrupted()
+        plan, evaluation = selected
     identity = fingerprint(
         {
             "graph": graph.fingerprint,
