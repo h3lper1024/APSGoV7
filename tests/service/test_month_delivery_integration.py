@@ -27,6 +27,18 @@ def parse(body):
     return loads_month_solve_request(dumps_exact_json(body), replace(policy(), total_time_limit_seconds=Decimal(300)))
 
 
+def test_submitted_order_quantity_drives_both_weight_and_production_duration():
+    body = delivery_body()
+    body["orders"] = [dict(body["orders"][0], weight=Decimal("94.2"), width=1000, thickness=1)]
+    parsed = parse(body)
+    assert parsed.task_input.orders[0].weight == Decimal("94.2")
+    assert parsed.task_input.order_timing[0].duration_hours == Decimal(2)
+    body["orders"][0]["weight"] = Decimal("47.1")
+    smaller = parse(body)
+    assert smaller.task_input.order_timing[0].duration_hours == Decimal(1)
+    assert smaller.typed_request_fingerprint != parsed.typed_request_fingerprint
+
+
 @pytest.mark.parametrize("field,value", [
     ("schedule_start_at", "2026-06-01T00:00:00"), ("schedule_start_at", "2026-02-30T00:00:00+08:00"),
     ("due_date", "2026-02-30"), ("due_date", None), ("furnace_speed_mpm", None),
