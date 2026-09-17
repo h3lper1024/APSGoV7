@@ -625,12 +625,15 @@ def _publication_issues(evaluation, rule_set, issues):
             )
 
 
-def _writeback_blocking_violation_count(evaluation, rule_set):
-    blocking_ids = {
-        rule.rule_id for rule in rule_set.rules if type(rule) is EarliestProcessStartRule
-    }
-    return sum(item.rule_id in blocking_ids for item in evaluation.violations)
+# def _writeback_blocking_violation_count(evaluation, rule_set):
+#     blocking_ids = {
+#         rule.rule_id for rule in rule_set.rules if type(rule) is EarliestProcessStartRule
+#     }
+#     return sum(item.rule_id in blocking_ids for item in evaluation.violations)
 
+def _writeback_blocking_violation_count(evaluation, rule_set):
+    # 业务违规仍参与评分并保留明细，但不作为发布阻断条件。
+    return 0
 
 def _outcome(
     candidate,
