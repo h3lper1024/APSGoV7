@@ -225,7 +225,7 @@ def test_score_comparison_only_accepts_the_exact_approved_change(change):
 
 
 @pytest.mark.parametrize("tamper", [None, "label", "candidate", "score"])
-def test_nonpublishable_comparison_is_explicit_and_never_claims_passing_audits(tmp_path, tamper):
+def test_nonpublishable_comparison_is_explicit_and_never_claims_passing_audits(tmp_path, tamper, monkeypatch):
     from apsgo_scheduler.api.request import RuleDefinitionSpec
     from apsgo_scheduler.core.contracts import RuleScope
     from apsgo_scheduler.app.rule_set_loader import fingerprint_rule_set_spec
@@ -238,6 +238,19 @@ def test_nonpublishable_comparison_is_explicit_and_never_claims_passing_audits(t
     from apsgo_v7_service.diagnostics import _json_values
     from apsgo_scheduler.api.request import fingerprint_public_request
     from apsgo_scheduler.api.json_codec import dumps_exact_json
+    from apsgo_scheduler.core import solver
+    from apsgo_scheduler.core.contracts import SearchStopReason
+
+    audit = solver.audit_core_without_search_cache
+
+    def finalization_deadline(candidate, problem, rule_set, runtime):
+        outcome = audit(candidate, problem, rule_set, runtime)
+        # Ordinary business findings now permit writeback. A terminal deadline
+        # still produces a genuine diagnostic-only result without rewriting JSON.
+        runtime.stop_reason = SearchStopReason.FINALIZATION_TIME_LIMIT_REACHED
+        return outcome
+
+    monkeypatch.setattr(solver, "audit_core_without_search_cache", finalization_deadline)
     request, _, _ = tradeoff_case()
     spec = replace(request.rule_set_spec, rules=(*request.rule_set_spec.rules, RuleDefinitionSpec(
         "narrow", "ContinuousNarrowSteelWeightRule", "窄钢连续", RuleScope.CHAIN, True, "1",
@@ -251,6 +264,9 @@ def test_nonpublishable_comparison_is_explicit_and_never_claims_passing_audits(t
     request = load_request(canonical)
     path = tmp_path / "failed"
     save_run(path, request)
+    stored_result = read_json(path / "measurement.json")["result"]
+    assert stored_result["release"] is None
+    assert stored_result["stop_reason"] == "finalization_time_limit_reached"
     with pytest.raises(ValueError, match="audits must pass"):
         read_run(path)
     if tamper == "label":

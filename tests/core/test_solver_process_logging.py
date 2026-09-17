@@ -255,8 +255,10 @@ def test_business_audit_failure_is_completed_inspection_not_an_exception(caplog)
     rule = SeverityRule("severity", "severity", RuleScope.CHAIN, True, "1", {})
     member = replace(node("real"), rule_attributes={"severity": Decimal(1)})
     result = solver.solve(*solver_case(nodes=(member,), rule_set=ruleset((rule,))))
-    assert result.status is SolveStatus.COMPLETE_NOT_PUBLISHABLE
+    assert result.status is SolveStatus.PUBLISHABLE_WITH_VIOLATIONS
     assert result.core_audit.status is CoreAuditStatus.COMPLETED
+    assert result.core_audit.integrity_passed and result.release is not None
+    assert result.core_audit.writeback_blocking_violation_count == 0
     (record,) = records(caplog, "solver_stage_finished", "core_audit")
     assert record.solver_details["status"] == "failed"
     assert record.solver_details["audit_status"] == "completed"

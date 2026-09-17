@@ -616,10 +616,13 @@ def test_ineligible_width_phase_is_not_called_or_reported_and_keeps_the_split_re
     assert result.status is (
         SolveStatus.PUBLISHABLE_WITH_ALLOWED_DEVIATION
         if mode == "underweight"
-        else SolveStatus.COMPLETE_NOT_PUBLISHABLE
+        else SolveStatus.PUBLISHABLE_WITH_VIOLATIONS
         if mode == "prohibited"
         else SolveStatus.SUCCESS
     )
+    assert result.core_audit.integrity_passed
+    assert result.core_audit.writeback_blocking_violation_count == 0
+    assert result.release is not None
 
 
 @pytest.mark.parametrize(

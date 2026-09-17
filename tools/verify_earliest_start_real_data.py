@@ -183,9 +183,16 @@ def summarize(args):
     def read(path):
         return json.loads(path.read_text(encoding="utf-8"), parse_float=Decimal)
 
+    baseline = getattr(args, "baseline", None)
+    if baseline is not None:
+        for name in ("enabled_request.json", "lower_bounds.json"):
+            assert (args.output / name).read_bytes() == (baseline / name).read_bytes(), name
+        assert read(args.output / "enabled" / "prepared_request.json") == read(
+            args.output / "enabled_request.json"
+        ), "replayed request differs from frozen input"
     bounds = read(args.output / "lower_bounds.json")
     summaries, plans, counters, traces = {}, {}, {}, {}
-    for variant in ("old", "disabled", "enabled"):
+    for variant in (("enabled",) if baseline is not None else ("old", "disabled", "enabled")):
         directory = args.output / variant
         request = read(args.output / f"{variant}_request.json")["request"]
         result = read(directory / "response.json")
@@ -240,6 +247,37 @@ def summarize(args):
             early_nodes=early,
             quality_by_name=dict(zip((q["metric_key"] for q in request["rule_set_spec"]["quality_spec"]),
                                     measurement["quality_key"])))
+    if baseline is not None:
+        old_result = read(baseline / "enabled" / "response.json")
+        old_measurement = read(baseline / "enabled" / "measurement.json")
+        old_candidate = old_result["release"] or old_result["diagnostic_candidate"]
+        old_evaluation = old_candidate.get("evaluation") or old_candidate["search_evaluation"]
+        new_evaluation = candidate.get("evaluation") or candidate["search_evaluation"]
+        matches = dict(
+            complete_plan=plans["enabled"] == old_candidate["plan"],
+            complete_evaluation=new_evaluation == old_evaluation,
+            quality=summaries["enabled"]["quality_key"] == old_measurement["quality_key"],
+            counters=counters["enabled"] == old_result["run_manifest"]["counters"],
+            search_trace=traces["enabled"] == old_result["run_manifest"]["trace_fingerprint"],
+            stop_reason=measurement["stop_reason"] == old_measurement["stop_reason"],
+            delivery_report=report == read(baseline / "enabled" / "delivery_report.json"),
+        )
+        core = result["core_audit"]
+        assert core["integrity_passed"] is True
+        assert core["writeback_blocking_violation_count"] == len(early)
+        if early:
+            assert result["release"] is None and measurement["publishable"] is False
+            assert result["status"] == "complete_not_publishable"
+        comparison = dict(runs=summaries, matches_previous_enabled=matches,
+            plan_differences=plan_differences(old_candidate["plan"], plans["enabled"]),
+            source_sha256={name: sha256((baseline / name).read_bytes()).hexdigest()
+                for name in ("enabled_request.json", "lower_bounds.json")})
+        _write_json(args.output / "comparison.json", comparison)
+        print(dumps_exact_json(dict(matches=matches, early_node_count=len(early),
+            writeback_blocking_violation_count=core["writeback_blocking_violation_count"],
+            status=result["status"])), flush=True)
+        assert all(matches.values()), "writeback changes altered the frozen search result"
+        return
     differences = plan_differences(plans["old"], plans["disabled"])
     identity_suffixes = (".split_lineage.authorization_decision_fingerprint",
         ".split_lineage.partition_id", ".virtual_lineage.related_partition_id")
@@ -264,6 +302,8 @@ def main():
     parser.add_argument("--request", type=Path)
     parser.add_argument("--start", default="2026-06-01T00:00:00+08:00")
     parser.add_argument("--code-root", type=Path, default=ROOT)
+    parser.add_argument("--baseline", type=Path,
+        help="summarize only a new enabled replay against the frozen three-run directory")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     sys.path[:0] = [str(args.code_root), str(args.code_root / "src")]
