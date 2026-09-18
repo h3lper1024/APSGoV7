@@ -1,6 +1,6 @@
 """Numeric candidate edits and the static parts of first local search."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from math import isfinite
 from time import perf_counter
 
@@ -13,6 +13,10 @@ from ._numeric_evaluation import (
     preview_numeric_chain_order_quality,
 )
 from ._numeric_resources import materialize_private_resources
+from ._numeric_borrow_admission import (
+    BorrowAdmissionDiagnostics, check_candidate_borrow, check_committed_borrow,
+    log_borrow_admission_summary,
+)
 from . import _numeric_candidate_kernel as common_candidate
 from ._numeric_candidate_kernel import NumericDeferredCandidateFailure, capture_candidate_result
 from ._numeric_chain_ops import chain_rows
@@ -223,6 +227,8 @@ class NumericSearchState:
     split_sequence: int = 0
     replay_count: int = 0
     accepted_moves: tuple[NumericAcceptedMove, ...] = ()
+    borrow_diagnostics: BorrowAdmissionDiagnostics = field(
+        default_factory=BorrowAdmissionDiagnostics, init=False, repr=False, compare=False)
 
     def __post_init__(self):
         if (
@@ -285,7 +291,9 @@ class NumericSearchState:
         *,
         virtual_sequence=None,
         split_sequence=None,
+        budget=None,
     ):
+        """Return True only after publication; an interrupted guard returns False."""
         if (
             not isinstance(candidate_task, NumericTask)
             or not isinstance(candidate_program, NumericRuleProgram)
@@ -356,6 +364,11 @@ class NumericSearchState:
             or int64(next_split_sequence, "split_sequence") < self.split_sequence
         ):
             raise NumericValueError("accepted_sequence", "accepted sequence cannot go backwards")
+        if not check_committed_borrow(self, budget, candidate_task, candidate_program,
+                                      candidate_quality, candidate, evaluation):
+            return False
+        if self.program.for_kind(NumericRuleKind.EARLIEST_START) and not budget.allows_search():
+            return False
         self.task = candidate_task
         self.program = candidate_program
         self.quality = candidate_quality
@@ -365,6 +378,7 @@ class NumericSearchState:
         self.accepted_moves += (move,)
         self.virtual_sequence = next_virtual_sequence
         self.split_sequence = next_split_sequence
+        return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -414,6 +428,7 @@ class NumericSearchCheckpoint:
     def capture(cls, task, state, budget, started):
         if not isinstance(task, NumericTask) or not isinstance(state, NumericSearchState):
             raise NumericValueError("checkpoint", "numeric task and search state required")
+        log_borrow_admission_summary(state.borrow_diagnostics)
         elapsed = perf_counter() - started
         values = dict(
             task=task.fingerprint,
@@ -523,7 +538,7 @@ def _preserves_other_hard_rules(state, summary):
                if rule.kind is not NumericRuleKind.EARLIEST_START)
 
 
-def publish_accepted_candidate(state, workspace, result, edit):
+def publish_accepted_candidate(state, workspace, result, edit, *, budget=None):
     """Materialize and verify locally; commit is the only mutation of live state."""
     workspace.require_current(state.task, state.plan)
     workspace.require_view(result.view)
@@ -546,17 +561,29 @@ def publish_accepted_candidate(state, workspace, result, edit):
     for group in range(workspace.group_count):
         if int(workspace.split_groups.accepted_sequence[group]) != state.split_sequence + group + 1:
             raise NumericValueError("candidate.publish", "split resource order changed")
+    guarded = bool(state.program.for_kind(NumericRuleKind.EARLIEST_START))
+    if guarded:
+        if not isinstance(budget, SolveRuntimeBudget):
+            raise NumericValueError("candidate.publish", "shared runtime budget required")
+        if not budget.allows_search():
+            return False
     extension = materialize_private_resources(workspace, state.program, state.quality)
+    if guarded and not budget.allows_search():
+        return False
     chains = tuple(chain_rows(result.view, i) for i in range(result.view.count))
     candidate = _build_plan(extension.task, state.plan, chains,
         workspace.ids[:workspace.chain_count], workspace.periods[:workspace.chain_count], group_periods=False)
     if not split_target_periods_match(extension.task, chains, candidate.chain_periods):
         raise NumericValueError("candidate.publish", "split target period changed before publication")
+    if guarded and not budget.allows_search():
+        return False
     evaluation = materialize_numeric_evaluation(extension.task, extension.program,
         extension.quality, candidate, result.summary)
-    state.commit(extension.task, extension.program, extension.quality, candidate, evaluation,
+    if guarded and not budget.allows_search():
+        return False
+    return state.commit(extension.task, extension.program, extension.quality, candidate, evaluation,
         edit, tuple(map(int, result.affected_rows)), virtual_sequence=result.virtual_sequence,
-        split_sequence=result.split_sequence)
+        split_sequence=result.split_sequence, budget=budget)
 
 
 def consume_candidate_result(state, budget, workspace, result):
@@ -582,9 +609,10 @@ def consume_candidate_result(state, budget, workspace, result):
         return False
     if not _preserves_other_hard_rules(state, result.summary):
         return False
+    if not check_candidate_borrow(state, budget, workspace, result):
+        return False
     edit = _common_candidate_edit(state, result.descriptor, budget.candidate_check_count)
-    publish_accepted_candidate(state, workspace, result, edit)
-    return True
+    return publish_accepted_candidate(state, workspace, result, edit, budget=budget)
 
 
 def consume_candidate_attempts(state, budget, attempts):
