@@ -6,9 +6,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from math import isfinite
 from time import monotonic
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from .contracts import SearchStopReason, SolverPolicy, require_enum, require_int, sum_decimals
+
+
+if TYPE_CHECKING:
+    from ._search_phase_budget import SearchPhaseBudget
 
 
 class CancellationToken(Protocol):
@@ -39,6 +43,9 @@ class SolveRuntimeBudget:
     cancellation: CancellationToken | None
     stop_reason: SearchStopReason | None = None
     clock: Callable[[], float] = field(default=monotonic, repr=False, compare=False, kw_only=True)
+
+    _active_phase: SearchPhaseBudget | None = field(
+        default=None, init=False, repr=False, compare=False, metadata={"omit_none": True})
 
     def __post_init__(self):
         for name in (
@@ -106,8 +113,20 @@ class SolveRuntimeBudget:
             raise ValueError("is_cancelled must return bool")
         return cancelled
 
+    def phase_scope(self, name: str, candidate_checks: int, time_slice_seconds: float):
+        """Create an opt-in scope; existing callers remain global until entry."""
+        from ._search_phase_budget import SearchPhaseBudget
+
+        return SearchPhaseBudget(self, name, candidate_checks, time_slice_seconds)
+
     def permit(self, count: int = 1) -> bool:
         require_int(count, "count")
+        if count and self._active_phase is not None:
+            return self._active_phase._permit(count)
+        # Zero is a global continuation poll, not permission to start new work.
+        return self._permit_global(count)
+
+    def _permit_global(self, count: int) -> bool:
         if self.must_stop:
             return False
         if self.candidate_check_count + count > self.candidate_check_limit:
