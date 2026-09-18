@@ -292,6 +292,7 @@ class NumericSearchState:
         virtual_sequence=None,
         split_sequence=None,
         budget=None,
+        allows_continue=None,
     ):
         """Return True only after publication; an interrupted guard returns False."""
         if (
@@ -364,10 +365,14 @@ class NumericSearchState:
             or int64(next_split_sequence, "split_sequence") < self.split_sequence
         ):
             raise NumericValueError("accepted_sequence", "accepted sequence cannot go backwards")
+        if allows_continue is not None and not allows_continue():
+            return False
         if not check_committed_borrow(self, budget, candidate_task, candidate_program,
                                       candidate_quality, candidate, evaluation):
             return False
         if self.program.for_kind(NumericRuleKind.EARLIEST_START) and not budget.allows_search():
+            return False
+        if allows_continue is not None and not allows_continue():
             return False
         self.task = candidate_task
         self.program = candidate_program
@@ -538,7 +543,7 @@ def _preserves_other_hard_rules(state, summary):
                if rule.kind is not NumericRuleKind.EARLIEST_START)
 
 
-def publish_accepted_candidate(state, workspace, result, edit, *, budget=None):
+def publish_accepted_candidate(state, workspace, result, edit, *, budget=None, allows_continue=None):
     """Materialize and verify locally; commit is the only mutation of live state."""
     workspace.require_current(state.task, state.plan)
     workspace.require_view(result.view)
@@ -561,32 +566,35 @@ def publish_accepted_candidate(state, workspace, result, edit, *, budget=None):
     for group in range(workspace.group_count):
         if int(workspace.split_groups.accepted_sequence[group]) != state.split_sequence + group + 1:
             raise NumericValueError("candidate.publish", "split resource order changed")
-    guarded = bool(state.program.for_kind(NumericRuleKind.EARLIEST_START))
+    guarded = bool(state.program.for_kind(NumericRuleKind.EARLIEST_START)) or allows_continue is not None
+    continuation = allows_continue
     if guarded:
         if not isinstance(budget, SolveRuntimeBudget):
             raise NumericValueError("candidate.publish", "shared runtime budget required")
-        if not budget.allows_search():
+        continuation = budget.allows_search if allows_continue is None else allows_continue
+        if not continuation():
             return False
     extension = materialize_private_resources(workspace, state.program, state.quality)
-    if guarded and not budget.allows_search():
+    if guarded and not continuation():
         return False
     chains = tuple(chain_rows(result.view, i) for i in range(result.view.count))
     candidate = _build_plan(extension.task, state.plan, chains,
         workspace.ids[:workspace.chain_count], workspace.periods[:workspace.chain_count], group_periods=False)
     if not split_target_periods_match(extension.task, chains, candidate.chain_periods):
         raise NumericValueError("candidate.publish", "split target period changed before publication")
-    if guarded and not budget.allows_search():
+    if guarded and not continuation():
         return False
     evaluation = materialize_numeric_evaluation(extension.task, extension.program,
         extension.quality, candidate, result.summary)
-    if guarded and not budget.allows_search():
+    if guarded and not continuation():
         return False
+    continuation_args = {} if allows_continue is None else {"allows_continue": allows_continue}
     return state.commit(extension.task, extension.program, extension.quality, candidate, evaluation,
         edit, tuple(map(int, result.affected_rows)), virtual_sequence=result.virtual_sequence,
-        split_sequence=result.split_sequence, budget=budget)
+        split_sequence=result.split_sequence, budget=budget, **continuation_args)
 
 
-def consume_candidate_result(state, budget, workspace, result):
+def consume_candidate_result(state, budget, workspace, result, *, allows_continue=None):
     """Consume one already charged attempt; do not pull or charge a later one."""
     workspace.require_current(state.task, state.plan)
     workspace.require_view(result.view)
@@ -604,15 +612,19 @@ def consume_candidate_result(state, budget, workspace, result):
         raise NumericValueError("candidate.consume", "unfinished preparation cannot be consumed")
     if budget.candidate_check_count <= 0:
         raise NumericValueError("candidate.consume", "candidate must consume its original logical check first")
+    continuation = budget.allows_search if allows_continue is None else allows_continue
     state.complete_candidate_evaluation_count += 1
-    if not result.admissible or not budget.allows_search() or not tuple(result.summary.quality) < _quality(state.evaluation):
+    if not result.admissible or not continuation() or not tuple(result.summary.quality) < _quality(state.evaluation):
         return False
     if not _preserves_other_hard_rules(state, result.summary):
         return False
     if not check_candidate_borrow(state, budget, workspace, result):
         return False
+    if allows_continue is not None and not continuation():
+        return False
     edit = _common_candidate_edit(state, result.descriptor, budget.candidate_check_count)
-    return publish_accepted_candidate(state, workspace, result, edit, budget=budget)
+    continuation_args = {} if allows_continue is None else {"allows_continue": allows_continue}
+    return publish_accepted_candidate(state, workspace, result, edit, budget=budget, **continuation_args)
 
 
 def consume_candidate_attempts(state, budget, attempts):
@@ -757,13 +769,15 @@ def _first_description(workspace, action, source, target, *, row=-1, position=-1
     return NumericCandidateDescriptors(workspace.task, workspace.plan, readonly(values, np.int64))
 
 
-def _prepare_current_description(state, budget, workspace, description, policy, *, split_decision=None):
+def _prepare_current_description(state, budget, workspace, description, policy, *,
+                                 split_decision=None, allows_continue=None):
     """Return private geometry before split's existing logical charge boundary."""
+    continuation = budget.allows_search if allows_continue is None else allows_continue
     while True:
         result = common_candidate.prepare_candidate_attempt(workspace, state.program, state.quality,
             description, 0, policy, virtual_sequence=state.virtual_sequence,
             split_sequence=state.split_sequence, split_decision=split_decision,
-            allows_continue=budget.allows_search)
+            allows_continue=continuation)
         if result.status != CAPACITY:
             return result
         _grow_candidate_workspace(workspace)
@@ -773,13 +787,15 @@ def _grow_candidate_workspace(workspace):
     workspace.grow()
 
 
-def _try_first_description(state, budget, workspace, description, policy):
+def _try_first_description(state, budget, workspace, description, policy, *, allows_continue=None):
+    continuation = budget.allows_search if allows_continue is None else allows_continue
+    continuation_args = {} if allows_continue is None else {"allows_continue": allows_continue}
     while True:
         result = capture_candidate_result(workspace, state.program, state.quality, description, 0,
             policy, virtual_sequence=state.virtual_sequence, split_sequence=state.split_sequence,
-            previous_evaluation=state.evaluation, allows_continue=budget.allows_search)
+            previous_evaluation=state.evaluation, allows_continue=continuation)
         if isinstance(result, NumericDeferredCandidateFailure) or result.status != CAPACITY:
-            return consume_candidate_result(state, budget, workspace, result)
+            return consume_candidate_result(state, budget, workspace, result, **continuation_args)
         _grow_candidate_workspace(workspace)
 
 
@@ -1152,3 +1168,25 @@ def run_numeric_first_search_prefix(
     if budget.allows_search():
         improve_numeric_real_node_relocation(task, program, quality, state, budget)
     return state, NumericSearchCheckpoint.capture(task, state, budget, started)
+
+
+def run_numeric_basic_slice(state, budget, *, candidate_checks, time_slice_seconds,
+                            progress, pair_scan_slack_weight, maximum_virtual_bridge_nodes=2):
+    """Opt-in SB2 entry; legacy local-search callers retain their existing path."""
+    from ._numeric_stage_operators import run_basic_slice
+
+    return run_basic_slice(state, budget, candidate_checks=candidate_checks,
+        time_slice_seconds=time_slice_seconds, progress=progress,
+        pair_scan_slack_weight=pair_scan_slack_weight,
+        maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes)
+
+
+def run_numeric_split_slice(state, budget, *, candidate_checks, time_slice_seconds,
+                            progress, pair_scan_slack_weight, maximum_virtual_bridge_nodes=2):
+    """Opt-in split scan plus bounded replay; never changes the global budget."""
+    from ._numeric_stage_operators import run_split_slice
+
+    return run_split_slice(state, budget, candidate_checks=candidate_checks,
+        time_slice_seconds=time_slice_seconds, progress=progress,
+        pair_scan_slack_weight=pair_scan_slack_weight,
+        maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes)
