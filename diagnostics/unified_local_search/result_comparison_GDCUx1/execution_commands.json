@@ -1,0 +1,38 @@
+[
+  {
+    "name": "formal_baseline",
+    "command": "PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -c 'import logging; from tools.profile_solver_search import main; logging.basicConfig(level=logging.INFO, format=\"%(asctime)s %(message)s\"); raise SystemExit(main())' --prepared-request /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/stage_00/formal/prepared_request.json --output-dir /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/formal_baseline --scope full > /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/formal_baseline.log 2>&1",
+    "working_directory": "/private/tmp/apsgov7-result-comparison.0yZaTM/baseline",
+    "exit_code": 0
+  },
+  {
+    "name": "formal_full_revisit",
+    "command": "PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -c 'import logging; from tools.profile_solver_search import main; logging.basicConfig(level=logging.INFO, format=\"%(asctime)s %(message)s\"); raise SystemExit(main())' --prepared-request /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/stage_00/formal/prepared_request.json --output-dir /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/formal_full_revisit --scope full > /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/formal_full_revisit.log 2>&1",
+    "working_directory": "/private/tmp/apsgov7-result-comparison.0yZaTM/full_revisit",
+    "exit_code": 0
+  },
+  {
+    "name": "formal_focused_revisit",
+    "command": "PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -c 'import logging; from tools.profile_solver_search import main; logging.basicConfig(level=logging.INFO, format=\"%(asctime)s %(message)s\"); raise SystemExit(main())' --prepared-request /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/stage_00/formal/prepared_request.json --output-dir /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/formal_focused_revisit --scope full > /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/formal_focused_revisit.log 2>&1",
+    "working_directory": "/private/tmp/apsgov7-result-comparison.0yZaTM/focused_revisit",
+    "exit_code": 0
+  },
+  {
+    "name": "site_focused_revisit",
+    "command": "PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -c 'import logging; from tools.profile_solver_search import main; logging.basicConfig(level=logging.INFO, format=\"%(asctime)s %(message)s\"); raise SystemExit(main())' --prepared-request /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/stage_00/site/prepared_request.json --output-dir /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/site_focused_revisit --scope full > /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/site_focused_revisit.log 2>&1",
+    "working_directory": "/private/tmp/apsgov7-result-comparison.0yZaTM/focused_revisit",
+    "exit_code": 0
+  },
+  {
+    "name": "site_full_revisit",
+    "command": "PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -c 'import logging; from tools.profile_solver_search import main; logging.basicConfig(level=logging.INFO, format=\"%(asctime)s %(message)s\"); raise SystemExit(main())' --prepared-request /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/stage_00/site/prepared_request.json --output-dir /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/site_full_revisit --scope full > /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/site_full_revisit.log 2>&1",
+    "working_directory": "/private/tmp/apsgov7-result-comparison.0yZaTM/full_revisit",
+    "exit_code": 0
+  },
+  {
+    "name": "site_baseline",
+    "command": "PYTHONDONTWRITEBYTECODE=1 /usr/bin/caffeinate -i /Users/miles/anaconda3/envs/aps_3.10.18/bin/python -c 'import logging; from tools.profile_solver_search import main; logging.basicConfig(level=logging.INFO, format=\"%(asctime)s %(message)s\"); raise SystemExit(main())' --prepared-request /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/stage_00/site/prepared_request.json --output-dir /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/site_baseline --scope full > /Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1/site_baseline.log 2>&1",
+    "working_directory": "/private/tmp/apsgov7-result-comparison.0yZaTM/baseline",
+    "exit_code": 0
+  }
+]

@@ -1,0 +1,39 @@
+{
+  "scope": "six_fresh_comparative_runs_not_formal_performance_acceptance",
+  "platform": "macOS ARM64",
+  "python": "/Users/miles/anaconda3/envs/aps_3.10.18/bin/python",
+  "source_root": "/private/tmp/apsgov7-result-comparison.0yZaTM",
+  "output_root": "/Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/result_comparison_GDCUx1",
+  "current_checkout_commit": "7110c03",
+  "versions": {
+    "baseline": {
+      "ref": "6138bd1",
+      "source_files": 50
+    },
+    "full_revisit": {
+      "ref": "4c69eb1405754ed3fc86b4af09d2b3d7923539b6",
+      "source_files": 51
+    },
+    "focused_revisit": {
+      "ref": "21383e96e242fc266e223509618ae2a4e505496f",
+      "source_files": 51
+    }
+  },
+  "order": [
+    "formal_baseline",
+    "formal_full_revisit",
+    "formal_focused_revisit",
+    "site_focused_revisit",
+    "site_full_revisit",
+    "site_baseline"
+  ],
+  "input_root": "/Users/miles/dev/dev-py/APSGOV7/diagnostics/unified_local_search/stage_00",
+  "candidate_check_limit": 200000,
+  "policy_override": false,
+  "seed_override": false,
+  "notes": [
+    "Sequential fresh processes. Historical source and tool hashes verified before export.",
+    "AC power; other desktop and VM applications are active, so timing is descriptive only.",
+    "No production edits, rule/database writes, deployment, or change to acceptance gates."
+  ]
+}

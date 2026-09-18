@@ -1,0 +1,89 @@
+{
+  "case": "candidate_error",
+  "status": "pass",
+  "results": [
+    {
+      "pid": 31024,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0005399999999999988,
+      "generation": 1,
+      "ordinal": 0
+    },
+    {
+      "pid": 31023,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "candidate_error",
+      "type": "ValueError",
+      "message": "intentional joblib candidate error",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/miles/dev/dev-py/APSGOV7/release/joblib_process_probe.py\", line 41, in _task\n    raise ValueError(\"intentional joblib candidate error\")\nValueError: intentional joblib candidate error\n",
+      "generation": 1,
+      "ordinal": 1
+    },
+    {
+      "pid": 31023,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.00026500000000000135,
+      "generation": 1,
+      "ordinal": 2
+    },
+    {
+      "pid": 31023,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0003539999999999932,
+      "generation": 1,
+      "ordinal": 3
+    },
+    {
+      "pid": 31024,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0003049999999999997,
+      "generation": 2,
+      "ordinal": 0
+    },
+    {
+      "pid": 31023,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "candidate_error",
+      "type": "ValueError",
+      "message": "intentional joblib candidate error",
+      "traceback": "Traceback (most recent call last):\n  File \"/Users/miles/dev/dev-py/APSGOV7/release/joblib_process_probe.py\", line 41, in _task\n    raise ValueError(\"intentional joblib candidate error\")\nValueError: intentional joblib candidate error\n",
+      "generation": 2,
+      "ordinal": 1
+    },
+    {
+      "pid": 31023,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0002360000000000001,
+      "generation": 2,
+      "ordinal": 2
+    },
+    {
+      "pid": 31024,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0003720000000000112,
+      "generation": 2,
+      "ordinal": 3
+    }
+  ],
+  "wall_seconds": 0.5654342920170166
+}

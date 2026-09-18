@@ -1,0 +1,116 @@
+         209729487 function calls (203055442 primitive calls) in 29.619 seconds
+
+   Ordered by: cumulative time
+   List reduced from 3348 to 60 due to restriction <60>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000   30.774   30.774 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/neighborhoods.py:1040(run_local_search)
+        4    0.000    0.000   30.774    7.693 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/tools/profile_solver_search.py:113(wrapped)
+        1    0.019    0.019   20.781   20.781 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/neighborhoods.py:673(improve_whole_chain)
+     2263    0.206    0.000   15.139    0.007 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/neighborhoods.py:411(try_complete_candidate)
+     2263    0.013    0.000   14.126    0.006 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/evaluation.py:163(_evaluate_candidate_plan)
+     2263    0.245    0.000   14.095    0.006 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/evaluation.py:320(_evaluate_plan)
+228689/176752    1.091    0.000   10.600    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:118(sum_weights)
+     1483    0.007    0.000    9.766    0.007 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/neighborhoods.py:638(_candidate_merged_sequences)
+     4075    0.803    0.000    8.791    0.002 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/resource_facts.py:261(derive_evaluation_resource_view)
+     9725    0.007    0.000    8.605    0.001 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/neighborhoods.py:624(_boundary_join)
+     9283    0.019    0.000    8.585    0.001 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/virtual_material.py:121(bridge)
+   214503    0.664    0.000    8.456    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/rule_set.py:131(_evaluate)
+     9088    0.041    0.000    8.306    0.001 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/virtual_material.py:156(_numeric_bridge)
+   263921    1.073    0.000    7.820    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:104(sum_decimals)
+    16591    0.164    0.000    7.736    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/_bridge_numeric.py:434(_scan)
+        1    0.020    0.020    7.175    7.175 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/neighborhoods.py:881(improve_virtual_weight_fill)
+   211669    0.529    0.000    6.616    0.000 /Users/miles/dev/dev-py/APSGOV7/docs/implementation/evidence/apsgo_v7_numpy_numba_virtual_bridge/stage_04_comparison/probe_bridge.py:104(block)
+     5704    0.081    0.000    4.763    0.001 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/rule_set.py:162(evaluate_complete_chain)
+     7503    0.002    0.000    4.760    0.001 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/_bridge_numeric.py:467(scan_double)
+   870193    0.472    0.000    3.782    0.000 {built-in method builtins.min}
+ 16066512    2.632    0.000    3.342    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:88(require_decimal)
+  8124722    0.981    0.000    3.309    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:111(<genexpr>)
+   115607    0.035    0.000    3.214    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/rule_set.py:156(evaluate_edge)
+   211681    0.062    0.000    3.107    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/dispatcher.py:283(nopython_signatures)
+   211681    0.386    0.000    3.038    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/dispatcher.py:285(<listcomp>)
+     9088    0.002    0.000    2.980    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/_bridge_numeric.py:462(scan_single)
+     2263    0.001    0.000    2.697    0.001 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/rule_set.py:192(evaluate_plan)
+8953689/5975891    1.254    0.000    2.678    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/types/abstract.py:121(__hash__)
+        1    0.000    0.000    2.636    2.636 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/dispatcher.py:344(_compile_for_args)
+     13/1    0.000    0.000    2.634    2.634 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/dispatcher.py:862(compile)
+      7/1    0.000    0.000    2.633    2.633 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/dispatcher.py:79(compile)
+      7/1    0.000    0.000    2.633    2.633 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/dispatcher.py:86(_compile_cached)
+      7/1    0.001    0.000    2.633    2.633 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/dispatcher.py:101(_compile_core)
+      7/1    0.000    0.000    2.633    2.633 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/compiler.py:713(compile_extra)
+  636/274    0.001    0.000    2.508    0.009 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/compiler_lock.py:32(_acquire_compile_lock)
+  8108445    1.261    0.000    2.420    0.000 {method 'as_tuple' of 'decimal.Decimal' objects}
+      7/1    0.000    0.000    2.398    2.398 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/compiler.py:433(compile_extra)
+      7/1    0.000    0.000    2.397    2.397 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/compiler.py:500(_compile_bytecode)
+      7/1    0.000    0.000    2.397    2.397 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/compiler.py:456(_compile_core)
+      7/1    0.000    0.000    2.397    2.397 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/compiler_machinery.py:342(run)
+   189/27    0.003    0.000    2.397    0.089 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/compiler_machinery.py:267(_runPass)
+   567/81    0.000    0.000    2.394    0.030 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/compiler_machinery.py:271(check)
+    65005    0.019    0.000    2.374    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/model.py:252(total_weight)
+     2263    0.003    0.000    2.077    0.001 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/concrete.py:1171(evaluate)
+    54200    0.016    0.000    1.983    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/concrete.py:1178(<genexpr>)
+      7/1    0.000    0.000    1.978    1.978 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/typed_passes.py:107(run_pass)
+      7/1    0.000    0.000    1.978    1.978 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/typed_passes.py:68(type_inference_stage)
+      7/1    0.000    0.000    1.972    1.972 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/typeinfer.py:1064(propagate)
+     17/2    0.003    0.000    1.972    0.986 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/typeinfer.py:147(propagate)
+ 1653/150    0.005    0.000    1.966    0.013 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/typeinfer.py:574(resolve)
+ 1740/162    0.002    0.000    1.964    0.012 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/typing/context.py:268(resolve_function_type)
+ 1653/150    0.001    0.000    1.963    0.013 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/typeinfer.py:1531(resolve_call)
+ 1684/162    0.002    0.000    1.962    0.012 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/typing/context.py:320(_resolve_user_function_type)
+   850/88    0.002    0.000    1.950    0.022 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/typeinfer.py:564(__call__)
+       12    0.000    0.000    1.941    0.162 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/types/functions.py:534(get_call_type)
+       12    0.000    0.000    1.940    0.162 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/dispatcher.py:304(get_call_template)
+        1    0.002    0.002    1.844    1.844 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/neighborhoods.py:1004(improve_chain_order)
+        7    0.000    0.000    1.378    0.197 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/typed_passes.py:439(run_pass)
+  1049672    0.133    0.000    1.336    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/budget.py:128(allows_search)
+3293717/3293680    0.628    0.000    1.309    0.000 {built-in method builtins.any}
+
+
+         209729487 function calls (203055442 primitive calls) in 29.619 seconds
+
+   Ordered by: internal time
+   List reduced from 3348 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+ 16066512    2.632    0.000    3.342    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:88(require_decimal)
+  8108445    1.261    0.000    2.420    0.000 {method 'as_tuple' of 'decimal.Decimal' objects}
+8953689/5975891    1.254    0.000    2.678    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/types/abstract.py:121(__hash__)
+228689/176752    1.091    0.000   10.600    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:118(sum_weights)
+   263921    1.073    0.000    7.820    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:104(sum_decimals)
+  8124722    0.981    0.000    3.309    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:111(<genexpr>)
+     4075    0.803    0.000    8.791    0.002 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/resource_facts.py:261(derive_evaluation_resource_view)
+ 29402109    0.794    0.000    0.891    0.000 {built-in method builtins.isinstance}
+  1113898    0.701    0.000    1.276    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/budget.py:109(permit)
+   214503    0.664    0.000    8.456    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/rule_set.py:131(_evaluate)
+  8124722    0.642    0.000    0.820    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:112(<genexpr>)
+3293717/3293680    0.628    0.000    1.309    0.000 {built-in method builtins.any}
+     8779    0.593    0.000    0.652    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/llvmlite/binding/ffi.py:210(__call__)
+  2972053    0.586    0.000    0.586    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/types/npytypes.py:482(key)
+   211669    0.529    0.000    6.616    0.000 /Users/miles/dev/dev-py/APSGOV7/docs/implementation/evidence/apsgo_v7_numpy_numba_virtual_bridge/stage_04_comparison/probe_bridge.py:104(block)
+8973066/5991362    0.498    0.000    1.072    0.000 {built-in method builtins.hash}
+  1685533    0.494    0.000    1.217    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:126(freeze_tuple)
+  8126792    0.480    0.000    0.480    0.000 {built-in method __new__ of type object at 0x102e2f040}
+   870193    0.472    0.000    3.782    0.000 {built-in method builtins.min}
+  1335904    0.471    0.000    1.292    0.000 {built-in method builtins.max}
+  2666432    0.423    0.000    0.568    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:76(require_text)
+   211681    0.386    0.000    3.038    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/dispatcher.py:285(<listcomp>)
+   115607    0.376    0.000    0.682    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/concrete.py:341(evaluate)
+ 16097718    0.360    0.000    0.360    0.000 {method 'is_finite' of 'decimal.Decimal' objects}
+  6015971    0.344    0.000    0.344    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/types/abstract.py:96(key)
+   824940    0.320    0.000    1.234    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/base.py:188(__post_init__)
+   317087    0.302    0.000    0.338    0.000 {built-in method builtins.sum}
+  4332977    0.297    0.000    0.356    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:130(<genexpr>)
+   115607    0.284    0.000    0.767    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/concrete.py:243(evaluate)
+     2263    0.245    0.000   14.095    0.006 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/evaluation.py:320(_evaluate_plan)
+  9091048    0.228    0.000    0.228    0.000 {method 'append' of 'list' objects}
+  1113898    0.213    0.000    0.253    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/budget.py:20(_finite_time)
+     2263    0.206    0.000   15.139    0.007 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/neighborhoods.py:411(try_complete_candidate)
+     2263    0.192    0.000    0.247    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/concrete.py:1008(evaluate)
+  8077237    0.186    0.000    0.186    0.000 {method 'adjusted' of 'decimal.Decimal' objects}
+    16591    0.164    0.000    7.736    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/_bridge_numeric.py:434(_scan)
+   211669    0.161    0.000    0.161    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/_bridge_numeric.py:347(_scan_block)
+   120821    0.140    0.000    0.423    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/rules/concrete.py:430(_width_contribution)
+  1324152    0.140    0.000    0.140    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/contracts.py:83(require_int)
+     4075    0.137    0.000    0.693    0.000 /private/tmp/apsgo-v7-numeric-stage3.DGQBQE/src/apsgo_scheduler/core/resource_facts.py:242(__post_init__)
+
+

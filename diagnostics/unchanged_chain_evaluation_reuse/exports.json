@@ -1,0 +1,19 @@
+{
+  "old": {
+    "commit": "1bc5bf322f8cdf34c20d947af0bacb36d954c818",
+    "tree": "2c994c428c181892974c09715c54ce50f16b64a9",
+    "root": "/tmp/apsgo-v7-reuse-pairs.UlRN2t/old",
+    "production_source_sha256": "7cd98513e1f1d0b1ea15b62b59a7fc25ae1644b40ef5576ac712f6d7c511c392"
+  },
+  "new": {
+    "commit": "52798855ab8b2613f5034539f86f078abf1ae321",
+    "tree": "3c9146abcde75ac1112a77f430d54eebe43e26c7",
+    "root": "/tmp/apsgo-v7-reuse-pairs.UlRN2t/new",
+    "production_source_sha256": "e11bdea69285f3c260353eb54560a6769bbe8f1198098a13d22a038aa0f77602"
+  },
+  "runner_sha256": "1f34e154f745d80b05e0dc74ab774574ee4be243aab9f6ef854fa5de683d043d",
+  "measurement_tool_sha256": "822239430ee9c06a4d0db87d5da9ea039b219b660737089fe819292ab08cc581",
+  "prepared_request_sha256": "11bdd096717414a25b14e7a219b860e6e84953f17e9c02bbf8e298da9266829c",
+  "export_method": "git archive exact commit to newly created old/new directories; new clean_export check passed",
+  "production_diff": ["src/apsgo_scheduler/core/evaluation.py", "src/apsgo_scheduler/core/neighborhoods.py"]
+}

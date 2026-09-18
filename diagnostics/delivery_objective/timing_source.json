@@ -1,0 +1,6381 @@
+{
+  "source_sha256": "a9321ef3abcc307b0a96e5af7174ae22f60b61871892c489e911e5c337c09ff0",
+  "sheet": "Sheet",
+  "source_kind": "original_fields_join_only",
+  "orders": [
+    {
+      "source_order_id": "0002002187-000010",
+      "width": "1710",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "25",
+      "source_rows": [
+        2
+      ]
+    },
+    {
+      "source_order_id": "0002002179-000010",
+      "width": "1650",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "41",
+      "source_rows": [
+        3
+      ]
+    },
+    {
+      "source_order_id": "0030121690-000010",
+      "width": "1580",
+      "thickness": "0.8",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        4
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000140",
+      "width": "1540",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        5
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000020",
+      "width": "1498",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "69",
+      "source_rows": [
+        6
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000160",
+      "width": "1495",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        7
+      ]
+    },
+    {
+      "source_order_id": "0030123256-000040",
+      "width": "1475",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "69",
+      "source_rows": [
+        8
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000150",
+      "width": "1433",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        9
+      ]
+    },
+    {
+      "source_order_id": "0002002055-000030",
+      "width": "1430",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "66.82",
+      "source_rows": [
+        10
+      ]
+    },
+    {
+      "source_order_id": "0030125168-000070",
+      "width": "1405",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        11
+      ]
+    },
+    {
+      "source_order_id": "0030121346-000020",
+      "width": "1393",
+      "thickness": "0.5",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        12
+      ]
+    },
+    {
+      "source_order_id": "0030125168-000010",
+      "width": "1375",
+      "thickness": "0.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "72",
+      "source_rows": [
+        13
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000010",
+      "width": "1365",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "36.83",
+      "source_rows": [
+        14
+      ]
+    },
+    {
+      "source_order_id": "0030118802-000010",
+      "width": "1350",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "14.77",
+      "source_rows": [
+        15
+      ]
+    },
+    {
+      "source_order_id": "0010019718-000010",
+      "width": "1350",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "58",
+      "source_rows": [
+        16
+      ]
+    },
+    {
+      "source_order_id": "0030123654-000020",
+      "width": "1346",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "135",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        17
+      ]
+    },
+    {
+      "source_order_id": "0030125168-000030",
+      "width": "1326",
+      "thickness": "0.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        18
+      ]
+    },
+    {
+      "source_order_id": "0030125168-000020",
+      "width": "1306",
+      "thickness": "0.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        19
+      ]
+    },
+    {
+      "source_order_id": "0030119098-000010",
+      "width": "1306",
+      "thickness": "0.4",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "22.98",
+      "source_rows": [
+        20
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000270",
+      "width": "1258",
+      "thickness": "0.4",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "12.7",
+      "source_rows": [
+        21
+      ]
+    },
+    {
+      "source_order_id": "0030122897-000010",
+      "width": "1250",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        22
+      ]
+    },
+    {
+      "source_order_id": "0030120727-000030",
+      "width": "1227",
+      "thickness": "0.45",
+      "due_date": "2026-06-05",
+      "furnace_speed_mpm": "135",
+      "process_speed_mpm": null,
+      "weight": "300",
+      "source_rows": [
+        23
+      ]
+    },
+    {
+      "source_order_id": "0030125168-000040",
+      "width": "1219",
+      "thickness": "0.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        24
+      ]
+    },
+    {
+      "source_order_id": "0030125168-000060",
+      "width": "1190",
+      "thickness": "0.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "120",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        25
+      ]
+    },
+    {
+      "source_order_id": "0030124800-000070",
+      "width": "1146",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "120",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        26
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000170",
+      "width": "1145",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "17",
+      "source_rows": [
+        27
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000060",
+      "width": "1145",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "46",
+      "source_rows": [
+        28
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000370",
+      "width": "1130",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        29
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000140",
+      "width": "1110",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        30
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000040",
+      "width": "1103",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "46",
+      "source_rows": [
+        31
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000110",
+      "width": "1097",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        32
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000170",
+      "width": "1080",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        33
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000050",
+      "width": "1060",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "25",
+      "source_rows": [
+        34
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000040",
+      "width": "1051",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "64.87",
+      "source_rows": [
+        35
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000220",
+      "width": "1040",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "80",
+      "source_rows": [
+        36
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000020",
+      "width": "1033",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "125",
+      "process_speed_mpm": null,
+      "weight": "22",
+      "source_rows": [
+        37
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000030",
+      "width": "1020",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "89",
+      "source_rows": [
+        38
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000090",
+      "width": "983",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        39
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000380",
+      "width": "960",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        40
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000050",
+      "width": "910",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        41
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000210",
+      "width": "830",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "8.86",
+      "source_rows": [
+        42
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000130",
+      "width": "828",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "55",
+      "source_rows": [
+        43
+      ]
+    },
+    {
+      "source_order_id": "0030122647-000590",
+      "width": "1500",
+      "thickness": "2.49",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        44
+      ]
+    },
+    {
+      "source_order_id": "0030119938-000340",
+      "width": "1500",
+      "thickness": "2.49",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        45
+      ]
+    },
+    {
+      "source_order_id": "0030122647-000580",
+      "width": "1363",
+      "thickness": "2.49",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        46
+      ]
+    },
+    {
+      "source_order_id": "0030122647-000570",
+      "width": "1300",
+      "thickness": "2.49",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        47
+      ]
+    },
+    {
+      "source_order_id": "0030119938-000330",
+      "width": "1300",
+      "thickness": "2.49",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "95.14",
+      "source_rows": [
+        48
+      ]
+    },
+    {
+      "source_order_id": "0030122647-000560",
+      "width": "1250",
+      "thickness": "2.49",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "72",
+      "source_rows": [
+        49
+      ]
+    },
+    {
+      "source_order_id": "0002002074-000010",
+      "width": "1200",
+      "thickness": "2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "90",
+      "process_speed_mpm": null,
+      "weight": "150",
+      "source_rows": [
+        50
+      ]
+    },
+    {
+      "source_order_id": "0030122760-000020",
+      "width": "914",
+      "thickness": "1.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "18.35",
+      "source_rows": [
+        51
+      ]
+    },
+    {
+      "source_order_id": "0005000563-000220",
+      "width": "928",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "18.22",
+      "source_rows": [
+        52
+      ]
+    },
+    {
+      "source_order_id": "0005000563-000170",
+      "width": "900",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        53
+      ]
+    },
+    {
+      "source_order_id": "0030122480-000070",
+      "width": "905",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "108",
+      "source_rows": [
+        54
+      ]
+    },
+    {
+      "source_order_id": "0030122898-000030",
+      "width": "1500",
+      "thickness": "2.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "96",
+      "source_rows": [
+        55
+      ]
+    },
+    {
+      "source_order_id": "0030122898-000040",
+      "width": "1250",
+      "thickness": "2.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "240",
+      "source_rows": [
+        56
+      ]
+    },
+    {
+      "source_order_id": "0030122899-000050",
+      "width": "1250",
+      "thickness": "2.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "240",
+      "source_rows": [
+        57
+      ]
+    },
+    {
+      "source_order_id": "0030118921-000020",
+      "width": "1110",
+      "thickness": "2.49",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        58
+      ]
+    },
+    {
+      "source_order_id": "0010020206-000030",
+      "width": "1000",
+      "thickness": "2.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "110",
+      "source_rows": [
+        59
+      ]
+    },
+    {
+      "source_order_id": "0030120757-000040",
+      "width": "1155",
+      "thickness": "0.8",
+      "due_date": "2026-06-05",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "25.98",
+      "source_rows": [
+        60
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000260",
+      "width": "1150",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "293.39",
+      "source_rows": [
+        61
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000310",
+      "width": "1120",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        62
+      ]
+    },
+    {
+      "source_order_id": "0030119041-000020",
+      "width": "1120",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "16.85",
+      "source_rows": [
+        63
+      ]
+    },
+    {
+      "source_order_id": "0030119959-000010",
+      "width": "1120",
+      "thickness": "0.65",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        64
+      ]
+    },
+    {
+      "source_order_id": "0030124772-000060",
+      "width": "1120",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        65
+      ]
+    },
+    {
+      "source_order_id": "0030118934-000060",
+      "width": "1120",
+      "thickness": "0.7",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "188.59",
+      "source_rows": [
+        66
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000270",
+      "width": "1100",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        67
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000210",
+      "width": "1095",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "45.97",
+      "source_rows": [
+        68
+      ]
+    },
+    {
+      "source_order_id": "0030119032-000020",
+      "width": "1080",
+      "thickness": "0.75",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "10.4",
+      "source_rows": [
+        69
+      ]
+    },
+    {
+      "source_order_id": "0030117933-000010",
+      "width": "1075",
+      "thickness": "0.7",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "10.9",
+      "source_rows": [
+        70
+      ]
+    },
+    {
+      "source_order_id": "0030121690-000040",
+      "width": "1070",
+      "thickness": "0.67",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "11.87",
+      "source_rows": [
+        71
+      ]
+    },
+    {
+      "source_order_id": "0030122480-000080",
+      "width": "1060",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "69",
+      "source_rows": [
+        72
+      ]
+    },
+    {
+      "source_order_id": "0030120757-000020",
+      "width": "1044",
+      "thickness": "0.7",
+      "due_date": "2026-06-05",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "17.37",
+      "source_rows": [
+        73
+      ]
+    },
+    {
+      "source_order_id": "0030122480-000110",
+      "width": "1040",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "110",
+      "source_rows": [
+        74
+      ]
+    },
+    {
+      "source_order_id": "0030118799-000010",
+      "width": "1010",
+      "thickness": "0.65",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "7.55",
+      "source_rows": [
+        75
+      ]
+    },
+    {
+      "source_order_id": "0030123256-000010",
+      "width": "1010",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "100",
+      "source_rows": [
+        76
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000170",
+      "width": "1000",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "100",
+      "source_rows": [
+        77
+      ]
+    },
+    {
+      "source_order_id": "0005000563-000210",
+      "width": "995",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "21",
+      "source_rows": [
+        78
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000010",
+      "width": "985",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "39",
+      "source_rows": [
+        79
+      ]
+    },
+    {
+      "source_order_id": "0030123145-000010",
+      "width": "975",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "51.02",
+      "source_rows": [
+        80
+      ]
+    },
+    {
+      "source_order_id": "0030123256-000020",
+      "width": "930",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "92.21",
+      "source_rows": [
+        81
+      ]
+    },
+    {
+      "source_order_id": "0002002162-000070",
+      "width": "930",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "18",
+      "source_rows": [
+        82
+      ]
+    },
+    {
+      "source_order_id": "0030122080-000010",
+      "width": "865",
+      "thickness": "0.8",
+      "due_date": "2026-06-15",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "14.4",
+      "source_rows": [
+        83
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000090",
+      "width": "1183",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        84
+      ]
+    },
+    {
+      "source_order_id": "0030124772-000030",
+      "width": "1180",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        85
+      ]
+    },
+    {
+      "source_order_id": "0030122759-000010",
+      "width": "1170",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "22",
+      "source_rows": [
+        86
+      ]
+    },
+    {
+      "source_order_id": "0010019680-000010",
+      "width": "1170",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        87
+      ]
+    },
+    {
+      "source_order_id": "0010019680-000030",
+      "width": "1160",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        88
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000010",
+      "width": "1150",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        89
+      ]
+    },
+    {
+      "source_order_id": "0002002148-000010",
+      "width": "1148",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "300",
+      "source_rows": [
+        90
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000070",
+      "width": "1148",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "145",
+      "source_rows": [
+        91
+      ]
+    },
+    {
+      "source_order_id": "0030117283-000020",
+      "width": "1130",
+      "thickness": "0.65",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "3.44",
+      "source_rows": [
+        92
+      ]
+    },
+    {
+      "source_order_id": "0030120974-000030",
+      "width": "1130",
+      "thickness": "0.8",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        93
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000180",
+      "width": "1122",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        94
+      ]
+    },
+    {
+      "source_order_id": "0030125206-000010",
+      "width": "1120",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        95
+      ]
+    },
+    {
+      "source_order_id": "0030124800-000060",
+      "width": "1116",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "120",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        96
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000200",
+      "width": "1080",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        97
+      ]
+    },
+    {
+      "source_order_id": "0030124800-000050",
+      "width": "1066",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "120",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        98
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000130",
+      "width": "1063",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        99
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000050",
+      "width": "1063",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        100
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000210",
+      "width": "1042",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        101
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000150",
+      "width": "990",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "16",
+      "source_rows": [
+        102
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000020",
+      "width": "985",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "44",
+      "source_rows": [
+        103
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000280",
+      "width": "971",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        104
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000010",
+      "width": "918",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "10",
+      "source_rows": [
+        105
+      ]
+    },
+    {
+      "source_order_id": "0002002009-000020",
+      "width": "828",
+      "thickness": "0.65",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "8.14",
+      "source_rows": [
+        106
+      ]
+    },
+    {
+      "source_order_id": "0002002055-000070",
+      "width": "1191",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "491",
+      "source_rows": [
+        107
+      ]
+    },
+    {
+      "source_order_id": "0030118934-000020",
+      "width": "1060",
+      "thickness": "0.95",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "238.96",
+      "source_rows": [
+        109
+      ]
+    },
+    {
+      "source_order_id": "0030124824-000020",
+      "width": "1055",
+      "thickness": "0.95",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "430",
+      "source_rows": [
+        110
+      ]
+    },
+    {
+      "source_order_id": "0030119031-000020",
+      "width": "1055",
+      "thickness": "0.95",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "26.67",
+      "source_rows": [
+        111
+      ]
+    },
+    {
+      "source_order_id": "0030118093-000060",
+      "width": "1048",
+      "thickness": "0.8",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "31.46",
+      "source_rows": [
+        112
+      ]
+    },
+    {
+      "source_order_id": "0030123145-000020",
+      "width": "1010",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "21.43",
+      "source_rows": [
+        113
+      ]
+    },
+    {
+      "source_order_id": "0030122899-000010",
+      "width": "1000",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "60",
+      "source_rows": [
+        114
+      ]
+    },
+    {
+      "source_order_id": "0030125147-000030",
+      "width": "1000",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "110",
+      "source_rows": [
+        115
+      ]
+    },
+    {
+      "source_order_id": "0030117110-000090",
+      "width": "955",
+      "thickness": "1",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "4.67",
+      "source_rows": [
+        116
+      ]
+    },
+    {
+      "source_order_id": "0002002193-000020",
+      "width": "1640",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "260",
+      "source_rows": [
+        117
+      ]
+    },
+    {
+      "source_order_id": "0030123646-000010",
+      "width": "1620",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "12",
+      "source_rows": [
+        118
+      ]
+    },
+    {
+      "source_order_id": "0030123142-000010",
+      "width": "1465",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "312",
+      "source_rows": [
+        119
+      ]
+    },
+    {
+      "source_order_id": "0030124397-000030",
+      "width": "1465",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        120
+      ]
+    },
+    {
+      "source_order_id": "0030120049-000040",
+      "width": "1440",
+      "thickness": "0.7",
+      "due_date": "2026-06-05",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        121
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000110",
+      "width": "1418",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "35",
+      "source_rows": [
+        122
+      ]
+    },
+    {
+      "source_order_id": "0030119860-000030",
+      "width": "1410",
+      "thickness": "0.8",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "56.58",
+      "source_rows": [
+        123
+      ]
+    },
+    {
+      "source_order_id": "0002002053-000120",
+      "width": "1400",
+      "thickness": "0.8",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "18.57",
+      "source_rows": [
+        124
+      ]
+    },
+    {
+      "source_order_id": "0030121799-000010",
+      "width": "1395",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "168",
+      "source_rows": [
+        125
+      ]
+    },
+    {
+      "source_order_id": "0030124199-000010",
+      "width": "1385",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "26",
+      "source_rows": [
+        126
+      ]
+    },
+    {
+      "source_order_id": "0030123425-000020",
+      "width": "1360",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "130",
+      "source_rows": [
+        127
+      ]
+    },
+    {
+      "source_order_id": "0030123143-000060",
+      "width": "1360",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "78",
+      "source_rows": [
+        128
+      ]
+    },
+    {
+      "source_order_id": "0030118093-000030",
+      "width": "1050",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "13.15",
+      "source_rows": [
+        130
+      ]
+    },
+    {
+      "source_order_id": "0030124826-000030",
+      "width": "1050",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "30",
+      "source_rows": [
+        131
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000360",
+      "width": "1030",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "40",
+      "source_rows": [
+        132
+      ]
+    },
+    {
+      "source_order_id": "0030124437-000020",
+      "width": "1003",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "22",
+      "source_rows": [
+        133
+      ]
+    },
+    {
+      "source_order_id": "0030122480-000090",
+      "width": "990",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "22",
+      "source_rows": [
+        134
+      ]
+    },
+    {
+      "source_order_id": "0030120940-000030",
+      "width": "950",
+      "thickness": "0.7",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "18",
+      "source_rows": [
+        135
+      ]
+    },
+    {
+      "source_order_id": "0030120745-000010",
+      "width": "865",
+      "thickness": "0.8",
+      "due_date": "2026-06-05",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "12.99",
+      "source_rows": [
+        136
+      ]
+    },
+    {
+      "source_order_id": "0030122066-000070",
+      "width": "1299",
+      "thickness": "2.49",
+      "due_date": "2026-06-15",
+      "furnace_speed_mpm": "65",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        137
+      ]
+    },
+    {
+      "source_order_id": "0030120939-000090",
+      "width": "1250",
+      "thickness": "1.5",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        139
+      ]
+    },
+    {
+      "source_order_id": "0030124735-000080",
+      "width": "1250",
+      "thickness": "1.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "80",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        140
+      ]
+    },
+    {
+      "source_order_id": "0030119183-000010",
+      "width": "1233",
+      "thickness": "2.45",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "65",
+      "process_speed_mpm": null,
+      "weight": "1.02",
+      "source_rows": [
+        142
+      ]
+    },
+    {
+      "source_order_id": "0030119938-000320",
+      "width": "1250",
+      "thickness": "2.49",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "24.6",
+      "source_rows": [
+        144
+      ]
+    },
+    {
+      "source_order_id": "0030122647-000550",
+      "width": "1200",
+      "thickness": "2.49",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "72",
+      "source_rows": [
+        145
+      ]
+    },
+    {
+      "source_order_id": "0030119938-000310",
+      "width": "1200",
+      "thickness": "2.49",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "72.86",
+      "source_rows": [
+        146
+      ]
+    },
+    {
+      "source_order_id": "0030120757-000050",
+      "width": "1164",
+      "thickness": "2",
+      "due_date": "2026-06-05",
+      "furnace_speed_mpm": "90",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        147
+      ]
+    },
+    {
+      "source_order_id": "0005000575-000020",
+      "width": "1105",
+      "thickness": "1.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        148
+      ]
+    },
+    {
+      "source_order_id": "0030120940-000120",
+      "width": "1055",
+      "thickness": "1.2",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "20.15",
+      "source_rows": [
+        149
+      ]
+    },
+    {
+      "source_order_id": "0005000546-000010",
+      "width": "1015",
+      "thickness": "1.4",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "7",
+      "source_rows": [
+        150
+      ]
+    },
+    {
+      "source_order_id": "0030122899-000020",
+      "width": "1000",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "187.98",
+      "source_rows": [
+        152
+      ]
+    },
+    {
+      "source_order_id": "0030122488-000010",
+      "width": "1000",
+      "thickness": "1.25",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "110",
+      "source_rows": [
+        154
+      ]
+    },
+    {
+      "source_order_id": "0030125097-000010",
+      "width": "870",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "7.65",
+      "source_rows": [
+        157
+      ]
+    },
+    {
+      "source_order_id": "0002002193-000030",
+      "width": "1655",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "52",
+      "source_rows": [
+        158
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000190",
+      "width": "1555",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        159
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000170",
+      "width": "1512",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        160
+      ]
+    },
+    {
+      "source_order_id": "0030121196-000030",
+      "width": "1500",
+      "thickness": "0.7",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "46.91",
+      "source_rows": [
+        163
+      ]
+    },
+    {
+      "source_order_id": "0030122476-000040",
+      "width": "1495",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "16.09",
+      "source_rows": [
+        166
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000030",
+      "width": "1480",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        167
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000250",
+      "width": "1445",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "69",
+      "source_rows": [
+        168
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000380",
+      "width": "1430",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        169
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000240",
+      "width": "1363",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        170
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000260",
+      "width": "1360",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        171
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000130",
+      "width": "1341",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        172
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000120",
+      "width": "1333",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        173
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000270",
+      "width": "1290",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "46",
+      "source_rows": [
+        174
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000330",
+      "width": "1260",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        175
+      ]
+    },
+    {
+      "source_order_id": "0030122897-000090",
+      "width": "1250",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        176
+      ]
+    },
+    {
+      "source_order_id": "0002002053-000130",
+      "width": "1250",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        177
+      ]
+    },
+    {
+      "source_order_id": "0030122897-000030",
+      "width": "1250",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        178
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000070",
+      "width": "1250",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "230",
+      "source_rows": [
+        179
+      ]
+    },
+    {
+      "source_order_id": "0030118006-000020",
+      "width": "1240",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "29.28",
+      "source_rows": [
+        180
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000160",
+      "width": "1220",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "13.76",
+      "source_rows": [
+        181
+      ]
+    },
+    {
+      "source_order_id": "0030122086-000010",
+      "width": "1220",
+      "thickness": "0.65",
+      "due_date": "2026-06-15",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        182
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000080",
+      "width": "1220",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        183
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000420",
+      "width": "1218",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        184
+      ]
+    },
+    {
+      "source_order_id": "0030124772-000020",
+      "width": "1200",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        185
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000080",
+      "width": "1195",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "190",
+      "source_rows": [
+        186
+      ]
+    },
+    {
+      "source_order_id": "0030117283-000030",
+      "width": "1190",
+      "thickness": "0.7",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "13.32",
+      "source_rows": [
+        187
+      ]
+    },
+    {
+      "source_order_id": "0002002162-000100",
+      "width": "1180",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        188
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000200",
+      "width": "1160",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "126.53",
+      "source_rows": [
+        189
+      ]
+    },
+    {
+      "source_order_id": "0010019618-000010",
+      "width": "1000",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "198",
+      "source_rows": [
+        191
+      ]
+    },
+    {
+      "source_order_id": "0030124078-000010",
+      "width": "1000",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "44",
+      "source_rows": [
+        192
+      ]
+    },
+    {
+      "source_order_id": "0030122480-000100",
+      "width": "995",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "154",
+      "source_rows": [
+        193
+      ]
+    },
+    {
+      "source_order_id": "0030122480-000040",
+      "width": "950",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "72",
+      "source_rows": [
+        194
+      ]
+    },
+    {
+      "source_order_id": "0002002162-000080",
+      "width": "950",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "18",
+      "source_rows": [
+        195
+      ]
+    },
+    {
+      "source_order_id": "0030123255-000030",
+      "width": "935",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "36",
+      "source_rows": [
+        196
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000120",
+      "width": "913",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "25",
+      "source_rows": [
+        197
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000170",
+      "width": "930",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        199
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000140",
+      "width": "1550",
+      "thickness": "0.95",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "30",
+      "source_rows": [
+        200
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000090",
+      "width": "1550",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "70",
+      "source_rows": [
+        202
+      ]
+    },
+    {
+      "source_order_id": "0030125168-000080",
+      "width": "1500",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        203
+      ]
+    },
+    {
+      "source_order_id": "0030123256-000030",
+      "width": "1490",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "46",
+      "source_rows": [
+        204
+      ]
+    },
+    {
+      "source_order_id": "0030118966-000010",
+      "width": "1488",
+      "thickness": "0.65",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "31.64",
+      "source_rows": [
+        205
+      ]
+    },
+    {
+      "source_order_id": "0030118006-000070",
+      "width": "1480",
+      "thickness": "0.8",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "43.72",
+      "source_rows": [
+        206
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000150",
+      "width": "1470",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        207
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000010",
+      "width": "1470",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        208
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000030",
+      "width": "1440",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        209
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000430",
+      "width": "1440",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        210
+      ]
+    },
+    {
+      "source_order_id": "0002002055-000100",
+      "width": "1413",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "18.26",
+      "source_rows": [
+        211
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000200",
+      "width": "1385",
+      "thickness": "0.8",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "52.56",
+      "source_rows": [
+        212
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000410",
+      "width": "1330",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        213
+      ]
+    },
+    {
+      "source_order_id": "0030125150-000020",
+      "width": "1305",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        214
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000360",
+      "width": "1300",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "17.08",
+      "source_rows": [
+        215
+      ]
+    },
+    {
+      "source_order_id": "0030124735-000120",
+      "width": "1300",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        216
+      ]
+    },
+    {
+      "source_order_id": "0030118006-000010",
+      "width": "1295",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "55.45",
+      "source_rows": [
+        217
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000110",
+      "width": "1285",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "110",
+      "source_rows": [
+        218
+      ]
+    },
+    {
+      "source_order_id": "0030123141-000010",
+      "width": "1275",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "50",
+      "source_rows": [
+        219
+      ]
+    },
+    {
+      "source_order_id": "0030123916-000040",
+      "width": "1250",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        220
+      ]
+    },
+    {
+      "source_order_id": "0030122897-000060",
+      "width": "1250",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "72",
+      "source_rows": [
+        221
+      ]
+    },
+    {
+      "source_order_id": "0030124800-000080",
+      "width": "1236",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "120",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        222
+      ]
+    },
+    {
+      "source_order_id": "0030123653-000040",
+      "width": "1212",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        223
+      ]
+    },
+    {
+      "source_order_id": "0030123143-000050",
+      "width": "1210",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "13.39",
+      "source_rows": [
+        224
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000010",
+      "width": "1200",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "25",
+      "source_rows": [
+        225
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000060",
+      "width": "1095",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "61.96",
+      "source_rows": [
+        227
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000150",
+      "width": "1095",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "25",
+      "source_rows": [
+        228
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000170",
+      "width": "1088",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        229
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000160",
+      "width": "1085",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        230
+      ]
+    },
+    {
+      "source_order_id": "0030124800-000030",
+      "width": "1084",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        231
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000070",
+      "width": "1063",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "100",
+      "source_rows": [
+        232
+      ]
+    },
+    {
+      "source_order_id": "0030123143-000070",
+      "width": "1060",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "88",
+      "source_rows": [
+        233
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000200",
+      "width": "1055",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        234
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000180",
+      "width": "1015",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        235
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000100",
+      "width": "1001",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        236
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000060",
+      "width": "900",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "32",
+      "source_rows": [
+        238
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000070",
+      "width": "855",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "16",
+      "source_rows": [
+        239
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000120",
+      "width": "836",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        240
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000080",
+      "width": "1575",
+      "thickness": "0.95",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "60",
+      "source_rows": [
+        241
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000100",
+      "width": "1585",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "210",
+      "source_rows": [
+        243
+      ]
+    },
+    {
+      "source_order_id": "0010019881-000030",
+      "width": "1500",
+      "thickness": "0.95",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "26",
+      "source_rows": [
+        244
+      ]
+    },
+    {
+      "source_order_id": "0010020206-000100",
+      "width": "1500",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "95.94",
+      "source_rows": [
+        245
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000190",
+      "width": "1500",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        246
+      ]
+    },
+    {
+      "source_order_id": "0010020206-000110",
+      "width": "1500",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "117.45",
+      "source_rows": [
+        247
+      ]
+    },
+    {
+      "source_order_id": "0030120817-000050",
+      "width": "1480",
+      "thickness": "1.2",
+      "due_date": "2026-06-15",
+      "furnace_speed_mpm": "95",
+      "process_speed_mpm": null,
+      "weight": "50",
+      "source_rows": [
+        248
+      ]
+    },
+    {
+      "source_order_id": "0030124735-000110",
+      "width": "1350",
+      "thickness": "1.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        249
+      ]
+    },
+    {
+      "source_order_id": "0030124735-000070",
+      "width": "1350",
+      "thickness": "1.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "90",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        250
+      ]
+    },
+    {
+      "source_order_id": "0030121501-000010",
+      "width": "1330",
+      "thickness": "1.2",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "25.11",
+      "source_rows": [
+        251
+      ]
+    },
+    {
+      "source_order_id": "0010020206-000080",
+      "width": "1250",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "122.45",
+      "source_rows": [
+        252
+      ]
+    },
+    {
+      "source_order_id": "0030123653-000050",
+      "width": "1240",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "120",
+      "source_rows": [
+        253
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000050",
+      "width": "1233",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        254
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000060",
+      "width": "1170",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        255
+      ]
+    },
+    {
+      "source_order_id": "0030117932-000010",
+      "width": "1162",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "99.77",
+      "source_rows": [
+        256
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000040",
+      "width": "1160",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        257
+      ]
+    },
+    {
+      "source_order_id": "0002002152-000010",
+      "width": "1155",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        258
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000340",
+      "width": "1150",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "102.32",
+      "source_rows": [
+        259
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000310",
+      "width": "1100",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "11.7",
+      "source_rows": [
+        260
+      ]
+    },
+    {
+      "source_order_id": "0030123142-000030",
+      "width": "1090",
+      "thickness": "0.55",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "132",
+      "source_rows": [
+        261
+      ]
+    },
+    {
+      "source_order_id": "0030117284-000030",
+      "width": "1090",
+      "thickness": "0.55",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "13.54",
+      "source_rows": [
+        262
+      ]
+    },
+    {
+      "source_order_id": "0030123425-000010",
+      "width": "1090",
+      "thickness": "0.55",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "132",
+      "source_rows": [
+        263
+      ]
+    },
+    {
+      "source_order_id": "0030122488-000030",
+      "width": "1000",
+      "thickness": "0.9",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "110",
+      "source_rows": [
+        266
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000090",
+      "width": "1000",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "25",
+      "source_rows": [
+        267
+      ]
+    },
+    {
+      "source_order_id": "0030122899-000030",
+      "width": "1000",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "170",
+      "source_rows": [
+        268
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000290",
+      "width": "931",
+      "thickness": "1.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "16",
+      "source_rows": [
+        270
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000290",
+      "width": "883",
+      "thickness": "1.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "50",
+      "source_rows": [
+        271
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000200",
+      "width": "1515",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        272
+      ]
+    },
+    {
+      "source_order_id": "0030123255-000020",
+      "width": "1500",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "46",
+      "source_rows": [
+        273
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000300",
+      "width": "1500",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        274
+      ]
+    },
+    {
+      "source_order_id": "0030124457-000020",
+      "width": "1483",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        275
+      ]
+    },
+    {
+      "source_order_id": "0005000563-000280",
+      "width": "1448",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "21",
+      "source_rows": [
+        276
+      ]
+    },
+    {
+      "source_order_id": "0030124683-000030",
+      "width": "1410",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        277
+      ]
+    },
+    {
+      "source_order_id": "0030123143-000020",
+      "width": "1390",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "104",
+      "source_rows": [
+        278
+      ]
+    },
+    {
+      "source_order_id": "0030125150-000010",
+      "width": "1360",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        279
+      ]
+    },
+    {
+      "source_order_id": "0030124683-000010",
+      "width": "1360",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "96",
+      "source_rows": [
+        280
+      ]
+    },
+    {
+      "source_order_id": "0030119860-000010",
+      "width": "1360",
+      "thickness": "0.7",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "38.27",
+      "source_rows": [
+        281
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000010",
+      "width": "1354",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        282
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000040",
+      "width": "1354",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "92",
+      "source_rows": [
+        283
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000110",
+      "width": "1353",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        284
+      ]
+    },
+    {
+      "source_order_id": "0030123255-000010",
+      "width": "1350",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "92",
+      "source_rows": [
+        285
+      ]
+    },
+    {
+      "source_order_id": "0002002055-000050",
+      "width": "1310",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "280.12",
+      "source_rows": [
+        286
+      ]
+    },
+    {
+      "source_order_id": "0010019718-000020",
+      "width": "1300",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "58",
+      "source_rows": [
+        287
+      ]
+    },
+    {
+      "source_order_id": "0002002055-000010",
+      "width": "1250",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "70.55",
+      "source_rows": [
+        288
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000350",
+      "width": "1250",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "98.97",
+      "source_rows": [
+        289
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000320",
+      "width": "1235",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        290
+      ]
+    },
+    {
+      "source_order_id": "0030118641-000010",
+      "width": "1200",
+      "thickness": "0.4",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "22.03",
+      "source_rows": [
+        291
+      ]
+    },
+    {
+      "source_order_id": "0030123916-000010",
+      "width": "1200",
+      "thickness": "0.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        292
+      ]
+    },
+    {
+      "source_order_id": "0002002055-000080",
+      "width": "1150",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "5.45",
+      "source_rows": [
+        293
+      ]
+    },
+    {
+      "source_order_id": "0002002055-000040",
+      "width": "1150",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "346.03",
+      "source_rows": [
+        294
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000040",
+      "width": "1150",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "36.52",
+      "source_rows": [
+        295
+      ]
+    },
+    {
+      "source_order_id": "0030125168-000050",
+      "width": "1145",
+      "thickness": "0.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        296
+      ]
+    },
+    {
+      "source_order_id": "0030123654-000010",
+      "width": "1066",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "135",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        297
+      ]
+    },
+    {
+      "source_order_id": "0030118641-000020",
+      "width": "1000",
+      "thickness": "0.4",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "6.04",
+      "source_rows": [
+        298
+      ]
+    },
+    {
+      "source_order_id": "0030123916-000020",
+      "width": "1000",
+      "thickness": "0.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        299
+      ]
+    },
+    {
+      "source_order_id": "0030120882-000010",
+      "width": "1000",
+      "thickness": "0.45",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "110",
+      "source_rows": [
+        300
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000230",
+      "width": "1420",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        301
+      ]
+    },
+    {
+      "source_order_id": "0030123053-000010",
+      "width": "1440",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        303
+      ]
+    },
+    {
+      "source_order_id": "0030118957-000010",
+      "width": "1360",
+      "thickness": "0.7",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "125",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        304
+      ]
+    },
+    {
+      "source_order_id": "0030124735-000090",
+      "width": "1325",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        305
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000120",
+      "width": "1315",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "72",
+      "source_rows": [
+        306
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000030",
+      "width": "1300",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        307
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000190",
+      "width": "1295",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        308
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000090",
+      "width": "1280",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "138",
+      "source_rows": [
+        309
+      ]
+    },
+    {
+      "source_order_id": "0030122897-000070",
+      "width": "1250",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        310
+      ]
+    },
+    {
+      "source_order_id": "0002002053-000150",
+      "width": "1219",
+      "thickness": "0.8",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "18.76",
+      "source_rows": [
+        311
+      ]
+    },
+    {
+      "source_order_id": "0030125102-000010",
+      "width": "1182",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "72",
+      "source_rows": [
+        312
+      ]
+    },
+    {
+      "source_order_id": "0030118934-000050",
+      "width": "1160",
+      "thickness": "0.7",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15.37",
+      "source_rows": [
+        313
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000060",
+      "width": "1155",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        314
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000180",
+      "width": "1133",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "46",
+      "source_rows": [
+        315
+      ]
+    },
+    {
+      "source_order_id": "0005000545-000020",
+      "width": "1130",
+      "thickness": "0.7",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "9.59",
+      "source_rows": [
+        316
+      ]
+    },
+    {
+      "source_order_id": "0002002055-000110",
+      "width": "1100",
+      "thickness": "0.8",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15.3",
+      "source_rows": [
+        317
+      ]
+    },
+    {
+      "source_order_id": "0030124574-000010",
+      "width": "1100",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        318
+      ]
+    },
+    {
+      "source_order_id": "0030124824-000010",
+      "width": "1060",
+      "thickness": "0.95",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        319
+      ]
+    },
+    {
+      "source_order_id": "0030124826-000010",
+      "width": "1000",
+      "thickness": "1.15",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "40",
+      "source_rows": [
+        320
+      ]
+    },
+    {
+      "source_order_id": "0030124207-000010",
+      "width": "1000",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        321
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000140",
+      "width": "993",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "44",
+      "source_rows": [
+        322
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000190",
+      "width": "928",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "40",
+      "source_rows": [
+        323
+      ]
+    },
+    {
+      "source_order_id": "0030124731-000020",
+      "width": "920",
+      "thickness": "0.9",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "54",
+      "source_rows": [
+        324
+      ]
+    },
+    {
+      "source_order_id": "0030124437-000010",
+      "width": "910",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "18",
+      "source_rows": [
+        325
+      ]
+    },
+    {
+      "source_order_id": "0030117110-000010",
+      "width": "1170",
+      "thickness": "0.7",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "13.2",
+      "source_rows": [
+        326
+      ]
+    },
+    {
+      "source_order_id": "0002002009-000050",
+      "width": "1168",
+      "thickness": "0.65",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "8.22",
+      "source_rows": [
+        327
+      ]
+    },
+    {
+      "source_order_id": "0030118093-000010",
+      "width": "1165",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "122.84",
+      "source_rows": [
+        328
+      ]
+    },
+    {
+      "source_order_id": "0002002055-000120",
+      "width": "1150",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "570.3",
+      "source_rows": [
+        329,
+        331
+      ]
+    },
+    {
+      "source_order_id": "0030124827-000010",
+      "width": "1140",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "70",
+      "source_rows": [
+        333
+      ]
+    },
+    {
+      "source_order_id": "0030124827-000020",
+      "width": "1100",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "50",
+      "source_rows": [
+        334
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000130",
+      "width": "1100",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "180",
+      "source_rows": [
+        335
+      ]
+    },
+    {
+      "source_order_id": "0010019680-000020",
+      "width": "1072",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "69",
+      "source_rows": [
+        336
+      ]
+    },
+    {
+      "source_order_id": "0030124826-000040",
+      "width": "1055",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "50",
+      "source_rows": [
+        337
+      ]
+    },
+    {
+      "source_order_id": "0030124824-000040",
+      "width": "1055",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "92.95",
+      "source_rows": [
+        338
+      ]
+    },
+    {
+      "source_order_id": "0030120951-000010",
+      "width": "1050",
+      "thickness": "0.7",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "32.24",
+      "source_rows": [
+        339
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000350",
+      "width": "1025",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        340
+      ]
+    },
+    {
+      "source_order_id": "0002002006-000230",
+      "width": "1020",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "21.76",
+      "source_rows": [
+        341
+      ]
+    },
+    {
+      "source_order_id": "0030124457-000010",
+      "width": "1001",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "44",
+      "source_rows": [
+        342
+      ]
+    },
+    {
+      "source_order_id": "0030119215-000010",
+      "width": "1001",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "22",
+      "source_rows": [
+        343
+      ]
+    },
+    {
+      "source_order_id": "0010018206-000010",
+      "width": "1000",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "31.76",
+      "source_rows": [
+        344
+      ]
+    },
+    {
+      "source_order_id": "0030122066-000020",
+      "width": "1000",
+      "thickness": "0.6",
+      "due_date": "2026-06-15",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        345
+      ]
+    },
+    {
+      "source_order_id": "0030122898-000010",
+      "width": "1000",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "50",
+      "source_rows": [
+        346
+      ]
+    },
+    {
+      "source_order_id": "0005000563-000270",
+      "width": "968",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "18",
+      "source_rows": [
+        347
+      ]
+    },
+    {
+      "source_order_id": "0030118632-000010",
+      "width": "939",
+      "thickness": "0.8",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "16.85",
+      "source_rows": [
+        348
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000020",
+      "width": "883",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "16",
+      "source_rows": [
+        349
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000190",
+      "width": "840",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "64",
+      "source_rows": [
+        350
+      ]
+    },
+    {
+      "source_order_id": "0030123647-000010",
+      "width": "1675",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "6.15",
+      "source_rows": [
+        351
+      ]
+    },
+    {
+      "source_order_id": "0002002193-000040",
+      "width": "1665",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "104",
+      "source_rows": [
+        352
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000320",
+      "width": "1515",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        353
+      ]
+    },
+    {
+      "source_order_id": "0030123936-000020",
+      "width": "1465",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "327.94",
+      "source_rows": [
+        354
+      ]
+    },
+    {
+      "source_order_id": "0030123143-000010",
+      "width": "1455",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "52",
+      "source_rows": [
+        355
+      ]
+    },
+    {
+      "source_order_id": "0030123936-000010",
+      "width": "1440",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "182",
+      "source_rows": [
+        356
+      ]
+    },
+    {
+      "source_order_id": "0030123142-000020",
+      "width": "1440",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "182",
+      "source_rows": [
+        357
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000240",
+      "width": "1434",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "80",
+      "source_rows": [
+        358
+      ]
+    },
+    {
+      "source_order_id": "0030123143-000040",
+      "width": "1430",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "67.97",
+      "source_rows": [
+        359
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000280",
+      "width": "1390",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        360
+      ]
+    },
+    {
+      "source_order_id": "0030125157-000010",
+      "width": "1385",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "26",
+      "source_rows": [
+        361
+      ]
+    },
+    {
+      "source_order_id": "0030119866-000010",
+      "width": "1385",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "27.97",
+      "source_rows": [
+        362
+      ]
+    },
+    {
+      "source_order_id": "0030122759-000030",
+      "width": "1374",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "88",
+      "source_rows": [
+        363
+      ]
+    },
+    {
+      "source_order_id": "0005000563-000030",
+      "width": "1365",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "63",
+      "source_rows": [
+        364
+      ]
+    },
+    {
+      "source_order_id": "0002002020-000080",
+      "width": "1364",
+      "thickness": "1",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "13.01",
+      "source_rows": [
+        365
+      ]
+    },
+    {
+      "source_order_id": "0005000563-000130",
+      "width": "1350",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "42",
+      "source_rows": [
+        366
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000240",
+      "width": "1335",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "69",
+      "source_rows": [
+        367
+      ]
+    },
+    {
+      "source_order_id": "0030123141-000020",
+      "width": "1330",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "100",
+      "source_rows": [
+        368
+      ]
+    },
+    {
+      "source_order_id": "0030122759-000020",
+      "width": "1312",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "22",
+      "source_rows": [
+        369
+      ]
+    },
+    {
+      "source_order_id": "0030117110-000020",
+      "width": "1312",
+      "thickness": "0.75",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "21.51",
+      "source_rows": [
+        370
+      ]
+    },
+    {
+      "source_order_id": "0030124683-000020",
+      "width": "1305",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        371
+      ]
+    },
+    {
+      "source_order_id": "0030123654-000030",
+      "width": "1304",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "125",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        372
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000180",
+      "width": "1258",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "25",
+      "source_rows": [
+        373
+      ]
+    },
+    {
+      "source_order_id": "0030123916-000030",
+      "width": "1250",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "69",
+      "source_rows": [
+        374
+      ]
+    },
+    {
+      "source_order_id": "0030124800-000010",
+      "width": "1240",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        375
+      ]
+    },
+    {
+      "source_order_id": "0030124440-000030",
+      "width": "1155",
+      "thickness": "0.9",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        376
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000210",
+      "width": "1155",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "8.21",
+      "source_rows": [
+        377
+      ]
+    },
+    {
+      "source_order_id": "0030124440-000020",
+      "width": "1125",
+      "thickness": "0.9",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        378
+      ]
+    },
+    {
+      "source_order_id": "0002002169-000030",
+      "width": "1120",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "30",
+      "source_rows": [
+        379
+      ]
+    },
+    {
+      "source_order_id": "0030123142-000040",
+      "width": "1360",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "156",
+      "source_rows": [
+        380
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000120",
+      "width": "1360",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "220",
+      "source_rows": [
+        381
+      ]
+    },
+    {
+      "source_order_id": "0030125150-000030",
+      "width": "1360",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "96",
+      "source_rows": [
+        382
+      ]
+    },
+    {
+      "source_order_id": "0030124683-000040",
+      "width": "1360",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "192",
+      "source_rows": [
+        383
+      ]
+    },
+    {
+      "source_order_id": "0030119860-000040",
+      "width": "1360",
+      "thickness": "0.7",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "105",
+      "process_speed_mpm": null,
+      "weight": "180.24",
+      "source_rows": [
+        384
+      ]
+    },
+    {
+      "source_order_id": "0030124735-000060",
+      "width": "1360",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        385
+      ]
+    },
+    {
+      "source_order_id": "0030122476-000050",
+      "width": "1325",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "8",
+      "source_rows": [
+        386
+      ]
+    },
+    {
+      "source_order_id": "0030124567-000010",
+      "width": "1310",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        387
+      ]
+    },
+    {
+      "source_order_id": "0030121196-000020",
+      "width": "1300",
+      "thickness": "0.95",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        388
+      ]
+    },
+    {
+      "source_order_id": "0002002053-000180",
+      "width": "1300",
+      "thickness": "1",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "60",
+      "source_rows": [
+        389
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000100",
+      "width": "1300",
+      "thickness": "1",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "75.01",
+      "source_rows": [
+        390
+      ]
+    },
+    {
+      "source_order_id": "0030124731-000010",
+      "width": "1290",
+      "thickness": "0.9",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        391
+      ]
+    },
+    {
+      "source_order_id": "0030123653-000060",
+      "width": "1260",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "96",
+      "source_rows": [
+        392
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000030",
+      "width": "1250",
+      "thickness": "0.95",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        393
+      ]
+    },
+    {
+      "source_order_id": "0030124735-000100",
+      "width": "1250",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        394
+      ]
+    },
+    {
+      "source_order_id": "0030122897-000040",
+      "width": "1250",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        395
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000060",
+      "width": "1250",
+      "thickness": "1.15",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "300",
+      "source_rows": [
+        396
+      ]
+    },
+    {
+      "source_order_id": "0010020206-000090",
+      "width": "1250",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "52.98",
+      "source_rows": [
+        397
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000040",
+      "width": "1227",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        398
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000080",
+      "width": "1203",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        399
+      ]
+    },
+    {
+      "source_order_id": "0030123653-000030",
+      "width": "1200",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        400
+      ]
+    },
+    {
+      "source_order_id": "0030124800-000040",
+      "width": "1164",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        401
+      ]
+    },
+    {
+      "source_order_id": "0030120939-000100",
+      "width": "1160",
+      "thickness": "0.7",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "125",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        402
+      ]
+    },
+    {
+      "source_order_id": "0030124824-000050",
+      "width": "1050",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "125",
+      "process_speed_mpm": null,
+      "weight": "23.11",
+      "source_rows": [
+        403
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000030",
+      "width": "1043",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "125",
+      "process_speed_mpm": null,
+      "weight": "22",
+      "source_rows": [
+        404
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000120",
+      "width": "1039",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "22",
+      "source_rows": [
+        405
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000210",
+      "width": "1030",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "25",
+      "source_rows": [
+        406
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000030",
+      "width": "1022",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "22",
+      "source_rows": [
+        407
+      ]
+    },
+    {
+      "source_order_id": "0002002177-000030",
+      "width": "1590",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        408
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000130",
+      "width": "1545",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        409
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000080",
+      "width": "1540",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "40",
+      "source_rows": [
+        410
+      ]
+    },
+    {
+      "source_order_id": "0002001998-000190",
+      "width": "1510",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "42.46",
+      "source_rows": [
+        411
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000130",
+      "width": "1510",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "34",
+      "source_rows": [
+        412
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000160",
+      "width": "1510",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "635",
+      "source_rows": [
+        413
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000140",
+      "width": "1510",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "30",
+      "source_rows": [
+        414
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000080",
+      "width": "1498",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        415
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000150",
+      "width": "1490",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "175",
+      "source_rows": [
+        416
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000220",
+      "width": "1485",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        417
+      ]
+    },
+    {
+      "source_order_id": "0002002162-000010",
+      "width": "1470",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "72",
+      "source_rows": [
+        418
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000030",
+      "width": "1465",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        419
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000140",
+      "width": "1463",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "72",
+      "source_rows": [
+        420
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000250",
+      "width": "1455",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        421
+      ]
+    },
+    {
+      "source_order_id": "0002002162-000040",
+      "width": "1450",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "168",
+      "source_rows": [
+        422
+      ]
+    },
+    {
+      "source_order_id": "0002002044-000070",
+      "width": "1450",
+      "thickness": "0.65",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "18.71",
+      "source_rows": [
+        423
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000070",
+      "width": "1375",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "92",
+      "source_rows": [
+        424
+      ]
+    },
+    {
+      "source_order_id": "0002002024-000070",
+      "width": "1360",
+      "thickness": "0.7",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "6.04",
+      "source_rows": [
+        425
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000100",
+      "width": "1358",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        426
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000070",
+      "width": "1349",
+      "thickness": "0.9",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        427
+      ]
+    },
+    {
+      "source_order_id": "0030124800-000020",
+      "width": "1332",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        428
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000220",
+      "width": "1330",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "46",
+      "source_rows": [
+        429
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000350",
+      "width": "1300",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        430
+      ]
+    },
+    {
+      "source_order_id": "0030122488-000020",
+      "width": "1250",
+      "thickness": "1.25",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "96",
+      "source_rows": [
+        431
+      ]
+    },
+    {
+      "source_order_id": "0010019881-000040",
+      "width": "1250",
+      "thickness": "1.45",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "96",
+      "source_rows": [
+        432
+      ]
+    },
+    {
+      "source_order_id": "0030125101-000030",
+      "width": "1242",
+      "thickness": "1.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        433
+      ]
+    },
+    {
+      "source_order_id": "0002002053-000070",
+      "width": "1219",
+      "thickness": "1.2",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "25.67",
+      "source_rows": [
+        434
+      ]
+    },
+    {
+      "source_order_id": "0030122476-000070",
+      "width": "1205",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        435
+      ]
+    },
+    {
+      "source_order_id": "0030117976-000020",
+      "width": "1201",
+      "thickness": "1",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "7.91",
+      "source_rows": [
+        436
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000060",
+      "width": "1589",
+      "thickness": "0.7",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        437
+      ]
+    },
+    {
+      "source_order_id": "0002001995-000010",
+      "width": "1583",
+      "thickness": "0.65",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "19.16",
+      "source_rows": [
+        438
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000340",
+      "width": "1555",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        439
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000230",
+      "width": "1555",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        440
+      ]
+    },
+    {
+      "source_order_id": "0010019718-000050",
+      "width": "1550",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "96",
+      "source_rows": [
+        441
+      ]
+    },
+    {
+      "source_order_id": "0010019718-000040",
+      "width": "1500",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "144",
+      "source_rows": [
+        442
+      ]
+    },
+    {
+      "source_order_id": "0010018206-000080",
+      "width": "1500",
+      "thickness": "0.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "8.26",
+      "source_rows": [
+        443
+      ]
+    },
+    {
+      "source_order_id": "0010019618-000020",
+      "width": "1500",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "192",
+      "source_rows": [
+        444
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000110",
+      "width": "1460",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "140",
+      "source_rows": [
+        445
+      ]
+    },
+    {
+      "source_order_id": "0010019718-000030",
+      "width": "1400",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "131.46",
+      "source_rows": [
+        446
+      ]
+    },
+    {
+      "source_order_id": "0002002176-000140",
+      "width": "1380",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        447
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000040",
+      "width": "1363",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        448
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000230",
+      "width": "1355",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        449
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000100",
+      "width": "1335",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        450
+      ]
+    },
+    {
+      "source_order_id": "0030119098-000060",
+      "width": "1333",
+      "thickness": "0.6",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        451
+      ]
+    },
+    {
+      "source_order_id": "0030123143-000030",
+      "width": "1315",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "175",
+      "source_rows": [
+        452
+      ]
+    },
+    {
+      "source_order_id": "0002002162-000110",
+      "width": "1305",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        453
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000340",
+      "width": "1280",
+      "thickness": "0.65",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        454
+      ]
+    },
+    {
+      "source_order_id": "0030122897-000100",
+      "width": "1250",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "96",
+      "source_rows": [
+        455
+      ]
+    },
+    {
+      "source_order_id": "0030124081-000010",
+      "width": "1250",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        456
+      ]
+    },
+    {
+      "source_order_id": "0030124824-000030",
+      "width": "1250",
+      "thickness": "0.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "37.29",
+      "source_rows": [
+        457
+      ]
+    },
+    {
+      "source_order_id": "0010019881-000010",
+      "width": "1250",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        458
+      ]
+    },
+    {
+      "source_order_id": "0010019881-000020",
+      "width": "1250",
+      "thickness": "0.95",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        459
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000020",
+      "width": "1250",
+      "thickness": "1.15",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        460
+      ]
+    },
+    {
+      "source_order_id": "0030122897-000050",
+      "width": "1250",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        461
+      ]
+    },
+    {
+      "source_order_id": "0030124207-000020",
+      "width": "1250",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        462
+      ]
+    },
+    {
+      "source_order_id": "0030125168-000090",
+      "width": "1250",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        463
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000020",
+      "width": "1245",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        464
+      ]
+    },
+    {
+      "source_order_id": "0030121432-000010",
+      "width": "1235",
+      "thickness": "1.35",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        465
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000110",
+      "width": "1218",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        466
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000090",
+      "width": "1215",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "1.97",
+      "source_rows": [
+        467
+      ]
+    },
+    {
+      "source_order_id": "0030124440-000040",
+      "width": "1206",
+      "thickness": "1.3",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        468
+      ]
+    },
+    {
+      "source_order_id": "0030119945-000140",
+      "width": "1195",
+      "thickness": "1.3",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        469
+      ]
+    },
+    {
+      "source_order_id": "0030119597-000010",
+      "width": "1155",
+      "thickness": "1.2",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "7.08",
+      "source_rows": [
+        470
+      ]
+    },
+    {
+      "source_order_id": "0030125147-000020",
+      "width": "1145",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        471
+      ]
+    },
+    {
+      "source_order_id": "0030123508-000010",
+      "width": "1145",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "138",
+      "source_rows": [
+        472
+      ]
+    },
+    {
+      "source_order_id": "0030118261-000010",
+      "width": "1145",
+      "thickness": "1",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "57.02",
+      "source_rows": [
+        473
+      ]
+    },
+    {
+      "source_order_id": "0030124170-000010",
+      "width": "1145",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "69",
+      "source_rows": [
+        474
+      ]
+    },
+    {
+      "source_order_id": "0005000571-000020",
+      "width": "1135",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "7",
+      "source_rows": [
+        475
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000090",
+      "width": "1134",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "30",
+      "source_rows": [
+        476
+      ]
+    },
+    {
+      "source_order_id": "0005000547-000400",
+      "width": "1100",
+      "thickness": "0.8",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        477
+      ]
+    },
+    {
+      "source_order_id": "0005000563-000290",
+      "width": "1100",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        478
+      ]
+    },
+    {
+      "source_order_id": "0002002053-000020",
+      "width": "1100",
+      "thickness": "0.8",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "8.8",
+      "source_rows": [
+        479
+      ]
+    },
+    {
+      "source_order_id": "0030124438-000010",
+      "width": "1083",
+      "thickness": "0.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        480
+      ]
+    },
+    {
+      "source_order_id": "0030124871-000050",
+      "width": "1540",
+      "thickness": "1.15",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        481
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000100",
+      "width": "1500",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        482
+      ]
+    },
+    {
+      "source_order_id": "0010019881-000050",
+      "width": "1500",
+      "thickness": "1.45",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "26",
+      "source_rows": [
+        483
+      ]
+    },
+    {
+      "source_order_id": "0005000571-000040",
+      "width": "1458",
+      "thickness": "1.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "10",
+      "source_rows": [
+        484
+      ]
+    },
+    {
+      "source_order_id": "0005000562-000050",
+      "width": "1370",
+      "thickness": "1.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        485
+      ]
+    },
+    {
+      "source_order_id": "0002002058-000020",
+      "width": "1260",
+      "thickness": "1.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "18.91",
+      "source_rows": [
+        486
+      ]
+    },
+    {
+      "source_order_id": "0030123653-000020",
+      "width": "1250",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        487
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000230",
+      "width": "1236",
+      "thickness": "1",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "2.05",
+      "source_rows": [
+        488
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000100",
+      "width": "1220",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "230",
+      "source_rows": [
+        489
+      ]
+    },
+    {
+      "source_order_id": "0030125147-000010",
+      "width": "1200",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        490
+      ]
+    },
+    {
+      "source_order_id": "0030120939-000080",
+      "width": "1150",
+      "thickness": "1.2",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "46",
+      "source_rows": [
+        491
+      ]
+    },
+    {
+      "source_order_id": "0030120939-000070",
+      "width": "1100",
+      "thickness": "1.2",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        492
+      ]
+    },
+    {
+      "source_order_id": "0002002053-000050",
+      "width": "1100",
+      "thickness": "1.2",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "13.67",
+      "source_rows": [
+        493
+      ]
+    },
+    {
+      "source_order_id": "0030120939-000060",
+      "width": "1080",
+      "thickness": "1.2",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23.45",
+      "source_rows": [
+        494
+      ]
+    },
+    {
+      "source_order_id": "0030117285-000070",
+      "width": "1060",
+      "thickness": "1",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "12.8",
+      "source_rows": [
+        495
+      ]
+    },
+    {
+      "source_order_id": "0002002021-000070",
+      "width": "1044",
+      "thickness": "1",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        496
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000160",
+      "width": "1036",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "16",
+      "source_rows": [
+        497
+      ]
+    },
+    {
+      "source_order_id": "0030118934-000010",
+      "width": "910",
+      "thickness": "1.15",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "130.44",
+      "source_rows": [
+        498
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000160",
+      "width": "885",
+      "thickness": "1.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        499
+      ]
+    },
+    {
+      "source_order_id": "0010020206-000070",
+      "width": "1500",
+      "thickness": "2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "143.49",
+      "source_rows": [
+        500
+      ]
+    },
+    {
+      "source_order_id": "0030124583-000010",
+      "width": "1388",
+      "thickness": "1.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        501
+      ]
+    },
+    {
+      "source_order_id": "0030125101-000020",
+      "width": "1360",
+      "thickness": "1.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "120",
+      "source_rows": [
+        502
+      ]
+    },
+    {
+      "source_order_id": "0010019881-000060",
+      "width": "1355",
+      "thickness": "1.95",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "96",
+      "source_rows": [
+        503
+      ]
+    },
+    {
+      "source_order_id": "0002002054-000060",
+      "width": "1300",
+      "thickness": "2",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "90",
+      "process_speed_mpm": null,
+      "weight": "50",
+      "source_rows": [
+        504
+      ]
+    },
+    {
+      "source_order_id": "0005000571-000030",
+      "width": "1256",
+      "thickness": "2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "90",
+      "process_speed_mpm": null,
+      "weight": "7",
+      "source_rows": [
+        505
+      ]
+    },
+    {
+      "source_order_id": "0005000563-000090",
+      "width": "1245",
+      "thickness": "1.75",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "90",
+      "process_speed_mpm": null,
+      "weight": "21",
+      "source_rows": [
+        506
+      ]
+    },
+    {
+      "source_order_id": "0002002059-000020",
+      "width": "1243",
+      "thickness": "1.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "20.43",
+      "source_rows": [
+        507
+      ]
+    },
+    {
+      "source_order_id": "0002002053-000100",
+      "width": "1219",
+      "thickness": "1.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "92",
+      "source_rows": [
+        508
+      ]
+    },
+    {
+      "source_order_id": "0005000548-000050",
+      "width": "1214",
+      "thickness": "1.5",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "7",
+      "source_rows": [
+        509
+      ]
+    },
+    {
+      "source_order_id": "0030124772-000010",
+      "width": "1200",
+      "thickness": "1.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        510
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000050",
+      "width": "1175",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        511
+      ]
+    },
+    {
+      "source_order_id": "0030124683-000050",
+      "width": "1140",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        512
+      ]
+    },
+    {
+      "source_order_id": "0030125170-000010",
+      "width": "1070",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "115",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        513
+      ]
+    },
+    {
+      "source_order_id": "0030122898-000020",
+      "width": "1000",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "19.26",
+      "source_rows": [
+        514
+      ]
+    },
+    {
+      "source_order_id": "0005000563-000240",
+      "width": "900",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "16",
+      "source_rows": [
+        515
+      ]
+    },
+    {
+      "source_order_id": "0030124734-000010",
+      "width": "1500",
+      "thickness": "2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        516
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000030",
+      "width": "1373",
+      "thickness": "1.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        517
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000040",
+      "width": "1251",
+      "thickness": "1.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        518
+      ]
+    },
+    {
+      "source_order_id": "0030123653-000010",
+      "width": "1225",
+      "thickness": "1.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "96",
+      "source_rows": [
+        519
+      ]
+    },
+    {
+      "source_order_id": "0002002195-000090",
+      "width": "1200",
+      "thickness": "1.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        520
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000020",
+      "width": "1190",
+      "thickness": "1.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        521
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000120",
+      "width": "1163",
+      "thickness": "1.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        522
+      ]
+    },
+    {
+      "source_order_id": "0002002006-000190",
+      "width": "1152",
+      "thickness": "1.2",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "7.7",
+      "source_rows": [
+        523
+      ]
+    },
+    {
+      "source_order_id": "0030118093-000020",
+      "width": "1172",
+      "thickness": "1",
+      "due_date": "2026-05-31",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "135.54",
+      "source_rows": [
+        524
+      ]
+    },
+    {
+      "source_order_id": "0030125184-000010",
+      "width": "1183",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "120",
+      "process_speed_mpm": null,
+      "weight": "48",
+      "source_rows": [
+        525
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000080",
+      "width": "1128",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        526
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000220",
+      "width": "1115",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        527
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000010",
+      "width": "1113",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        528
+      ]
+    },
+    {
+      "source_order_id": "0002002169-000010",
+      "width": "1090",
+      "thickness": "1.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "25",
+      "source_rows": [
+        529
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000010",
+      "width": "1085",
+      "thickness": "1.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        530
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000240",
+      "width": "1065",
+      "thickness": "1.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        531
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000300",
+      "width": "1030",
+      "thickness": "1.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "30",
+      "source_rows": [
+        532
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000230",
+      "width": "1020",
+      "thickness": "1.4",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        533
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000130",
+      "width": "1011",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "22",
+      "source_rows": [
+        534
+      ]
+    },
+    {
+      "source_order_id": "0002002180-000060",
+      "width": "921",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "20",
+      "source_rows": [
+        535
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000140",
+      "width": "899",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "16",
+      "source_rows": [
+        536
+      ]
+    },
+    {
+      "source_order_id": "0002002170-000070",
+      "width": "890",
+      "thickness": "1.2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "16",
+      "source_rows": [
+        537
+      ]
+    },
+    {
+      "source_order_id": "0030120865-000010",
+      "width": "1422",
+      "thickness": "2.5",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "70",
+      "process_speed_mpm": null,
+      "weight": "50",
+      "source_rows": [
+        540
+      ]
+    },
+    {
+      "source_order_id": "0030121724-000020",
+      "width": "1250",
+      "thickness": "2.5",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "195.2",
+      "source_rows": [
+        542
+      ]
+    },
+    {
+      "source_order_id": "0030124735-000130",
+      "width": "1250",
+      "thickness": "2.45",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        543
+      ]
+    },
+    {
+      "source_order_id": "0030121327-000010",
+      "width": "1195",
+      "thickness": "2.49",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "70",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        545
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000270",
+      "width": "1185",
+      "thickness": "2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        547
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000260",
+      "width": "1175",
+      "thickness": "1.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "15.93",
+      "source_rows": [
+        548
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000040",
+      "width": "1165",
+      "thickness": "1.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "40",
+      "source_rows": [
+        549
+      ]
+    },
+    {
+      "source_order_id": "0030122476-000030",
+      "width": "1165",
+      "thickness": "1.8",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "90",
+      "process_speed_mpm": null,
+      "weight": "24",
+      "source_rows": [
+        550
+      ]
+    },
+    {
+      "source_order_id": "0030122476-000060",
+      "width": "1115",
+      "thickness": "1.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "8.92",
+      "source_rows": [
+        551
+      ]
+    },
+    {
+      "source_order_id": "0002002185-000050",
+      "width": "1113",
+      "thickness": "1.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        552
+      ]
+    },
+    {
+      "source_order_id": "0030122476-000080",
+      "width": "1110",
+      "thickness": "2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "8",
+      "source_rows": [
+        553
+      ]
+    },
+    {
+      "source_order_id": "0030120940-000110",
+      "width": "1093",
+      "thickness": "2",
+      "due_date": "2026-06-10",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "8.66",
+      "source_rows": [
+        554
+      ]
+    },
+    {
+      "source_order_id": "0002002202-000280",
+      "width": "1085",
+      "thickness": "2",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "85",
+      "process_speed_mpm": null,
+      "weight": "19",
+      "source_rows": [
+        555
+      ]
+    },
+    {
+      "source_order_id": "0030125207-000080",
+      "width": "1078",
+      "thickness": "2.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "75",
+      "process_speed_mpm": null,
+      "weight": "46",
+      "source_rows": [
+        556
+      ]
+    },
+    {
+      "source_order_id": "0010020206-000010",
+      "width": "1000",
+      "thickness": "1.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "100",
+      "process_speed_mpm": null,
+      "weight": "58.48",
+      "source_rows": [
+        558
+      ]
+    },
+    {
+      "source_order_id": "0002002187-000020",
+      "width": "1815",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "25",
+      "source_rows": [
+        560
+      ]
+    },
+    {
+      "source_order_id": "0002002177-000010",
+      "width": "1775",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "30",
+      "source_rows": [
+        561
+      ]
+    },
+    {
+      "source_order_id": "0002002177-000020",
+      "width": "1590",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "15",
+      "source_rows": [
+        562
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000220",
+      "width": "1455",
+      "thickness": "0.6",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "23",
+      "source_rows": [
+        563
+      ]
+    },
+    {
+      "source_order_id": "0002002073-000010",
+      "width": "1065",
+      "thickness": "0.5",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "600",
+      "source_rows": [
+        564,
+        566
+      ]
+    },
+    {
+      "source_order_id": "0002002184-000200",
+      "width": "830",
+      "thickness": "1",
+      "due_date": "2026-06-30",
+      "furnace_speed_mpm": "110",
+      "process_speed_mpm": null,
+      "weight": "91.34",
+      "source_rows": [
+        569
+      ]
+    }
+  ]
+}

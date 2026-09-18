@@ -1,0 +1,87 @@
+{
+  "case": "roundtrip",
+  "status": "pass",
+  "results": [
+    {
+      "pid": 31001,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0005379999999999968,
+      "generation": 1,
+      "ordinal": 0
+    },
+    {
+      "pid": 31002,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0003500000000000031,
+      "generation": 1,
+      "ordinal": 1
+    },
+    {
+      "pid": 31002,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.00013799999999999923,
+      "generation": 1,
+      "ordinal": 2
+    },
+    {
+      "pid": 31001,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0001280000000000031,
+      "generation": 1,
+      "ordinal": 3
+    },
+    {
+      "pid": 31002,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.00044399999999999995,
+      "generation": 2,
+      "ordinal": 0
+    },
+    {
+      "pid": 31001,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0002940000000000026,
+      "generation": 2,
+      "ordinal": 1
+    },
+    {
+      "pid": 31001,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0004059999999999897,
+      "generation": 2,
+      "ordinal": 2
+    },
+    {
+      "pid": 31002,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "result",
+      "sum_of_squares": 10416,
+      "cpu_seconds": 0.0004080000000000056,
+      "generation": 2,
+      "ordinal": 3
+    }
+  ],
+  "wall_seconds": 0.5847004160168581
+}

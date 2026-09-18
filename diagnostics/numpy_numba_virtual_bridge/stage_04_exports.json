@@ -1,0 +1,10 @@
+{
+  "scope": "five fresh-process pairs plus separate warm, profiling and quality runs",
+  "old": {"commit": "7fff99791ab22725401580685598b52fc1dec205", "root": "/tmp/apsgo-v7-numeric-baseline.TOCMRO", "production_source_sha256": "e11bdea69285f3c260353eb54560a6769bbe8f1198098a13d22a038aa0f77602"},
+  "new": {"commit": "491e901757d98eb4101d17c3803cdedc98623c9d", "tree": "c628626055c057b60ae4d9adad1f4d051c15214c", "root": "/tmp/apsgo-v7-numeric-stage3.DGQBQE"},
+  "python": "/Users/miles/anaconda3/envs/aps_3.10.18/bin/python",
+  "dependencies": {"numpy": "2.2.6", "numba": "0.65.1", "llvmlite": "0.47.0"},
+  "request_sha256": "11bdd096717414a25b14e7a219b860e6e84953f17e9c02bbf8e298da9266829c",
+  "power": "each benchmark command wrapped in caffeinate -is; no permanent power settings changed",
+  "acceptance_boundary": "macOS evidence only, not Windows release or historical 20-pair performance acceptance"
+}

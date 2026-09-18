@@ -1,0 +1,166 @@
+         1182964081 function calls (1152441688 primitive calls) in 223.829 seconds
+
+   Ordered by: cumulative time
+   List reduced from 308 to 65 due to restriction <65>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.000    0.000  233.905  233.905 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:1026(run_local_search)
+        4    0.000    0.000  233.905   58.476 /tmp/apsgo-v7-first-search-profile.essdY9/profile_first_search.py:95(wrapped)
+        1    0.027    0.027  181.490  181.490 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:659(improve_whole_chain)
+     1483    0.013    0.000  139.989    0.094 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:624(_candidate_merged_sequences)
+     9725    0.012    0.000  138.708    0.014 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:610(_boundary_join)
+     9283    0.898    0.000  138.681    0.015 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/virtual_material.py:115(bridge)
+  1212646    0.999    0.000  102.512    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/virtual_material.py:106(_connected)
+  1389701    0.367    0.000   98.288    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/compatibility.py:247(allows)
+  1389701    1.811    0.000   97.921    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/compatibility.py:212(_decision)
+  2779402   10.492    0.000   93.306    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/compatibility.py:173(semantic_fingerprint)
+     2263    0.260    0.000   87.481    0.039 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:404(try_complete_candidate)
+     2263    0.830    0.000   86.352    0.038 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/evaluation.py:241(evaluate_plan)
+  1219135    0.913    0.000   72.961    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:64(fingerprint)
+  1219135    0.892    0.000   70.920    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:28(canonical_json)
+  2620650    7.708    0.000   70.075    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/rule_set.py:131(_evaluate)
+31689591/1219135   20.657    0.000   58.324    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:31(encode)
+    53505    1.016    0.000   56.430    0.001 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/rule_set.py:162(evaluate_complete_chain)
+  1219135    2.013    0.000   52.335    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:48(<listcomp>)
+  1275421    0.383    0.000   35.594    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/rule_set.py:156(evaluate_edge)
+        1    0.029    0.029   34.221   34.221 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:867(improve_virtual_weight_fill)
+  1211135    6.203    0.000   33.587    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/virtual_material.py:60(materialize)
+  7314810    2.651    0.000   28.558    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:50(<listcomp>)
+1672723/1620786    2.591    0.000   24.615    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:118(sum_weights)
+290250267   14.619    0.000   20.425    0.000 {built-in method builtins.isinstance}
+  1851358    4.285    0.000   18.718    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:104(sum_decimals)
+        1    0.003    0.003   16.129   16.129 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:990(improve_chain_order)
+ 39845520    7.580    0.000   15.573    0.000 {built-in method builtins.any}
+  9420098    3.773    0.000   14.295    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/base.py:188(__post_init__)
+  1211135    2.521    0.000   14.042    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/model.py:148(__post_init__)
+   107010    1.146    0.000   13.019    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:46(_continuous_weight_contribution)
+  1219135    0.390    0.000   11.703    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:58(dump)
+ 43059784    9.117    0.000   11.678    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:88(require_decimal)
+  1235956    0.320    0.000   11.666    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/rule_set.py:153(evaluate_node)
+  1219139    0.943    0.000   11.313    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/json/__init__.py:183(dumps)
+ 18923650    5.803    0.000   10.874    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:126(freeze_tuple)
+  1219139    0.788    0.000    9.735    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/json/encoder.py:182(encode)
+ 24382700    4.234    0.000    9.544    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/dataclasses.py:1210(is_dataclass)
+     4075    0.910    0.000    9.304    0.002 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/resource_facts.py:261(derive_evaluation_resource_view)
+    53505    0.032    0.000    8.916    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:730(evaluate)
+  1275421    3.313    0.000    8.825    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:243(evaluate)
+  1219139    8.763    0.000    8.763    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/json/encoder.py:204(iterencode)
+    51937    0.153    0.000    8.227    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/evaluation.py:204(_chain_result)
+  5718432    1.509    0.000    8.036    0.000 {built-in method builtins.min}
+ 18375225    3.711    0.000    7.434    0.000 {method 'as_tuple' of 'decimal.Decimal' objects}
+  1275421    4.022    0.000    7.286    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:341(evaluate)
+  9747246    3.661    0.000    7.189    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/compatibility.py:67(_finite_projection)
+  4096761    0.696    0.000    6.638    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/budget.py:128(allows_search)
+   160607    0.060    0.000    6.611    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/model.py:252(total_weight)
+  1235956    0.872    0.000    6.585    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:574(evaluate)
+ 14981254    1.988    0.000    6.527    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:111(<genexpr>)
+  4160987    3.372    0.000    6.022    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/budget.py:109(permit)
+ 25824656    2.491    0.000    5.807    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/abc.py:117(__instancecheck__)
+ 24384492    4.381    0.000    4.381    0.000 {built-in method builtins.hasattr}
+  1275421    0.391    0.000    4.314    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:407(evaluate)
+  1275421    1.144    0.000    4.282    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:163(evaluate)
+    53505    0.049    0.000    4.187    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:684(evaluate)
+  1297251    1.389    0.000    3.961    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:430(_width_contribution)
+ 13143847    2.894    0.000    3.952    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:76(require_text)
+ 18375225    2.071    0.000    3.723    0.000 <string>:1(<lambda>)
+  1265335    1.176    0.000    3.474    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:135(freeze_scalars)
+    54579    0.207    0.000    3.377    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:787(evaluate)
+  8142297    1.604    0.000    3.321    0.000 {built-in method builtins.max}
+ 25824656    2.655    0.000    3.316    0.000 {built-in method _abc._abc_instancecheck}
+  1211169    1.751    0.000    3.203    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/dataclasses.py:1187(fields)
+     2263    0.002    0.000    2.940    0.001 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/rule_set.py:192(evaluate_plan)
+
+
+         1182964081 function calls (1152441688 primitive calls) in 223.829 seconds
+
+   Ordered by: internal time
+   List reduced from 308 to 45 due to restriction <45>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+31689591/1219135   20.657    0.000   58.324    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:31(encode)
+290250267   14.619    0.000   20.425    0.000 {built-in method builtins.isinstance}
+  2779402   10.492    0.000   93.306    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/compatibility.py:173(semantic_fingerprint)
+ 43059784    9.117    0.000   11.678    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:88(require_decimal)
+  1219139    8.763    0.000    8.763    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/json/encoder.py:204(iterencode)
+  2620650    7.708    0.000   70.075    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/rule_set.py:131(_evaluate)
+ 39845520    7.580    0.000   15.573    0.000 {built-in method builtins.any}
+  1211135    6.203    0.000   33.587    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/virtual_material.py:60(materialize)
+ 18923650    5.803    0.000   10.874    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:126(freeze_tuple)
+ 24384492    4.381    0.000    4.381    0.000 {built-in method builtins.hasattr}
+  1851358    4.285    0.000   18.718    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:104(sum_decimals)
+ 24382700    4.234    0.000    9.544    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/dataclasses.py:1210(is_dataclass)
+  1275421    4.022    0.000    7.286    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:341(evaluate)
+  9420098    3.773    0.000   14.295    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/base.py:188(__post_init__)
+ 18375225    3.711    0.000    7.434    0.000 {method 'as_tuple' of 'decimal.Decimal' objects}
+  9747246    3.661    0.000    7.189    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/compatibility.py:67(_finite_projection)
+  4160987    3.372    0.000    6.022    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/budget.py:109(permit)
+  1275421    3.313    0.000    8.825    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:243(evaluate)
+ 13143847    2.894    0.000    3.952    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:76(require_text)
+ 37540667    2.677    0.000    2.677    0.000 {built-in method builtins.getattr}
+ 25824656    2.655    0.000    3.316    0.000 {built-in method _abc._abc_instancecheck}
+  7314810    2.651    0.000   28.558    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:50(<listcomp>)
+1672723/1620786    2.591    0.000   24.615    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:118(sum_weights)
+  1211135    2.521    0.000   14.042    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/model.py:148(__post_init__)
+ 25824656    2.491    0.000    5.807    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/abc.py:117(__instancecheck__)
+ 18375225    2.071    0.000    3.723    0.000 <string>:1(<lambda>)
+  1219135    2.013    0.000   52.335    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:48(<listcomp>)
+ 14981254    1.988    0.000    6.527    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:111(<genexpr>)
+  6095713    1.816    0.000    1.816    0.000 {method 'join' of 'str' objects}
+  1389701    1.811    0.000   97.921    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/compatibility.py:212(_decision)
+  1211169    1.751    0.000    3.203    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/dataclasses.py:1187(fields)
+ 25492740    1.706    0.000    1.875    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:130(<genexpr>)
+ 18375225    1.651    0.000    1.651    0.000 {built-in method __new__ of type object at 0x1025eb040}
+  8142297    1.604    0.000    3.321    0.000 {built-in method builtins.max}
+ 47936324    1.597    0.000    1.597    0.000 {method 'is_finite' of 'decimal.Decimal' objects}
+  1259928    1.589    0.000    2.386    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:736(group_key)
+ 14629620    1.536    0.000    1.907    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:46(<genexpr>)
+  5718432    1.509    0.000    8.036    0.000 {built-in method builtins.min}
+  4876540    1.402    0.000    1.402    0.000 {method 'hex' of 'float' objects}
+  1297251    1.389    0.000    3.961    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/concrete.py:430(_width_contribution)
+ 14981254    1.345    0.000    1.717    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:112(<genexpr>)
+ 18167297    1.277    0.000    1.277    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/dataclasses.py:1202(<genexpr>)
+ 13410485    1.276    0.000    1.276    0.000 {method 'startswith' of 'str' objects}
+ 28734832    1.250    0.000    1.250    0.000 {built-in method math.isfinite}
+  1265335    1.176    0.000    3.474    0.000 /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:135(freeze_scalars)
+
+
+   Ordered by: internal time
+   List reduced from 308 to 23 due to restriction <'bridge|evaluate_plan|canonical_json|__post_init__|allows_search|materialize'>
+
+Function                                                                                       was called by...
+                                                                                                   ncalls  tottime  cumtime
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/virtual_material.py:60(materialize)   <-    7772    0.046    0.238  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:867(improve_virtual_weight_fill)
+                                                                                                  1203363    6.156   33.349  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/virtual_material.py:115(bridge)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/base.py:188(__post_init__)      <- 9420098    3.773   14.295  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/model.py:148(__post_init__)           <- 1211135    2.521   14.042  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/virtual_material.py:115(bridge)       <-    9283    0.898  138.681  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:610(_boundary_join)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:28(canonical_json)       <- 1219135    0.892   70.920  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py:64(fingerprint)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/evaluation.py:241(evaluate_plan)      <-    2263    0.830   86.352  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:404(try_complete_candidate)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/model.py:76(__post_init__)            <- 1211135    0.780    1.632  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/budget.py:128(allows_search)          <-  112960    0.015    0.155  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:404(try_complete_candidate)
+                                                                                                     2352    0.001    0.006  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:592(_internal_variants)
+                                                                                                     9725    0.001    0.014  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:610(_boundary_join)
+                                                                                                     5233    0.001    0.010  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:659(improve_whole_chain)
+                                                                                                    60878    0.009    0.085  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:765(improve_real_node_relocation)
+                                                                                                    18382    0.004    0.035  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:867(improve_virtual_weight_fill)
+                                                                                                       23    0.000    0.000  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:990(improve_chain_order)
+                                                                                                        5    0.000    0.000  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:1026(run_local_search)
+                                                                                                  2657966    0.479    4.545  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/virtual_material.py:106(_connected)
+                                                                                                  1229237    0.187    1.790  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/virtual_material.py:115(bridge)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/base.py:175(__post_init__)      <- 1834651    0.666    1.535  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/base.py:70(__post_init__)       <- 1275421    0.437    0.939  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/base.py:58(__post_init__)       <- 1235956    0.280    0.649  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/base.py:162(__post_init__)      <-  121757    0.157    0.417  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/resource_facts.py:242(__post_init__)  <-    4075    0.142    0.724  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/evaluation.py:58(__post_init__)       <-   51937    0.091    0.537  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/model.py:301(__post_init__)           <-    5009    0.071    0.183  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/evaluation.py:78(__post_init__)       <-   51937    0.046    0.895  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/base.py:81(__post_init__)       <-   54579    0.016    0.033  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/evaluation.py:95(__post_init__)       <-    2263    0.008    0.101  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/model.py:242(__post_init__)           <-    2832    0.007    0.031  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/base.py:93(__post_init__)       <-    4075    0.002    0.003  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/rule_set.py:192(evaluate_plan)  <-    2263    0.002    2.940  /Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/evaluation.py:241(evaluate_plan)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py:62(__post_init__)    <-      34    0.000    0.001  <string>:2(__init__)
+/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/model.py:321(__post_init__)           <-      34    0.000    0.000  <string>:2(__init__)
+
+

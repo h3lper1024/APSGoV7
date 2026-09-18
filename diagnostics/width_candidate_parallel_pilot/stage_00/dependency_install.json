@@ -1,0 +1,154 @@
+{
+  "version": "1",
+  "pip_version": "26.1.2",
+  "install": [
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/18/53/84099323c2ec4be98d935f63c033ac4151ee83836ca1050ede3b3aadf155/joblib-1.6.0-py3-none-any.whl",
+        "archive_info": {
+          "hashes": {
+            "sha256": "3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba"
+          },
+          "hash": "sha256=3dbbf9f6e4b592a2357b854608e980fe6390d131d7a82f011a377ef2ebef7aba"
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": true,
+      "metadata": {
+        "metadata_version": "2.4",
+        "name": "joblib",
+        "version": "1.6.0",
+        "dynamic": [
+          "license-file"
+        ],
+        "platform": [
+          "any"
+        ],
+        "summary": "Lightweight pipelining with Python functions",
+        "description_content_type": "text/x-rst",
+        "author_email": "Gael Varoquaux <gael.varoquaux@normalesup.org>",
+        "license_expression": "BSD-3-Clause",
+        "license_file": [
+          "LICENSE.txt"
+        ],
+        "classifier": [
+          "Development Status :: 5 - Production/Stable",
+          "Environment :: Console",
+          "Intended Audience :: Developers",
+          "Intended Audience :: Science/Research",
+          "Intended Audience :: Education",
+          "Operating System :: OS Independent",
+          "Programming Language :: Python :: 3",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13",
+          "Programming Language :: Python :: 3.14",
+          "Topic :: Scientific/Engineering",
+          "Topic :: Utilities",
+          "Topic :: Software Development :: Libraries"
+        ],
+        "requires_dist": [
+          "cloudpickle>=3.0",
+          "distributed; extra == \"test\"",
+          "lz4; extra == \"test\"",
+          "numpy; extra == \"test\"",
+          "memory_profiler; extra == \"test\"",
+          "pytest; extra == \"test\"",
+          "pytest-asyncio; extra == \"test\"",
+          "pytest-cov; extra == \"test\"",
+          "pytest-run-parallel; extra == \"test\"",
+          "pytest-timeout; extra == \"test\"",
+          "threadpoolctl; extra == \"test\"",
+          "distributed; extra == \"docs\"",
+          "lz4; extra == \"docs\"",
+          "numpy; extra == \"docs\"",
+          "numpydoc; extra == \"docs\"",
+          "matplotlib; extra == \"docs\"",
+          "pandas; extra == \"docs\"",
+          "psutil; extra == \"docs\"",
+          "sphinx; extra == \"docs\"",
+          "pydata-sphinx-theme; extra == \"docs\"",
+          "sphinx-gallery; extra == \"docs\"",
+          "sphinx-copybutton; extra == \"docs\"",
+          "sphinx-design; extra == \"docs\"",
+          "tqdm; extra == \"docs\""
+        ],
+        "requires_python": ">=3.10",
+        "project_url": [
+          "Homepage, https://joblib.readthedocs.io",
+          "Source, https://github.com/joblib/joblib"
+        ],
+        "provides_extra": [
+          "test",
+          "docs"
+        ],
+        "description": "|PyPi| |CIStatus| |ReadTheDocs| |Codecov|\n\n.. |PyPi| image:: https://badge.fury.io/py/joblib.svg\n   :target: https://badge.fury.io/py/joblib\n   :alt: Joblib version\n\n.. |CIStatus| image:: https://github.com/joblib/joblib/actions/workflows/test.yml/badge.svg\n   :target: https://github.com/joblib/joblib/actions/workflows/test.yml?query=branch%3Amain\n   :alt: CI status\n\n.. |ReadTheDocs| image:: https://readthedocs.org/projects/joblib/badge/?version=latest\n    :target: https://joblib.readthedocs.io/en/latest/?badge=latest\n    :alt: Documentation Status\n\n.. |Codecov| image:: https://codecov.io/gh/joblib/joblib/branch/main/graph/badge.svg\n   :target: https://codecov.io/gh/joblib/joblib\n   :alt: Codecov coverage\n\n\nThe homepage of joblib with user documentation is located on:\n\nhttps://joblib.readthedocs.io\n\nGetting the latest code\n=======================\n\nTo get the latest code using git, simply type::\n\n    git clone https://github.com/joblib/joblib.git\n\nIf you don't have git installed, you can download a zip\nof the latest code: https://github.com/joblib/joblib/archive/refs/heads/main.zip\n\nInstalling\n==========\n\nYou can use `pip` to install joblib from any directory::\n\n    pip install joblib\n\nor install it in editable mode from the source directory::\n\n    pip install -e .\n\nDependencies\n============\n\n- Joblib supports Python >= 3.10.\n- The only dependency is `cloudpickle <https://github.com/cloudpipe/cloudpickle>`_ >= 3.\n- Joblib includes its own vendored copy of\n  `loky <https://github.com/tomMoral/loky>`_ for process management.\n- Joblib can efficiently dump and load numpy arrays but does not require numpy\n  to be installed. The oldest numpy version supported is the oldest numpy version\n  supported by Python 3.10 (numpy version 1.21.3).\n- Joblib can use Dask distributed backend but does not require distributed to be\n  installed. The oldest distributed version supported is 2022.8.1.\n- Joblib has an optional dependency on\n  `python-lz4 <https://pypi.python.org/pypi/lz4>`_ as a faster alternative to\n  zlib and gzip for compressed serialization.\n- Joblib has an optional dependency on psutil to mitigate memory leaks in\n  parallel worker processes.\n- Some examples require external dependencies such as pandas. See the\n  instructions in the `Building the docs`_ section for details.\n\nWorkflow to contribute\n======================\n\nTo contribute to joblib, first create an account on `github\n<https://github.com/>`_. Once this is done, fork the `joblib repository\n<https://github.com/joblib/joblib>`_ to have your own repository,\nclone it using ``git clone``. Make your changes in a branch of your clone, push\nthem to your github account, test them locally, and when you are happy with\nthem, send a pull request to the main repository.\n\nYou can use `pre-commit <https://pre-commit.com/#install>`_ to run code style checks\nbefore each commit::\n\n    pip install pre-commit\n    pre-commit install\n\npre-commit checks can be disabled for a single commit with::\n\n    git commit -n\n\nRunning the test suite\n======================\n\nTo run the test suite, you need the pytest (version >= 3) and coverage modules.\nRun the test suite using::\n\n    pip install joblib[test]\n    pytest joblib\n\nfrom the root of the project.\n\nBuilding the docs\n=================\n\nTo build the docs you need to have sphinx (>=1.4) and some dependencies\ninstalled::\n\n    pip install .[docs]\n\nThe docs can then be built with the following command::\n\n    make doc\n\nThe html docs are located in the ``doc/_build/html`` directory.\n\n\nMaking a source tarball\n=======================\n\nTo create a source tarball, eg for packaging or distributing, run the\nfollowing command::\n\n    pip install build\n    python -m build --sdist\n\nThe tarball will be created in the `dist` directory. This command will create\nthe resulting tarball that can be installed with no extra dependencies than the\nPython standard library.\n\nMaking a release and uploading it to PyPI\n=========================================\n\nTo generate a release, create a new Release in GitHub; the release will be\nautomatically published to PyPI.\n\nUpdating the changelog\n======================\n\nChanges are listed in the CHANGES.rst file. They must be manually updated\nbut, the following git command may be used to generate the lines::\n\n    git log --abbrev-commit --date=short --no-merges --sparse\n"
+      }
+    },
+    {
+      "download_info": {
+        "url": "https://files.pythonhosted.org/packages/88/39/799be3f2f0f38cc727ee3b4f1445fe6d5e4133064ec2e4115069418a5bb6/cloudpickle-3.1.2-py3-none-any.whl",
+        "archive_info": {
+          "hashes": {
+            "sha256": "9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a"
+          },
+          "hash": "sha256=9acb47f6afd73f60dc1df93bb801b472f05ff42fa6c84167d25cb206be1fbf4a"
+        }
+      },
+      "is_direct": false,
+      "is_yanked": false,
+      "requested": true,
+      "metadata": {
+        "metadata_version": "2.4",
+        "name": "cloudpickle",
+        "version": "3.1.2",
+        "summary": "Pickler class to extend the standard pickle.Pickler functionality",
+        "description_content_type": "text/markdown",
+        "home_page": "https://github.com/cloudpipe/cloudpickle",
+        "author": "The cloudpickle developer team",
+        "author_email": "cloudpipe@googlegroups.com",
+        "license": "BSD-3-Clause",
+        "license_file": [
+          "LICENSE"
+        ],
+        "classifier": [
+          "Development Status :: 5 - Production/Stable",
+          "Intended Audience :: Developers",
+          "License :: OSI Approved :: BSD License",
+          "Operating System :: POSIX",
+          "Operating System :: Microsoft :: Windows",
+          "Operating System :: MacOS :: MacOS X",
+          "Programming Language :: Python :: 3.8",
+          "Programming Language :: Python :: 3.9",
+          "Programming Language :: Python :: 3.10",
+          "Programming Language :: Python :: 3.11",
+          "Programming Language :: Python :: 3.12",
+          "Programming Language :: Python :: 3.13",
+          "Programming Language :: Python :: 3.14",
+          "Programming Language :: Python :: Implementation :: CPython",
+          "Programming Language :: Python :: Implementation :: PyPy",
+          "Topic :: Software Development :: Libraries :: Python Modules",
+          "Topic :: Scientific/Engineering",
+          "Topic :: System :: Distributed Computing"
+        ],
+        "requires_python": ">=3.8",
+        "description": "# cloudpickle\n\n[![Automated Tests](https://github.com/cloudpipe/cloudpickle/workflows/Automated%20Tests/badge.svg?branch=master&event=push)](https://github.com/cloudpipe/cloudpickle/actions)\n[![codecov.io](https://codecov.io/github/cloudpipe/cloudpickle/coverage.svg?branch=master)](https://codecov.io/github/cloudpipe/cloudpickle?branch=master)\n\n`cloudpickle` makes it possible to serialize Python constructs not supported\nby the default `pickle` module from the Python standard library.\n\n`cloudpickle` is especially useful for **cluster computing** where Python\ncode is shipped over the network to execute on remote hosts, possibly close\nto the data.\n\nAmong other things, `cloudpickle` supports pickling for **lambda functions**\nalong with **functions and classes defined interactively** in the\n`__main__` module (for instance in a script, a shell or a Jupyter notebook).\n\nCloudpickle can only be used to send objects between the **exact same version\nof Python**.\n\nUsing `cloudpickle` for **long-term object storage is not supported and\nstrongly discouraged.**\n\n**Security notice**: one should **only load pickle data from trusted sources** as\notherwise `pickle.load` can lead to arbitrary code execution resulting in a critical\nsecurity vulnerability.\n\n\nInstallation\n------------\n\nThe latest release of `cloudpickle` is available from\n[pypi](https://pypi.python.org/pypi/cloudpickle):\n\n    pip install cloudpickle\n\n\nExamples\n--------\n\nPickling a lambda expression:\n\n```python\n>>> import cloudpickle\n>>> squared = lambda x: x ** 2\n>>> pickled_lambda = cloudpickle.dumps(squared)\n\n>>> import pickle\n>>> new_squared = pickle.loads(pickled_lambda)\n>>> new_squared(2)\n4\n```\n\nPickling a function interactively defined in a Python shell session\n(in the `__main__` module):\n\n```python\n>>> CONSTANT = 42\n>>> def my_function(data: int) -> int:\n...     return data + CONSTANT\n...\n>>> pickled_function = cloudpickle.dumps(my_function)\n>>> depickled_function = pickle.loads(pickled_function)\n>>> depickled_function\n<function __main__.my_function(data:int) -> int>\n>>> depickled_function(43)\n85\n```\n\n\nOverriding pickle's serialization mechanism for importable constructs:\n----------------------------------------------------------------------\n\nAn important difference between `cloudpickle` and `pickle` is that\n`cloudpickle` can serialize a function or class **by value**, whereas `pickle`\ncan only serialize it **by reference**. Serialization by reference treats\nfunctions and classes as attributes of modules, and pickles them through\ninstructions that trigger the import of their module at load time.\nSerialization by reference is thus limited in that it assumes that the module\ncontaining the function or class is available/importable in the unpickling\nenvironment. This assumption breaks when pickling constructs defined in an\ninteractive session, a case that is automatically detected by `cloudpickle`,\nthat pickles such constructs **by value**.\n\nAnother case where the importability assumption is expected to break is when\ndeveloping a module in a distributed execution environment: the worker\nprocesses may not have access to the said module, for example if they live on a\ndifferent machine than the process in which the module is being developed. By\nitself, `cloudpickle` cannot detect such \"locally importable\" modules and\nswitch to serialization by value; instead, it relies on its default mode, which\nis serialization by reference. However, since `cloudpickle 2.0.0`, one can\nexplicitly specify modules for which serialization by value should be used,\nusing the\n`register_pickle_by_value(module)`/`/unregister_pickle_by_value(module)` API:\n\n```python\n>>> import cloudpickle\n>>> import my_module\n>>> cloudpickle.register_pickle_by_value(my_module)\n>>> cloudpickle.dumps(my_module.my_function)  # my_function is pickled by value\n>>> cloudpickle.unregister_pickle_by_value(my_module)\n>>> cloudpickle.dumps(my_module.my_function)  # my_function is pickled by reference\n```\n\nUsing this API, there is no need to re-install the new version of the module on\nall the worker nodes nor to restart the workers: restarting the client Python\nprocess with the new source code is enough.\n\nNote that this feature is still **experimental**, and may fail in the following\nsituations:\n\n- If the body of a function/class pickled by value contains an `import` statement:\n  ```python\n  >>> def f():\n  >>> ... from another_module import g\n  >>> ... # calling f in the unpickling environment may fail if another_module\n  >>> ... # is unavailable\n  >>> ... return g() + 1\n  ```\n\n- If a function pickled by reference uses a function pickled by value during its execution.\n\n\nRunning the tests\n-----------------\n\n- With `tox`, to test run the tests for all the supported versions of\n  Python and PyPy:\n\n      pip install tox\n      tox\n\n  or alternatively for a specific environment:\n\n      tox -e py312\n\n\n- With `pytest` to only run the tests for your current version of\n  Python:\n\n      pip install -r dev-requirements.txt\n      PYTHONPATH='.:tests' pytest\n\nHistory\n-------\n\n`cloudpickle` was initially developed by [picloud.com](http://web.archive.org/web/20140721022102/http://blog.picloud.com/2013/11/17/picloud-has-joined-dropbox/) and shipped as part of\nthe client SDK.\n\nA copy of `cloudpickle.py` was included as part of PySpark, the Python\ninterface to [Apache Spark](https://spark.apache.org/). Davies Liu, Josh\nRosen, Thom Neale and other Apache Spark developers improved it significantly,\nmost notably to add support for PyPy and Python 3.\n\nThe aim of the `cloudpickle` project is to make that work available to a wider\naudience outside of the Spark ecosystem and to make it easier to improve it\nfurther notably with the help of a dedicated non-regression test suite.\n\n"
+      }
+    }
+  ],
+  "environment": {
+    "implementation_name": "cpython",
+    "implementation_version": "3.10.18",
+    "os_name": "posix",
+    "platform_machine": "arm64",
+    "platform_release": "27.0.0",
+    "platform_system": "Darwin",
+    "platform_version": "Darwin Kernel Version 27.0.0: Tue Aug 11 22:06:20 PDT 2026; root:xnu-13432.1.9~3/RELEASE_ARM64_T6020",
+    "python_full_version": "3.10.18",
+    "platform_python_implementation": "CPython",
+    "python_version": "3.10",
+    "sys_platform": "darwin"
+  }
+}

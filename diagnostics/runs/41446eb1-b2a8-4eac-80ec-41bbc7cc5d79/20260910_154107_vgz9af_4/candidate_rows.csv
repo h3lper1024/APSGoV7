@@ -1,0 +1,3 @@
+artifact_kind,publishable,node_id,source_order_id,source_resource_id,source_period,assigned_period,chain_id,chain_sequence,node_sequence,weight,width,thickness,min_temperature,max_temperature,grade,grade_class,hot_roll_grade,soft_hard_class,material_role,split_lineage,virtual_lineage,width_warning,thickness_warning,temperature_warning,chain_warning
+diagnostic_candidate,True,LIVE-DATE-2,LIVE-DATE-2,LIVE-DATE-2,BR_00000001,BR_00000001,initial-000001,1,1,800,1000,1,730,790,DX51D+Z,低碳钢,SPHC,软钢,normal_real,,,,,,
+diagnostic_candidate,True,LIVE-DATE-1,LIVE-DATE-1,LIVE-DATE-1,BR_00000001,BR_00000001,initial-000002,2,1,800,1000,1,730,790,DX51D+Z,低碳钢,SPHC,软钢,normal_real,,,,,,

@@ -1,0 +1,128 @@
+{
+  "scope": "minimal_spawn_lifecycle_only",
+  "status": "pass",
+  "cases": [
+    {
+      "case": "roundtrip",
+      "status": "pass",
+      "ready": {
+        "kind": "ready",
+        "pid": 96919,
+        "parent_pid": 96914,
+        "frozen": false,
+        "unexpected_imports": []
+      },
+      "reply_kinds": [
+        "result",
+        "result",
+        "result"
+      ],
+      "cleanup": {
+        "pid": 96919,
+        "exitcode": 0,
+        "alive": false,
+        "actions": [],
+        "wall_seconds": 0.056237082986626774,
+        "limit_seconds": 5
+      },
+      "wall_seconds": 0.09798970801057294
+    },
+    {
+      "case": "candidate_error",
+      "status": "pass",
+      "ready": {
+        "kind": "ready",
+        "pid": 96920,
+        "parent_pid": 96914,
+        "frozen": false,
+        "unexpected_imports": []
+      },
+      "reply_kinds": [
+        "result",
+        "candidate_error",
+        "result"
+      ],
+      "cleanup": {
+        "pid": 96920,
+        "exitcode": 0,
+        "alive": false,
+        "actions": [],
+        "wall_seconds": 0.056333750020712614,
+        "limit_seconds": 5
+      },
+      "wall_seconds": 0.10522804100764915
+    },
+    {
+      "case": "cooperative_cancel",
+      "status": "pass",
+      "ready": {
+        "kind": "ready",
+        "pid": 96924,
+        "parent_pid": 96914,
+        "frozen": false,
+        "unexpected_imports": []
+      },
+      "cleanup": {
+        "pid": 96924,
+        "exitcode": 0,
+        "alive": false,
+        "actions": [],
+        "wall_seconds": 0.0057186250342056155,
+        "limit_seconds": 5
+      },
+      "wall_seconds": 0.052312000014353544
+    },
+    {
+      "case": "unresponsive_cancel",
+      "status": "pass",
+      "ready": {
+        "kind": "ready",
+        "pid": 96929,
+        "parent_pid": 96914,
+        "frozen": false,
+        "unexpected_imports": []
+      },
+      "cleanup": {
+        "pid": 96929,
+        "exitcode": -15,
+        "alive": false,
+        "actions": [
+          "terminate"
+        ],
+        "wall_seconds": 0.2535347079974599,
+        "limit_seconds": 5
+      },
+      "wall_seconds": 0.29601279099006206
+    },
+    {
+      "case": "process_death",
+      "status": "pass",
+      "ready": {
+        "kind": "ready",
+        "pid": 96936,
+        "parent_pid": 96914,
+        "frozen": false,
+        "unexpected_imports": []
+      },
+      "cleanup": {
+        "pid": 96936,
+        "exitcode": 23,
+        "alive": false,
+        "actions": [],
+        "wall_seconds": 2.2000051103532314e-05,
+        "limit_seconds": 5
+      },
+      "wall_seconds": 0.0638720829738304
+    }
+  ],
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "python": "3.10.18 | packaged by conda-forge | (main, Jun  4 2025, 14:46:00) [Clang 18.1.8 ]",
+  "executable": "/Users/miles/anaconda3/envs/aps_3.10.18/bin/python",
+  "frozen": false,
+  "parent_pid": 96914,
+  "started_at": "2026-09-09T08:01:31.215105+00:00",
+  "probe_sha256": "6fc222c17ab007da3bee9c3d6a151eceeb8f2c18a2f2e4e4b68733149bb5613c",
+  "executable_sha256": "e9dd5a4de1a37c5821ac528fafd11faeadc8bd08a1130f617b98c879222cc5f9",
+  "note": "No solver payload/cache, parallel search or Windows acceptance is implied by a source run. Cleanup limit is probe-only, not approved production G.",
+  "finished_at": "2026-09-09T08:01:31.845267+00:00"
+}

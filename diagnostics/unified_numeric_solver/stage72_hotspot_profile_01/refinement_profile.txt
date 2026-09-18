@@ -1,0 +1,116 @@
+         29879648 function calls (29629590 primitive calls) in 15.431 seconds
+
+   Ordered by: cumulative time
+   List reduced from 327 to 60 due to restriction <60>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+        1    0.002    0.002   15.697   15.697 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement.py:1525(improve_numeric_refinement)
+      334    0.014    0.000   15.680    0.047 /Users/miles/dev/dev-py/APSGOV7/tools/verify_unified_numeric_search_prefix.py:121(scan)
+      334    0.127    0.000   15.666    0.047 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement.py:1318(_scan_family)
+     2447    0.039    0.000   14.629    0.006 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement.py:1466(_prepare_descriptor_batch)
+    39648    0.219    0.000   14.390    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement.py:1437(_descriptor_attempts)
+    36747    0.026    0.000   11.094    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_search.py:624(capture_candidate_result)
+    36747    0.145    0.000   11.068    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:681(compute_candidate_attempt)
+    36747    1.091    0.000    8.827    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:556(prepare_candidate_attempt)
+    17691    0.257    0.000    6.056    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:325(_repair_parts)
+    34960    1.547    0.000    5.226    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_resources.py:182(prepare_private_bridge)
+   197617    2.175    0.000    2.209    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_resources.py:79(scan_private_bridge)
+     5601    0.176    0.000    1.914    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_evaluation.py:454(evaluate_numeric_view)
+    36747    0.036    0.000    1.558    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement.py:1429(_descriptor_workspace)
+    36747    0.258    0.000    1.516    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:976(allocate)
+     5601    1.417    0.000    1.431    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_kernel.py:678(evaluate_view_kernel)
+    36747    0.547    0.000    1.232    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:902(__post_init__)
+   474255    0.095    0.000    0.815    0.000 /Users/miles/dev/dev-py/APSGOV7/tools/verify_unified_numeric_search_prefix.py:66(permit)
+   454254    0.076    0.000    0.775    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/budget.py:128(allows_search)
+    14656    0.369    0.000    0.698    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_resources.py:222(_append_selected_virtuals)
+   474255    0.363    0.000    0.648    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/budget.py:109(permit)
+   347961    0.110    0.000    0.633    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numpy/_core/fromnumeric.py:2477(any)
+67467/19585    0.017    0.000    0.614    0.000 {built-in method builtins.next}
+    19898    0.075    0.000    0.610    0.000 /Users/miles/dev/dev-py/APSGOV7/tools/verify_unified_numeric_search_prefix.py:122(observed)
+   845181    0.172    0.000    0.570    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:991(<genexpr>)
+   347961    0.183    0.000    0.523    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numpy/_core/fromnumeric.py:89(_wrapreduction_any_all)
+   955422    0.234    0.000    0.422    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:986(empty_like)
+    19639    0.018    0.000    0.407    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement.py:1516(_descriptor_family_stream)
+    19583    0.026    0.000    0.387    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement_scan.py:389(family_stream)
+    74386    0.124    0.000    0.370    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:304(_base_nodes)
+    71344    0.212    0.000    0.364    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:317(_append_rows)
+  1770158    0.346    0.000    0.346    0.000 {built-in method numpy.empty}
+   363873    0.279    0.000    0.279    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+    70463    0.095    0.000    0.249    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement_scan.py:397(source_stream)
+   691798    0.186    0.000    0.231    0.000 <string>:2(__eq__)
+    14042    0.155    0.000    0.225    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_kernel.py:85(private_task_columns)
+  1710878    0.148    0.000    0.221    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:305(<genexpr>)
+   691798    0.097    0.000    0.209    0.000 <string>:2(__hash__)
+    73515    0.108    0.000    0.201    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/dataclasses.py:1187(fields)
+    92647    0.069    0.000    0.201    0.000 {built-in method builtins.any}
+     8441    0.053    0.000    0.191    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:299(_columns)
+  1120509    0.167    0.000    0.167    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/serialize.py:30(_numba_unpickle)
+    34342    0.151    0.000    0.163    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:193(_trim_parts)
+    36747    0.040    0.000    0.156    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:363(_base_view)
+  3177520    0.152    0.000    0.152    0.000 {built-in method builtins.getattr}
+    36747    0.036    0.000    0.144    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:588(result)
+    19486    0.010    0.000    0.140    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement.py:1498(_try_descriptor)
+    34366    0.125    0.000    0.138    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:138(_parts)
+    39749    0.031    0.000    0.135    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/json/__init__.py:183(dumps)
+    73494    0.134    0.000    0.134    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:1009(reset)
+   440964    0.059    0.000    0.134    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:995(<genexpr>)
+    20084    0.019    0.000    0.127    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:1063(allocated_bytes)
+    29466    0.113    0.000    0.126    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_kernel.py:264(private_edge_node)
+    20000    0.013    0.000    0.126    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_search.py:696(consume_candidate_result)
+   474252    0.104    0.000    0.125    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/budget.py:20(_finite_time)
+   108611    0.105    0.000    0.124    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_chain_ops.py:14(chain_rows)
+    20001    0.004    0.000    0.119    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/budget.py:125(consume_candidate_check)
+854574/691798    0.082    0.000    0.112    0.000 {built-in method builtins.hash}
+   183735    0.034    0.000    0.108    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:993(<genexpr>)
+    20102    0.049    0.000    0.107    0.000 {built-in method builtins.sum}
+   169166    0.059    0.000    0.106    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:1025(view)
+
+
+         29879648 function calls (29629590 primitive calls) in 15.431 seconds
+
+   Ordered by: internal time
+   List reduced from 327 to 40 due to restriction <40>
+
+   ncalls  tottime  percall  cumtime  percall filename:lineno(function)
+   197617    2.175    0.000    2.209    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_resources.py:79(scan_private_bridge)
+    34960    1.547    0.000    5.226    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_resources.py:182(prepare_private_bridge)
+     5601    1.417    0.000    1.431    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_kernel.py:678(evaluate_view_kernel)
+    36747    1.091    0.000    8.827    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:556(prepare_candidate_attempt)
+    36747    0.547    0.000    1.232    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:902(__post_init__)
+    14656    0.369    0.000    0.698    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_resources.py:222(_append_selected_virtuals)
+   474255    0.363    0.000    0.648    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/budget.py:109(permit)
+  1770158    0.346    0.000    0.346    0.000 {built-in method numpy.empty}
+   363873    0.279    0.000    0.279    0.000 {method 'reduce' of 'numpy.ufunc' objects}
+    36747    0.258    0.000    1.516    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:976(allocate)
+    17691    0.257    0.000    6.056    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:325(_repair_parts)
+   955422    0.234    0.000    0.422    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:986(empty_like)
+    39648    0.219    0.000   14.390    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement.py:1437(_descriptor_attempts)
+    71344    0.212    0.000    0.364    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:317(_append_rows)
+   691798    0.186    0.000    0.231    0.000 <string>:2(__eq__)
+   347961    0.183    0.000    0.523    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numpy/_core/fromnumeric.py:89(_wrapreduction_any_all)
+     5601    0.176    0.000    1.914    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_evaluation.py:454(evaluate_numeric_view)
+   845181    0.172    0.000    0.570    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:991(<genexpr>)
+  1120509    0.167    0.000    0.167    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numba/core/serialize.py:30(_numba_unpickle)
+    14042    0.155    0.000    0.225    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_kernel.py:85(private_task_columns)
+  3177520    0.152    0.000    0.152    0.000 {built-in method builtins.getattr}
+    34342    0.151    0.000    0.163    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:193(_trim_parts)
+  1710878    0.148    0.000    0.221    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:305(<genexpr>)
+    36747    0.145    0.000   11.068    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:681(compute_candidate_attempt)
+    73494    0.134    0.000    0.134    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_state.py:1009(reset)
+      334    0.127    0.000   15.666    0.047 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement.py:1318(_scan_family)
+    34366    0.125    0.000    0.138    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:138(_parts)
+    74386    0.124    0.000    0.370    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:304(_base_nodes)
+    29466    0.113    0.000    0.126    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_kernel.py:264(private_edge_node)
+   347961    0.110    0.000    0.633    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/numpy/_core/fromnumeric.py:2477(any)
+    73515    0.108    0.000    0.201    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/dataclasses.py:1187(fields)
+   108611    0.105    0.000    0.124    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_chain_ops.py:14(chain_rows)
+   474252    0.104    0.000    0.125    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/budget.py:20(_finite_time)
+   691798    0.097    0.000    0.209    0.000 <string>:2(__hash__)
+    34366    0.096    0.000    0.096    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_candidate_kernel.py:214(_parts_have_real)
+    70463    0.095    0.000    0.249    0.000 /private/tmp/apsgo-unified-step71-281mPy/src/apsgo_scheduler/core/_numeric_refinement_scan.py:397(source_stream)
+   474255    0.095    0.000    0.815    0.000 /Users/miles/dev/dev-py/APSGOV7/tools/verify_unified_numeric_search_prefix.py:66(permit)
+  1286354    0.085    0.000    0.085    0.000 /Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/dataclasses.py:1202(<genexpr>)
+   174640    0.083    0.000    0.083    0.000 {built-in method numpy.array}
+854574/691798    0.082    0.000    0.112    0.000 {built-in method builtins.hash}
+
+

@@ -1,0 +1,96 @@
+{
+  "scope": "bounded_refinement_prefix_function_profile_not_whole_run_or_performance_acceptance",
+  "source": "combined_01 pre_refinement",
+  "source_sha256": "812db75f90ffa2ef0d449a5dcc2234ce1b832ecdc3666c6ac227b41d0120afbb",
+  "profile_sha256": "9006e90bbb08c100f43a24fe9c36a82a0ed4409f7924b2ac87a8abad4b2c4f60",
+  "production_commit": "735cc14",
+  "production_source_unchanged": true,
+  "limit": 2000,
+  "complete_candidate_evaluations": 794,
+  "accepted_commits": 15,
+  "cold_context": true,
+  "numba_compile_seconds": 2.7533,
+  "functions": [
+    {
+      "file": "/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/width_optimization.py",
+      "line": 850,
+      "function": "run_width_optimization",
+      "calls": 1,
+      "self_seconds": 5.500000000000001e-06,
+      "cumulative_seconds": 22.040951541000002
+    },
+    {
+      "file": "/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py",
+      "line": 417,
+      "function": "try_complete_candidate",
+      "calls": 802,
+      "self_seconds": 0.09664467900000001,
+      "cumulative_seconds": 13.866577665000001
+    },
+    {
+      "file": "/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/evaluation.py",
+      "line": 164,
+      "function": "_evaluate_candidate_plan",
+      "calls": 794,
+      "self_seconds": 0.007636412,
+      "cumulative_seconds": 11.990860663000001
+    },
+    {
+      "file": "/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py",
+      "line": 128,
+      "function": "sum_weights",
+      "calls": 529841,
+      "self_seconds": 0.47655169300000005,
+      "cumulative_seconds": 5.228793288
+    },
+    {
+      "file": "/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/delivery_timing.py",
+      "line": 165,
+      "function": "evaluate_delivery",
+      "calls": 810,
+      "self_seconds": 0.8041675460000001,
+      "cumulative_seconds": 5.063322827
+    },
+    {
+      "file": "/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/contracts.py",
+      "line": 114,
+      "function": "sum_decimals",
+      "calls": 547046,
+      "self_seconds": 1.02748537,
+      "cumulative_seconds": 4.086026405
+    },
+    {
+      "file": "/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/width_optimization.py",
+      "line": 281,
+      "function": "_direct_insertion_slots",
+      "calls": 65828,
+      "self_seconds": 0.06281336800000001,
+      "cumulative_seconds": 3.1902345760000004
+    },
+    {
+      "file": "/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/rules/rule_set.py",
+      "line": 191,
+      "function": "evaluate_complete_chain",
+      "calls": 2413,
+      "self_seconds": 0.047244791,
+      "cumulative_seconds": 2.470880459
+    },
+    {
+      "file": "/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/resource_facts.py",
+      "line": 261,
+      "function": "derive_evaluation_resource_view",
+      "calls": 794,
+      "self_seconds": 0.19180312300000002,
+      "cumulative_seconds": 1.8348357890000002
+    },
+    {
+      "file": "/Users/miles/dev/dev-py/APSGOV7/src/apsgo_scheduler/core/neighborhoods.py",
+      "line": 364,
+      "function": "_width_candidate_nodes_valid",
+      "calls": 794,
+      "self_seconds": 0.25098600200000004,
+      "cumulative_seconds": 1.4365972880000002
+    }
+  ],
+  "recording_note": "Full prefix profiling executed and binary saved. First JSON write rejected floats; metrics recovered from the binary without rerunning search. Total original elapsed/cpu and final state were not persisted; do not infer them from pstats."
+}

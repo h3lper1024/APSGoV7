@@ -1,0 +1,338 @@
+{
+  "scope": "standalone_joblib_loky_probe_only",
+  "status": "pass",
+  "cases": [
+    {
+      "case": "roundtrip",
+      "status": "pass",
+      "results": [
+        {
+          "pid": 31001,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0005379999999999968,
+          "generation": 1,
+          "ordinal": 0
+        },
+        {
+          "pid": 31002,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0003500000000000031,
+          "generation": 1,
+          "ordinal": 1
+        },
+        {
+          "pid": 31002,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.00013799999999999923,
+          "generation": 1,
+          "ordinal": 2
+        },
+        {
+          "pid": 31001,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0001280000000000031,
+          "generation": 1,
+          "ordinal": 3
+        },
+        {
+          "pid": 31002,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.00044399999999999995,
+          "generation": 2,
+          "ordinal": 0
+        },
+        {
+          "pid": 31001,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0002940000000000026,
+          "generation": 2,
+          "ordinal": 1
+        },
+        {
+          "pid": 31001,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0004059999999999897,
+          "generation": 2,
+          "ordinal": 2
+        },
+        {
+          "pid": 31002,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0004080000000000056,
+          "generation": 2,
+          "ordinal": 3
+        }
+      ],
+      "wall_seconds": 0.5847004160168581,
+      "host_pid": 30998,
+      "host_exitcode": 0,
+      "supervisor_wall_seconds": 0.7651632920023985,
+      "emergency_cleanup": null,
+      "worker_pids": [
+        31001,
+        31002
+      ],
+      "workers": [
+        {
+          "pid": 31001,
+          "frozen": false,
+          "unexpected_imports": []
+        },
+        {
+          "pid": 31002,
+          "frozen": false,
+          "unexpected_imports": []
+        }
+      ],
+      "remaining_worker_pids": []
+    },
+    {
+      "case": "candidate_error",
+      "status": "pass",
+      "results": [
+        {
+          "pid": 31024,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0005399999999999988,
+          "generation": 1,
+          "ordinal": 0
+        },
+        {
+          "pid": 31023,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "candidate_error",
+          "type": "ValueError",
+          "message": "intentional joblib candidate error",
+          "traceback": "Traceback (most recent call last):\n  File \"/Users/miles/dev/dev-py/APSGOV7/release/joblib_process_probe.py\", line 41, in _task\n    raise ValueError(\"intentional joblib candidate error\")\nValueError: intentional joblib candidate error\n",
+          "generation": 1,
+          "ordinal": 1
+        },
+        {
+          "pid": 31023,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.00026500000000000135,
+          "generation": 1,
+          "ordinal": 2
+        },
+        {
+          "pid": 31023,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0003539999999999932,
+          "generation": 1,
+          "ordinal": 3
+        },
+        {
+          "pid": 31024,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0003049999999999997,
+          "generation": 2,
+          "ordinal": 0
+        },
+        {
+          "pid": 31023,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "candidate_error",
+          "type": "ValueError",
+          "message": "intentional joblib candidate error",
+          "traceback": "Traceback (most recent call last):\n  File \"/Users/miles/dev/dev-py/APSGOV7/release/joblib_process_probe.py\", line 41, in _task\n    raise ValueError(\"intentional joblib candidate error\")\nValueError: intentional joblib candidate error\n",
+          "generation": 2,
+          "ordinal": 1
+        },
+        {
+          "pid": 31023,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0002360000000000001,
+          "generation": 2,
+          "ordinal": 2
+        },
+        {
+          "pid": 31024,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "result",
+          "sum_of_squares": 10416,
+          "cpu_seconds": 0.0003720000000000112,
+          "generation": 2,
+          "ordinal": 3
+        }
+      ],
+      "wall_seconds": 0.5654342920170166,
+      "host_pid": 31017,
+      "host_exitcode": 0,
+      "supervisor_wall_seconds": 0.7642152500338852,
+      "emergency_cleanup": null,
+      "worker_pids": [
+        31023,
+        31024
+      ],
+      "workers": [
+        {
+          "pid": 31023,
+          "frozen": false,
+          "unexpected_imports": []
+        },
+        {
+          "pid": 31024,
+          "frozen": false,
+          "unexpected_imports": []
+        }
+      ],
+      "remaining_worker_pids": []
+    },
+    {
+      "case": "cooperative_cancel",
+      "status": "pass",
+      "results": [
+        {
+          "pid": 31048,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "cancelled",
+          "cpu_seconds": 0.00037700000000000233
+        },
+        {
+          "pid": 31049,
+          "frozen": false,
+          "unexpected_imports": [],
+          "status": "cancelled",
+          "cpu_seconds": 0.00033400000000000096
+        }
+      ],
+      "wall_seconds": 0.17076750000705943,
+      "host_pid": 31045,
+      "host_exitcode": 0,
+      "supervisor_wall_seconds": 0.3289845830295235,
+      "emergency_cleanup": null,
+      "worker_pids": [
+        31048,
+        31049
+      ],
+      "workers": [
+        {
+          "pid": 31048,
+          "frozen": false,
+          "unexpected_imports": []
+        },
+        {
+          "pid": 31049,
+          "frozen": false,
+          "unexpected_imports": []
+        }
+      ],
+      "remaining_worker_pids": []
+    },
+    {
+      "case": "task_timeout",
+      "status": "pass",
+      "observed_error": {
+        "type": "TimeoutError",
+        "message": "",
+        "traceback": "Traceback (most recent call last):\n  File \"/Users/miles/dev/dev-py/APSGOV7/release/joblib_process_probe.py\", line 98, in _case\n    list(parallel(delayed(_task)(operation, None, str(directory)) for _ in range(2)))\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 1704, in _get_outputs\n    yield from self._retrieve()\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 1867, in _retrieve\n    batched_results = batched_results.get_result(self.timeout)\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 780, in get_result\n    return self._return_or_raise()\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 795, in _return_or_raise\n    raise self._result\nmultiprocessing.context.TimeoutError\n"
+      },
+      "wall_seconds": 3.075732541969046,
+      "host_pid": 31053,
+      "host_exitcode": 0,
+      "supervisor_wall_seconds": 3.2216512500308454,
+      "emergency_cleanup": null,
+      "worker_pids": [
+        31056,
+        31057
+      ],
+      "workers": [
+        {
+          "pid": 31056,
+          "frozen": false,
+          "unexpected_imports": []
+        },
+        {
+          "pid": 31057,
+          "frozen": false,
+          "unexpected_imports": []
+        }
+      ],
+      "remaining_worker_pids": []
+    },
+    {
+      "case": "process_death",
+      "status": "pass",
+      "observed_error": {
+        "type": "TerminatedWorkerError",
+        "message": "A worker process managed by the executor was unexpectedly terminated. This could be caused by a segmentation fault while calling the function or by an excessive memory usage causing the Operating System to kill the worker.\n\nThe exit codes of the workers are {EXIT(23)}\nDetailed tracebacks of the workers should have been printed to stderr in the executor process if faulthandler was not disabled.",
+        "traceback": "Traceback (most recent call last):\n  File \"/Users/miles/dev/dev-py/APSGOV7/release/joblib_process_probe.py\", line 98, in _case\n    list(parallel(delayed(_task)(operation, None, str(directory)) for _ in range(2)))\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 1704, in _get_outputs\n    yield from self._retrieve()\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 1806, in _retrieve\n    self._raise_error_fast()\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 1885, in _raise_error_fast\n    error_job.get_result(self.timeout)\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 780, in get_result\n    return self._return_or_raise()\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 795, in _return_or_raise\n    raise self._result\njoblib.externals.loky.process_executor.TerminatedWorkerError: A worker process managed by the executor was unexpectedly terminated. This could be caused by a segmentation fault while calling the function or by an excessive memory usage causing the Operating System to kill the worker.\n\nThe exit codes of the workers are {EXIT(23)}\nDetailed tracebacks of the workers should have been printed to stderr in the executor process if faulthandler was not disabled.\n"
+      },
+      "wall_seconds": 0.15282562497304752,
+      "host_pid": 31092,
+      "host_exitcode": 0,
+      "supervisor_wall_seconds": 0.2776468330412172,
+      "emergency_cleanup": null,
+      "worker_pids": [
+        31095,
+        31096
+      ],
+      "workers": [
+        {
+          "pid": 31095,
+          "frozen": false,
+          "unexpected_imports": []
+        },
+        {
+          "pid": 31096,
+          "frozen": false,
+          "unexpected_imports": []
+        }
+      ],
+      "remaining_worker_pids": []
+    }
+  ],
+  "frozen": false,
+  "platform": "macOS-27.0-arm64-arm-64bit",
+  "python": "3.10.18 | packaged by conda-forge | (main, Jun  4 2025, 14:46:00) [Clang 18.1.8 ]",
+  "joblib": "1.6.0",
+  "numpy": "2.2.6",
+  "executable": "/Users/miles/anaconda3/envs/aps_3.10.18/bin/python",
+  "executable_sha256": "e9dd5a4de1a37c5821ac528fafd11faeadc8bd08a1130f617b98c879222cc5f9",
+  "started_at": "2026-09-09T08:47:27.382977+00:00",
+  "note": "No APSGo solver, rules, service, performance gate or bounded production cleanup is validated. Standard freeze_support only; no loky compatibility patches.",
+  "finished_at": "2026-09-09T08:47:32.742284+00:00"
+}

@@ -1,0 +1,21 @@
+{
+  "case": "cooperative_cancel",
+  "status": "pass",
+  "results": [
+    {
+      "pid": 31048,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "cancelled",
+      "cpu_seconds": 0.00037700000000000233
+    },
+    {
+      "pid": 31049,
+      "frozen": false,
+      "unexpected_imports": [],
+      "status": "cancelled",
+      "cpu_seconds": 0.00033400000000000096
+    }
+  ],
+  "wall_seconds": 0.17076750000705943
+}

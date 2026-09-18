@@ -1,0 +1,10 @@
+{
+  "case": "task_timeout",
+  "status": "pass",
+  "observed_error": {
+    "type": "TimeoutError",
+    "message": "",
+    "traceback": "Traceback (most recent call last):\n  File \"/Users/miles/dev/dev-py/APSGOV7/release/joblib_process_probe.py\", line 98, in _case\n    list(parallel(delayed(_task)(operation, None, str(directory)) for _ in range(2)))\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 1704, in _get_outputs\n    yield from self._retrieve()\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 1867, in _retrieve\n    batched_results = batched_results.get_result(self.timeout)\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 780, in get_result\n    return self._return_or_raise()\n  File \"/Users/miles/anaconda3/envs/aps_3.10.18/lib/python3.10/site-packages/joblib/parallel.py\", line 795, in _return_or_raise\n    raise self._result\nmultiprocessing.context.TimeoutError\n"
+  },
+  "wall_seconds": 3.075732541969046
+}

@@ -1,0 +1,68 @@
+{
+  "probe_sha256": "f2714afe806754392bdc16f95b721ae1693d6ef8a2d29455b235c651e2935bdf",
+  "status": "passed",
+  "scope": "synthetic four-row numeric loop only; no production imports or solver",
+  "timing_limitations": "First call includes this tiny kernel's JIT, not dependency imports or process startup. Repeated microsecond calls do not establish a speedup or production cold-start cost.",
+  "runtime": {
+    "python": "3.10.18",
+    "executable": "/Users/miles/anaconda3/envs/aps_3.10.18/bin/python",
+    "platform": "macOS-27.0-arm64-arm-64bit",
+    "machine": "arm64",
+    "numpy": "2.2.6",
+    "numba": "0.65.1",
+    "llvmlite": "0.47.0"
+  },
+  "kernel_options": {
+    "cache": false,
+    "fastmath": false,
+    "parallel": false,
+    "boundscheck": true
+  },
+  "nopython_signatures": [
+    "(Array(float64, 1, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True), Array(bool, 1, 'C', False, aligned=True), Array(bool, 1, 'C', False, aligned=True), Array(float64, 1, 'C', False, aligned=True)) -> Tuple(int64, float64)"
+  ],
+  "checks_passed": [
+    "array_shapes_and_contiguous_layout",
+    "no_signature_before_first_compiled_call",
+    "strict_less_than_keeps_first_tie",
+    "first_and_repeated_calls_equal_python_reference",
+    "actual_nopython_signature",
+    "changed_numeric_array_is_observed",
+    "changed_width_mask_is_observed",
+    "changed_thickness_mask_is_observed",
+    "changed_parameter_array_is_observed",
+    "restored_arguments_restore_result_without_new_signature"
+  ],
+  "calls": [
+    {
+      "call": "first_call_including_compilation",
+      "wall_seconds": 0.18118704200605862,
+      "process_cpu_seconds": 0.18068599999999999,
+      "selected_index": 0,
+      "score": 200.0
+    },
+    {
+      "call": "repeat_1",
+      "wall_seconds": 5.166017217561603e-06,
+      "process_cpu_seconds": 4.999999999977245e-06,
+      "selected_index": 0,
+      "score": 200.0
+    },
+    {
+      "call": "repeat_2",
+      "wall_seconds": 1.7080164980143309e-06,
+      "process_cpu_seconds": 1.0000000000287557e-06,
+      "selected_index": 0,
+      "score": 200.0
+    },
+    {
+      "call": "repeat_3",
+      "wall_seconds": 1.2920063454657793e-06,
+      "process_cpu_seconds": 0.0,
+      "selected_index": 0,
+      "score": 200.0
+    }
+  ],
+  "probe_wall_seconds": 0.3250880830164533,
+  "probe_process_cpu_seconds": 0.316038
+}
