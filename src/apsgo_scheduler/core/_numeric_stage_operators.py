@@ -14,6 +14,7 @@ import numpy as np
 from . import _numeric_search as search
 from ._search_phase_budget import SearchAttemptIdentity, SearchPhaseExit, SearchPhaseResult
 from .contracts import require_int
+from ._numeric_stage_diagnostics import observe_stage, observed_cleanup
 
 BASIC_OPERATORS = ("whole", "node", "fill", "order")
 _ARITY = {"whole": 6, "node": 4, "fill": 3, "order": 2, "split": 2}
@@ -419,7 +420,7 @@ def _drive_operator(state, budget, phase, progress, slack, bridges):
             return
         finally:
             # No private geometry, generator or candidate is kept in progress.
-            workspace.reset()
+            observed_cleanup(workspace.reset)
 
 
 def _validate(state, budget, slack, bridges):
@@ -430,6 +431,7 @@ def _validate(state, budget, slack, bridges):
         raise ValueError("zero, one or two bridge nodes required")
 
 
+@observe_stage()
 def run_operator_slice(state, budget, *, progress, candidate_checks, time_slice_seconds,
                        pair_scan_slack_weight=0, maximum_virtual_bridge_nodes=2, name=None):
     """One resumable operator. This entry never starts any sibling or replay."""
@@ -470,6 +472,7 @@ def _basic_children(state, budget, phase, progress, slack, bridges):
     return tuple(results)
 
 
+@observe_stage("basic", children=BASIC_OPERATORS)
 def run_basic_slice(state, budget, *, candidate_checks, time_slice_seconds, progress,
                     pair_scan_slack_weight, maximum_virtual_bridge_nodes=2, name="basic"):
     """Reserve all four sibling shares before any of them consumes a candidate."""
@@ -482,6 +485,7 @@ def run_basic_slice(state, budget, *, candidate_checks, time_slice_seconds, prog
                               progress.complete_for(state))
 
 
+@observe_stage("split:scan")
 def run_split_scan_slice(state, budget, *, candidate_checks, time_slice_seconds, progress,
                          pair_scan_slack_weight, maximum_virtual_bridge_nodes=2, name="split:scan"):
     """Scan only; remember accepted splits even when the slice exits early."""
@@ -498,6 +502,7 @@ def run_split_scan_slice(state, budget, *, candidate_checks, time_slice_seconds,
     return replace(result, pending_replay=progress.pending_replay)
 
 
+@observe_stage("split:replay", children=BASIC_OPERATORS)
 def run_replay_slice(state, budget, *, candidate_checks, time_slice_seconds, progress,
                      pair_scan_slack_weight, maximum_virtual_bridge_nodes=2, name="split:replay"):
     """At most one logical replay per split cycle; resumed slices do not recount."""
@@ -521,6 +526,7 @@ def run_replay_slice(state, budget, *, candidate_checks, time_slice_seconds, pro
                               not progress.pending_replay, progress.pending_replay)
 
 
+@observe_stage("split", children=("scan", "replay"))
 def run_split_slice(state, budget, *, candidate_checks, time_slice_seconds, progress,
                     pair_scan_slack_weight, maximum_virtual_bridge_nodes=2, name="split"):
     """Half for scan, half for bounded replay, both within the same parent grant."""

@@ -18,6 +18,7 @@ from ._numeric_refinement_cursor import FamilyCursor, MORE, ERROR, DONE
 from ._numeric_stage_operators import NumericStageResult, _identity, _validate
 from ._search_phase_budget import SearchAttemptIdentity, SearchPhaseExit
 from .contracts import SearchStopReason
+from ._numeric_stage_diagnostics import observe_stage, observed_cleanup
 
 FAMILIES = (("intra", "node", "block"), ("intra", "node", "block", "cut", "order", "reclaim"))
 FAMILY_QUANTUM = 64
@@ -238,7 +239,7 @@ def _consume_lazy(state, budget, phase, progress, family_key, descriptor, policy
     except _PhaseYield:
         return False, False, started
     finally:
-        stream.close()
+        observed_cleanup(stream.close)
 
 
 def _collect(state, phase, binding, progress, family_key, bank, x, columns, rules,
@@ -370,9 +371,10 @@ def _family_batch(state, budget, phase, progress, family_key, x, columns, rules,
             progress.revision += 1
         bank.commit()
         _record(diagnostics, "numeric_discarded", key, prefetched - consumed)
-        pool.release()
+        observed_cleanup(pool.release)
 
 
+@observe_stage("refinement")
 def run_refinement_slice(state, budget, *, candidate_checks, time_slice_seconds, progress,
                          maximum_virtual_bridge_nodes=2, diagnostics=None, batch_size=8,
                          name="refinement"):
@@ -416,6 +418,6 @@ def run_refinement_slice(state, budget, *, candidate_checks, time_slice_seconds,
                     if progress.complete_for(state):
                         break
                 finally:
-                    pool.release()
+                    observed_cleanup(pool.release)
     return NumericStageResult(phase.release_unused(), (), before, state.plan.generation,
                               progress.complete_for(state))

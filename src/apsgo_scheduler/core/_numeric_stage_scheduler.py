@@ -17,6 +17,10 @@ from ._search_phase_budget import SearchPhaseExit
 from .budget import _finite_time
 from .contracts import SearchStopReason, require_int
 
+from ._numeric_stage_diagnostics import (
+    observe_schedule, observe_dispatch, observe_stage, configure_stage_diagnostics,
+)
+
 SCHEDULE_VERSION = "reserved_sequential_v1"
 PRIMARY_STAGES = ("basic", "split", "refinement")
 TOP_PERCENTAGES = (20, 10, 60)
@@ -118,6 +122,7 @@ class _Ledger:
             raise ValueError("stage ledger does not match the global candidate balance")
 
 
+@observe_stage("skipped", skipped=True)
 def _skipped(state, budget, name, reason):
     before = state.plan.generation
     with budget.phase_scope(name, 0, 0) as phase:
@@ -126,6 +131,7 @@ def _skipped(state, budget, name, reason):
     return operators.NumericStageResult(phase.release_unused(), (), before, before, False)
 
 
+@observe_stage("replay", checks_key="checks", seconds_key="seconds")
 def _replay_operator(state, budget, progress, operator, checks, seconds, slack, bridges, name):
     """Refill a single replay child, including when the initial split share was 0.
 
@@ -172,6 +178,7 @@ def _progress_stamp(state, basic, split, refinement):
             refinement.complete, refinement.pending)
 
 
+@observe_schedule
 def run_numeric_stage_schedule(state, budget, *, pair_scan_slack_weight,
                                maximum_virtual_bridge_nodes=2, diagnostics=None,
                                batch_size=8):
@@ -186,6 +193,7 @@ def run_numeric_stage_schedule(state, budget, *, pair_scan_slack_weight,
     allocation = list(allocate_checks(available))
     if allocation[2] == 0 and allocation[3] and _has_early(state) and refinement_applicable(state):
         allocation[2], allocation[3] = 1, allocation[3] - 1
+    configure_stage_diagnostics(SCHEDULE_VERSION, PRIMARY_STAGES, allocation)
     initial_time = _remaining_time(budget)
     times = {name: initial_time * percent / 100 for name, percent in zip(PRIMARY_STAGES, TOP_PERCENTAGES)}
     ledger = _Ledger(allocation[3], dict(zip(PRIMARY_STAGES, allocation[:3])))
@@ -204,6 +212,7 @@ def run_numeric_stage_schedule(state, budget, *, pair_scan_slack_weight,
     common = dict(pair_scan_slack_weight=pair_scan_slack_weight,
                   maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes)
 
+    @observe_dispatch
     def execute(name, requested, refill):
         before_binding = operators._identity(state)
         before_quality = tuple(map(int, state.evaluation.quality_key))
