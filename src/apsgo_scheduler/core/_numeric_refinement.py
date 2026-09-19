@@ -427,26 +427,14 @@ def run_numeric_serial_search(
         raise NumericValueError("budget", "shared runtime budget required")
     started = perf_counter()
     state = NumericSearchState.start(task, program, quality, initial)
-    _run_numeric_local_search(
-        state,
-        budget,
-        pair_scan_slack_weight=pair_scan_slack_weight,
+    from ._numeric_stage_scheduler import run_numeric_stage_schedule
+
+    diagnostics = NumericRefinementDiagnostics()
+    report = run_numeric_stage_schedule(
+        state, budget, pair_scan_slack_weight=pair_scan_slack_weight,
         maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes,
+        diagnostics=diagnostics, batch_size=_SERIAL_BATCH_SIZE,
     )
-    if budget.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE:
-        improve_numeric_controlled_split(
-            state,
-            budget,
-            pair_scan_slack_weight=pair_scan_slack_weight,
-            maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes,
-        )
-    if budget.stop_reason is SearchStopReason.LOCAL_SEARCH_COMPLETE:
-        diagnostics = NumericRefinementDiagnostics()
-        improve_numeric_refinement(
-            state,
-            budget,
-            maximum_virtual_bridge_nodes=maximum_virtual_bridge_nodes,
-            diagnostics=diagnostics,
-        )
-        logger.info("numeric_refinement_summary %s", diagnostics.snapshot())
+    logger.info("numeric_refinement_summary %s", diagnostics.snapshot())
+    logger.info("numeric_search_budget_summary %s", report.summary())
     return state, NumericSearchCheckpoint.capture(state.task, state, budget, started)
